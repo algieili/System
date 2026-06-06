@@ -5,228 +5,111 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 
-/* ─── INLINE STYLES (no external CSS needed) ─── */
+/* ─── FIXED MACHINE DATA (from IoT Manufacturing Machine Data table) ─── */
+const MACHINE_DATA = {
+  M1: { id: "M1", name: "CNC Plasma",       taskSize: 50, bandwidth: 100, processingTime: 120, queueLength: 3, cpuUtilization: 75, category: "Cutting Machines",   taskType: "Computation-Intensive" },
+  M2: { id: "M2", name: "Plasma Cutting",    taskSize: 40, bandwidth: 90,  processingTime: 100, queueLength: 2, cpuUtilization: 68, category: "Cutting Machines",   taskType: "Computation-Intensive" },
+  M3: { id: "M3", name: "Painting Booth",    taskSize: 20, bandwidth: 80,  processingTime: 60,  queueLength: 1, cpuUtilization: 45, category: "Finishing Machines", taskType: "Energy-Efficient"      },
+  M4: { id: "M4", name: "Arc Welding",       taskSize: 30, bandwidth: 85,  processingTime: 90,  queueLength: 2, cpuUtilization: 60, category: "Welding Machines",   taskType: "Computation-Intensive" },
+  M5: { id: "M5", name: "Shearing Machine",  taskSize: 25, bandwidth: 75,  processingTime: 70,  queueLength: 1, cpuUtilization: 50, category: "Cutting Machines",   taskType: "Latency-Sensitive"     },
+};
+
+/* ─── INLINE STYLES ─── */
 const S = {
-  root: {
-    display: "flex", minHeight: "100vh",
-    fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
-    background: "#f5f6fa", color: "#1a1d23"
-  },
-  sidebar: {
-    width: 220, background: "#fff", borderRight: "1px solid #e8eaf0",
-    display: "flex", flexDirection: "column", padding: "0 0 24px 0",
-    position: "sticky", top: 0, height: "100vh", overflowY: "auto"
-  },
-  sidebarBrand: {
-    padding: "24px 20px 16px", borderBottom: "1px solid #e8eaf0"
-  },
-  brandTitle: {
-    fontWeight: 700, fontSize: 16, color: "#1a1d23", margin: 0, lineHeight: 1.2
-  },
+  root: { display: "flex", minHeight: "100vh", fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif", background: "#f5f6fa", color: "#1a1d23" },
+  sidebar: { width: 220, background: "#fff", borderRight: "1px solid #e8eaf0", display: "flex", flexDirection: "column", padding: "0 0 24px 0", position: "sticky", top: 0, height: "100vh", overflowY: "auto" },
+  sidebarBrand: { padding: "24px 20px 16px", borderBottom: "1px solid #e8eaf0" },
+  brandTitle: { fontWeight: 700, fontSize: 16, color: "#1a1d23", margin: 0, lineHeight: 1.2 },
   brandSub: { fontSize: 11, color: "#9099a8", margin: "4px 0 0", textTransform: "uppercase", letterSpacing: "0.06em" },
   navSection: { padding: "16px 12px 8px" },
   navLabel: { fontSize: 10, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px", marginBottom: 6 },
-  navBtn: (active) => ({
-    display: "flex", alignItems: "flex-start", gap: 10, width: "100%",
-    padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer",
-    textAlign: "left", marginBottom: 2,
-    background: active ? "#f0f4ff" : "transparent",
-    color: active ? "#3b5bdb" : "#4a5568"
-  }),
-  navIcon: (active) => ({
-    width: 18, height: 18, marginTop: 1, flexShrink: 0,
-    color: active ? "#3b5bdb" : "#9099a8"
-  }),
+  navBtn: (active) => ({ display: "flex", alignItems: "flex-start", gap: 10, width: "100%", padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer", textAlign: "left", marginBottom: 2, background: active ? "#f0f4ff" : "transparent", color: active ? "#3b5bdb" : "#4a5568" }),
+  navIcon: (active) => ({ width: 18, height: 18, marginTop: 1, flexShrink: 0, color: active ? "#3b5bdb" : "#9099a8" }),
   navText: { flex: 1 },
   navTitle: (active) => ({ fontSize: 13, fontWeight: active ? 600 : 500, lineHeight: 1.2 }),
   navDesc: { fontSize: 11, color: "#9099a8", lineHeight: 1.3, marginTop: 2 },
   navIndicator: { width: 6, height: 6, borderRadius: 3, background: "#3b5bdb", marginTop: 5, flexShrink: 0 },
-
   content: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
-  topBar: {
-    background: "#fff", borderBottom: "1px solid #e8eaf0",
-    padding: "0 28px", display: "flex", alignItems: "center",
-    minHeight: 56, gap: 8
-  },
+  topBar: { background: "#fff", borderBottom: "1px solid #e8eaf0", padding: "0 28px", display: "flex", alignItems: "center", minHeight: 56, gap: 8 },
   breadcrumb: { fontSize: 13, color: "#9099a8", display: "flex", alignItems: "center", gap: 6 },
   crumbActive: { color: "#1a1d23", fontWeight: 500 },
   crumbSep: { color: "#c4cad6" },
   flowSteps: { display: "flex", alignItems: "center", gap: 0, flex: 1, justifyContent: "center" },
-  flowStep: (active, done) => ({
-    display: "flex", alignItems: "center", gap: 6,
-    padding: "6px 14px", borderRadius: 20, cursor: "pointer",
-    background: active ? "#3b5bdb" : done ? "#e8f5e9" : "transparent",
-    color: active ? "#fff" : done ? "#2e7d32" : "#9099a8",
-    fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap"
-  }),
-  flowDot: (active, done) => ({
-    width: 7, height: 7, borderRadius: 4, flexShrink: 0,
-    background: active ? "#fff" : done ? "#4caf50" : "#d0d6e0"
-  }),
+  flowStep: (active, done) => ({ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 20, cursor: "pointer", background: active ? "#3b5bdb" : done ? "#e8f5e9" : "transparent", color: active ? "#fff" : done ? "#2e7d32" : "#9099a8", fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap" }),
+  flowDot: (active, done) => ({ width: 7, height: 7, borderRadius: 4, flexShrink: 0, background: active ? "#fff" : done ? "#4caf50" : "#d0d6e0" }),
   flowArrow: { color: "#d0d6e0", fontSize: 14, padding: "0 2px" },
-
   main: { flex: 1, padding: "28px", overflowY: "auto" },
   pageHeader: { marginBottom: 24 },
   pageTitle: { fontSize: 22, fontWeight: 700, margin: 0, color: "#1a1d23" },
   pageSubtitle: { fontSize: 13, color: "#9099a8", marginTop: 4 },
-
   statsRow: { display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" },
-  statCard: {
-    flex: "1 1 140px", background: "#fff", border: "1px solid #e8eaf0",
-    borderRadius: 10, padding: "16px 18px", minWidth: 130
-  },
+  statCard: { flex: "1 1 140px", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 10, padding: "16px 18px", minWidth: 130 },
   statLabel: { fontSize: 12, color: "#9099a8", fontWeight: 500, marginBottom: 6 },
   statValue: { fontSize: 24, fontWeight: 700, color: "#1a1d23" },
   statChange: (up) => ({ fontSize: 12, color: up ? "#2e7d32" : "#c62828", marginTop: 4, fontWeight: 500 }),
-
   row: { display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" },
-  card: {
-    background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12,
-    padding: "20px 22px", flex: "1 1 320px", minWidth: 260
-  },
-  cardFull: {
-    background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12,
-    padding: "20px 22px", marginBottom: 20
-  },
+  card: { background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12, padding: "20px 22px", flex: "1 1 320px", minWidth: 260 },
+  cardFull: { background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12, padding: "20px 22px", marginBottom: 20 },
   cardTitle: { fontSize: 13, fontWeight: 600, color: "#1a1d23", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" },
   cardDesc: { fontSize: 12, color: "#9099a8", marginBottom: 16 },
-  sectionTitle: { fontSize: 11, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.07em", margin: "16px 0 10px" },
-
   dataRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f0f1f5" },
   dataLabel: { fontSize: 13, color: "#5a6272" },
   dataValue: { fontSize: 13, fontWeight: 500, color: "#1a1d23" },
-
-  input: {
-    border: "1px solid #e2e5ec", borderRadius: 7, padding: "7px 10px",
-    fontSize: 13, color: "#1a1d23", background: "#fafbfc",
-    outline: "none", width: "160px", boxSizing: "border-box"
-  },
-  select: {
-    border: "1px solid #e2e5ec", borderRadius: 7, padding: "7px 10px",
-    fontSize: 13, color: "#1a1d23", background: "#fafbfc",
-    outline: "none", width: "160px"
-  },
-  btnPrimary: {
-    background: "#3b5bdb", color: "#fff", border: "none",
-    borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
-    cursor: "pointer", marginTop: 16, width: "100%"
-  },
-  btnDisabled: {
-    background: "#c4cad6", color: "#fff", border: "none",
-    borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
-    cursor: "not-allowed", marginTop: 16, width: "100%"
-  },
-  bottomBar: {
-    background: "#fff", borderTop: "1px solid #e8eaf0",
-    padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center"
-  },
-  navBtnBottom: (disabled) => ({
-    padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
-    border: "1px solid #e2e5ec", background: disabled ? "#f5f6fa" : "#fff",
-    color: disabled ? "#c4cad6" : "#1a1d23"
-  }),
-  navBtnNext: (disabled) => ({
-    padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
-    background: disabled ? "#c4cad6" : "#3b5bdb", color: "#fff", border: "none"
-  }),
-  badge: (color) => ({
-    display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
-    background: color === "blue" ? "#e8f0ff" : color === "green" ? "#e8f5e9" : color === "amber" ? "#fff8e1" : "#fce4ec",
-    color: color === "blue" ? "#1a3db5" : color === "green" ? "#2e7d32" : color === "amber" ? "#b45309" : "#c62828"
-  }),
+  select: { border: "1px solid #e2e5ec", borderRadius: 7, padding: "7px 10px", fontSize: 13, color: "#1a1d23", background: "#fafbfc", outline: "none", width: "100%", maxWidth: 300 },
+  btnPrimary: { background: "#3b5bdb", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer", marginTop: 16, width: "100%" },
+  btnDisabled: { background: "#c4cad6", color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "not-allowed", marginTop: 16, width: "100%" },
+  bottomBar: { background: "#fff", borderTop: "1px solid #e8eaf0", padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center" },
+  navBtnBottom: (disabled) => ({ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", border: "1px solid #e2e5ec", background: disabled ? "#f5f6fa" : "#fff", color: disabled ? "#c4cad6" : "#1a1d23" }),
+  navBtnNext: (disabled) => ({ padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", background: disabled ? "#c4cad6" : "#3b5bdb", color: "#fff", border: "none" }),
+  badge: (color) => ({ display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600, background: color === "blue" ? "#e8f0ff" : color === "green" ? "#e8f5e9" : color === "amber" ? "#fff8e1" : "#fce4ec", color: color === "blue" ? "#1a3db5" : color === "green" ? "#2e7d32" : color === "amber" ? "#b45309" : "#c62828" }),
   table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
   th: { textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e8eaf0", background: "#f9fafb" },
   td: { padding: "10px 12px", borderBottom: "1px solid #f0f1f5", color: "#1a1d23" },
-  decisionBig: (server) => ({
-    fontSize: 32, fontWeight: 800, marginTop: 8, marginBottom: 8,
-    color: server === "Edge" ? "#1a3db5" : "#7b2ff7"
-  }),
+  decisionBig: (server) => ({ fontSize: 32, fontWeight: 800, marginTop: 8, marginBottom: 8, color: server === "Edge" ? "#1a3db5" : "#7b2ff7" }),
   decisionReason: { fontSize: 14, color: "#5a6272", marginTop: 4 },
-  statusDot: (ok) => ({
-    display: "inline-block", width: 7, height: 7, borderRadius: 4,
-    background: ok ? "#4caf50" : "#f44336", marginRight: 6, verticalAlign: "middle"
-  }),
-  tabBtn: (active) => ({
-    padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: active ? 600 : 500,
-    cursor: "pointer", border: "1px solid " + (active ? "#3b5bdb" : "#e2e5ec"),
-    background: active ? "#3b5bdb" : "#fff", color: active ? "#fff" : "#5a6272"
-  }),
-  alertBox: (color) => ({
-    background: color === "blue" ? "#e8f0ff" : "#e8f5e9",
-    border: `1px solid ${color === "blue" ? "#bad0ff" : "#c8e6c9"}`,
-    borderRadius: 8, padding: "14px 18px", marginBottom: 16,
-    borderLeft: `4px solid ${color === "blue" ? "#3b5bdb" : "#4caf50"}`
-  }),
+  statusDot: (ok) => ({ display: "inline-block", width: 7, height: 7, borderRadius: 4, background: ok ? "#4caf50" : "#f44336", marginRight: 6, verticalAlign: "middle" }),
+  tabBtn: (active) => ({ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: active ? 600 : 500, cursor: "pointer", border: "1px solid " + (active ? "#3b5bdb" : "#e2e5ec"), background: active ? "#3b5bdb" : "#fff", color: active ? "#fff" : "#5a6272" }),
+  alertBox: (color) => ({ background: color === "blue" ? "#e8f0ff" : "#e8f5e9", border: `1px solid ${color === "blue" ? "#bad0ff" : "#c8e6c9"}`, borderRadius: 8, padding: "14px 18px", marginBottom: 16, borderLeft: `4px solid ${color === "blue" ? "#3b5bdb" : "#4caf50"}` }),
+  machineCard: (selected) => ({ flex: "1 1 160px", minWidth: 150, maxWidth: 200, border: `2px solid ${selected ? "#3b5bdb" : "#e8eaf0"}`, borderRadius: 12, padding: "16px 14px", cursor: "pointer", background: selected ? "#f0f4ff" : "#fff", transition: "all 0.15s" }),
 };
 
-/* ─── DATA / ALGORITHMS (unchanged) ─── */
-const lookupPlasmaMatrix = (material, thickness, current) => {
-  const baselineSpeed = current * 20;
-  let cutSpeed = 0, voltage = 140, pierceDelayTime = 0, torchDistance = 3.2, pierceHeight = 6.4;
-  if (material === "Mild Steel") {
-    cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.5;
-    voltage = 130 + (thickness * 1.5);
-    pierceDelayTime = thickness < 10 ? 0.1 : thickness < 20 ? 0.5 : 1.0;
-  } else if (material === "Stainless Steel") {
-    cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.2;
-    voltage = 135 + (thickness * 1.8);
-    pierceDelayTime = thickness < 10 ? 0.2 : thickness < 20 ? 0.6 : 1.2;
-  } else if (material === "Aluminum") {
-    cutSpeed = baselineSpeed * Math.exp(-thickness / 12) * 1.7;
-    voltage = 140 + (thickness * 1.2);
-    pierceDelayTime = thickness < 10 ? 0.1 : thickness < 20 ? 0.4 : 0.8;
-  } else { cutSpeed = 1000; }
-  cutSpeed = Math.max(100, Math.min(6000, Number(cutSpeed.toFixed(0))));
-  voltage = Math.max(100, Math.min(200, Number(voltage.toFixed(0))));
-  return { cutSpeed, voltage, pierceDelayTime, torchDistance, pierceHeight };
-};
-
-/* Inline algorithm implementations so no external imports needed */
-const computeGbfsScore = (params) => {
-  const lat = params.latency_milliseconds || 0;
-  const spd = params.processingSpeed || 0;
-  const eng = params.energy_watts || 0;
-  const cpu = params.cpuLoad || 60;
-  const latency = Number((lat * 0.9 + Math.random() * 5).toFixed(2));
-  const throughput = Number((spd * 120 + Math.random() * 10).toFixed(2));
-  const energy = Number((eng * 0.85 + Math.random() * 50).toFixed(2));
-  const utilization = Number((cpu * 0.88 + Math.random() * 5).toFixed(2));
+/* ─── ALGORITHMS ─── */
+const computeGbfsScore = (m) => {
+  const latency = Number((m.processingTime * 0.9 + Math.random() * 5).toFixed(2));
+  const throughput = Number(((1000 / m.processingTime) * 120 + Math.random() * 10).toFixed(2));
+  const energy = Number((m.cpuUtilization * m.bandwidth * 0.85 + Math.random() * 50).toFixed(2));
+  const utilization = Number((m.cpuUtilization * 0.88 + Math.random() * 5).toFixed(2));
   const time = Number((latency * 1.1).toFixed(2));
-  const remark = latency < 50 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  const remark = latency < 80 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
   return { latency, throughput, energy, utilization, time, remark };
 };
 
-const computePsoScore = (params) => {
-  const lat = params.latency_milliseconds || 0;
-  const spd = params.processingSpeed || 0;
-  const eng = params.energy_watts || 0;
-  const cpu = params.cpuLoad || 60;
-  const latency = Number((lat * 0.82 + Math.random() * 4).toFixed(2));
-  const throughput = Number((spd * 135 + Math.random() * 12).toFixed(2));
-  const energy = Number((eng * 0.78 + Math.random() * 40).toFixed(2));
-  const utilization = Number((cpu * 0.80 + Math.random() * 5).toFixed(2));
+const computePsoScore = (m) => {
+  const latency = Number((m.processingTime * 0.82 + Math.random() * 4).toFixed(2));
+  const throughput = Number(((1000 / m.processingTime) * 135 + Math.random() * 12).toFixed(2));
+  const energy = Number((m.cpuUtilization * m.bandwidth * 0.78 + Math.random() * 40).toFixed(2));
+  const utilization = Number((m.cpuUtilization * 0.80 + Math.random() * 5).toFixed(2));
   const time = Number((latency * 1.05).toFixed(2));
-  const remark = latency < 50 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  const remark = latency < 80 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
   return { latency, throughput, energy, utilization, time, remark };
 };
 
 /* ─── STEP DEFINITIONS ─── */
 const STEP_DETAILS = [
-  { title: "Data Input", icon: "📥", desc: "Enter machine data and generate tasks." },
+  { title: "Data Input", icon: "📥", desc: "Select machine and review fixed parameters." },
   { title: "Algorithms", icon: "⚙️", desc: "Evaluate using GBFS and PSO." },
   { title: "Decision", icon: "🔍", desc: "Compare and choose best processing." },
   { title: "Processing", icon: "🖥️", desc: "Assign task to Edge or Cloud." },
   { title: "Results", icon: "📊", desc: "View performance graphs and logs." }
 ];
 
-/* ─── SMALL HELPERS ─── */
+/* ─── HELPERS ─── */
 const CardHeader = ({ title, desc }) => (
   <div style={{ marginBottom: 16 }}>
     <div style={S.cardTitle}>{title}</div>
     {desc && <div style={S.cardDesc}>{desc}</div>}
   </div>
 );
-
 const DataRow = ({ label, value, valueStyle }) => (
   <div style={S.dataRow}>
     <span style={S.dataLabel}>{label}</span>
@@ -268,8 +151,7 @@ const TopBar = ({ step, maxReached, onJump }) => (
     <div style={S.flowSteps}>
       {STEP_DETAILS.map((s, i) => (
         <React.Fragment key={i}>
-          <div style={S.flowStep(i === step, i < step)}
-            onClick={() => i <= maxReached && onJump(i)}>
+          <div style={S.flowStep(i === step, i < step)} onClick={() => i <= maxReached && onJump(i)}>
             <div style={S.flowDot(i === step, i < step)} />
             {s.title}
           </div>
@@ -281,56 +163,70 @@ const TopBar = ({ step, maxReached, onJump }) => (
 );
 
 /* ─── STEP 0: DATA INPUT ─── */
-const StepInput = ({ inputs, setInputs, category, autoTask, onRun, isProcessing }) => {
-  const valid = Object.values(inputs).every(v => v !== "");
-
-  const tblWrap = { overflowX: "auto", marginBottom: 0 };
-  const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 13 };
-  const thStyle = {
-    textAlign: "left", padding: "10px 14px",
-    fontSize: 11, fontWeight: 600, color: "#9099a8",
-    textTransform: "uppercase", letterSpacing: "0.05em",
-    borderBottom: "2px solid #e8eaf0", background: "#f9fafb",
-    whiteSpace: "nowrap"
-  };
+const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessing }) => {
+  const machine = MACHINE_DATA[selectedMachineId];
+  const thStyle = { textAlign: "left", padding: "10px 14px", fontSize: 11, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e8eaf0", background: "#f9fafb", whiteSpace: "nowrap" };
   const tdStyle = { padding: "11px 14px", borderBottom: "1px solid #f0f1f5", verticalAlign: "middle" };
-  const tdLabel = { ...tdStyle, color: "#5a6272", fontWeight: 500, width: "35%" };
-  const tdValue = { ...tdStyle, color: "#1a1d23", fontWeight: 500 };
-  const tdInput = { ...tdStyle };
 
   return (
     <div>
       <div style={S.pageHeader}>
         <div style={S.pageTitle}>Data Input & Generation</div>
-        <div style={S.pageSubtitle}>Enter machine data to begin the offloading evaluation.</div>
+        <div style={S.pageSubtitle}>Select a machine from the IoT Manufacturing dataset to begin the offloading evaluation.</div>
       </div>
 
-      {/* ── Machine Information Table ── */}
+      {/* Machine Selection Cards */}
       <div style={S.cardFull}>
-        <CardHeader title="Machine Information" desc="System-configured details for this simulation session." />
-        <div style={tblWrap}>
-          <table style={tbl}>
+        <CardHeader title="Select Machine" desc="Choose from the 5 fixed IoT manufacturing machines below." />
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+          {Object.values(MACHINE_DATA).map(m => (
+            <div key={m.id} style={S.machineCard(selectedMachineId === m.id)} onClick={() => setSelectedMachineId(m.id)}>
+              <div style={{ fontSize: 18, marginBottom: 6 }}>
+                {m.id === "M1" ? "🔩" : m.id === "M2" ? "⚡" : m.id === "M3" ? "🎨" : m.id === "M4" ? "🔥" : "✂️"}
+              </div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: selectedMachineId === m.id ? "#3b5bdb" : "#1a1d23", marginBottom: 2 }}>{m.id}</div>
+              <div style={{ fontSize: 12, color: "#5a6272", lineHeight: 1.3 }}>{m.name}</div>
+              <div style={{ marginTop: 8 }}>
+                <span style={S.badge(selectedMachineId === m.id ? "blue" : "amber")}>{m.taskType === "Computation-Intensive" ? "Compute" : m.taskType === "Latency-Sensitive" ? "Latency" : "Energy"}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* All Machines Overview Table */}
+      <div style={S.cardFull}>
+        <CardHeader title="IoT Manufacturing Machine Data" desc="Fixed parameters from the dataset. Select a machine above to use its values." />
+        <div style={{ overflowX: "auto" }}>
+          <table style={S.table}>
             <thead>
               <tr>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Field</th>
-                <th style={thStyle}>Value</th>
-                <th style={thStyle}>Status</th>
+                {["Machine ID", "Machine Name", "Task Size (MB)", "Bandwidth (Mbps)", "Processing Time (ms)", "Queue Length", "CPU Utilization (%)", "Category", "Task Type"].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {[
-                { field: "Specific Machine", value: "Plasma Cutting Machine", badge: null, highlight: true },
-                { field: "Machine Category", value: category, badge: null },
-                { field: "Auto-Assigned Task Type", value: autoTask, badge: "blue" },
-              ].map(({ field, value, badge, highlight }, i) => (
-                <tr key={field} style={{ background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                  <td style={{ ...tdStyle, color: "#c4cad6", width: 36 }}>{i + 1}</td>
-                  <td style={tdLabel}>{field}</td>
-                  <td style={{ ...tdValue, color: highlight ? "#3b5bdb" : "#1a1d23" }}>
-                    {badge ? <span style={S.badge(badge)}>{value}</span> : value}
+              {Object.values(MACHINE_DATA).map((m, i) => (
+                <tr key={m.id}
+                  onClick={() => setSelectedMachineId(m.id)}
+                  style={{ background: selectedMachineId === m.id ? "#f0f4ff" : i % 2 === 0 ? "#fff" : "#fafbfc", cursor: "pointer" }}>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: "#3b5bdb" }}>{m.id}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>{m.name}</td>
+                  <td style={tdStyle}>{m.taskSize}</td>
+                  <td style={tdStyle}>{m.bandwidth}</td>
+                  <td style={tdStyle}>{m.processingTime}</td>
+                  <td style={tdStyle}>{m.queueLength}</td>
+                  <td style={tdStyle}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ flex: 1, height: 6, background: "#e8eaf0", borderRadius: 3, maxWidth: 60 }}>
+                        <div style={{ width: `${m.cpuUtilization}%`, height: "100%", background: m.cpuUtilization > 70 ? "#e53e3e" : m.cpuUtilization > 50 ? "#f97316" : "#4caf50", borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 12 }}>{m.cpuUtilization}%</span>
+                    </div>
                   </td>
-                  <td style={tdStyle}><span style={S.badge("green")}>✓ Set</span></td>
+                  <td style={tdStyle}><span style={S.badge("blue")}>{m.category}</span></td>
+                  <td style={tdStyle}><span style={S.badge(m.taskType === "Latency-Sensitive" ? "green" : m.taskType === "Energy-Efficient" ? "amber" : "blue")}>{m.taskType}</span></td>
                 </tr>
               ))}
             </tbody>
@@ -338,99 +234,32 @@ const StepInput = ({ inputs, setInputs, category, autoTask, onRun, isProcessing 
         </div>
       </div>
 
-      {/* ── Machine Data Input Table ── */}
-      <div style={S.cardFull}>
-        <CardHeader title="Machine Data Inputs" desc="Fill in all fields below to run the simulation." />
-        <div style={tblWrap}>
-          <table style={tbl}>
-            <thead>
-              <tr>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Parameter</th>
-                <th style={thStyle}>Unit</th>
-                <th style={thStyle}>Input Value</th>
-                <th style={thStyle}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { key: "Material Type", unit: "—", type: "select" },
-                { key: "Material Thickness (millimeters)", unit: "mm", type: "number" },
-                { key: "Cutting Current (amperes)", unit: "A", type: "number" },
-              ].map(({ key, unit, type }, i) => {
-                const filled = inputs[key] !== "";
-                return (
-                  <tr key={key} style={{ background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
-                    <td style={{ ...tdStyle, color: "#c4cad6", width: 36 }}>{i + 1}</td>
-                    <td style={tdLabel}>{key.split("(")[0].trim()}</td>
-                    <td style={{ ...tdStyle, color: "#9099a8" }}>{unit}</td>
-                    <td style={tdInput}>
-                      {type === "select" ? (
-                        <select style={{ ...S.select, width: "100%", maxWidth: 220 }}
-                          value={inputs[key]}
-                          onChange={e => setInputs({ ...inputs, [key]: e.target.value })}>
-                          <option value="">Select Material</option>
-                          <option value="Mild Steel">Mild Steel</option>
-                          <option value="Stainless Steel">Stainless Steel</option>
-                          <option value="Aluminum">Aluminum</option>
-                        </select>
-                      ) : (
-                        <input style={{ ...S.input, width: "100%", maxWidth: 220 }}
-                          type="number"
-                          placeholder={`Enter value`}
-                          value={inputs[key]}
-                          onChange={e => setInputs({ ...inputs, [key]: e.target.value })} />
-                      )}
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={S.badge(filled ? "green" : "amber")}>
-                        {filled ? "✓ Ready" : "⚠ Required"}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-
-        {!valid && (
-          <p style={{ color: "#b45309", fontSize: 12, marginTop: 12 }}>
-            ⚠ Please fill in all required fields before generating.
-          </p>
-        )}
-
-        <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center" }}>
-          <button
-            style={valid && !isProcessing ? S.btnPrimary : S.btnDisabled}
-            disabled={!valid || isProcessing}
-            onClick={onRun}
-          >
-            {isProcessing ? "⏳ Processing..." : "Generate & Offload Task →"}
-          </button>
-          <span style={{ fontSize: 12, color: "#9099a8" }}>
-            {valid ? "All fields complete — ready to run." : `${Object.values(inputs).filter(v => v === "").length} field(s) remaining.`}
-          </span>
-        </div>
-      </div>
-
-      {/* ── Guide strip ── */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        {[
-          { icon: "🔧", label: "Machine", text: "Pre-configured for Plasma Cutting." },
-          { icon: "✏️", label: "Fill Inputs", text: "Enter material type, thickness, and current." },
-          { icon: "▶️", label: "Generate", text: "Run GBFS & PSO simulation." },
-          { icon: "🔀", label: "Navigate", text: "Use NEXT / BACK to review results." }
-        ].map(({ icon, label, text }) => (
-          <div key={label} style={{ flex: "1 1 180px", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 10, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
-            <span style={{ fontSize: 20 }}>{icon}</span>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1d23", marginBottom: 3 }}>{label}</div>
-              <div style={{ fontSize: 12, color: "#9099a8", lineHeight: 1.4 }}>{text}</div>
-            </div>
+      {/* Selected Machine Details */}
+      {machine && (
+        <div style={S.cardFull}>
+          <CardHeader title={`Selected: ${machine.id} — ${machine.name}`} desc="Fixed data parameters that will be used for the offloading simulation." />
+          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+            {[
+              { label: "Task Size", value: `${machine.taskSize} MB`, icon: "📦" },
+              { label: "Bandwidth", value: `${machine.bandwidth} Mbps`, icon: "📡" },
+              { label: "Processing Time", value: `${machine.processingTime} ms`, icon: "⏱️" },
+              { label: "Queue Length", value: machine.queueLength, icon: "📋" },
+              { label: "CPU Utilization", value: `${machine.cpuUtilization}%`, icon: "💻" },
+              { label: "Task Type", value: machine.taskType, icon: "🏷️" },
+            ].map(({ label, value, icon }) => (
+              <div key={label} style={{ flex: "1 1 140px", background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: 10, padding: "14px 16px" }}>
+                <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>
+                <div style={{ fontSize: 11, color: "#9099a8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{label}</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1d23" }}>{value}</div>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+
+          <button style={!isProcessing ? S.btnPrimary : S.btnDisabled} disabled={isProcessing} onClick={onRun}>
+            {isProcessing ? "⏳ Processing..." : `Generate & Offload Task for ${machine.name} →`}
+          </button>
+        </div>
+      )}
     </div>
   );
 };
@@ -438,7 +267,7 @@ const StepInput = ({ inputs, setInputs, category, autoTask, onRun, isProcessing 
 /* ─── STEP 1: ALGORITHMS ─── */
 const PIE_COLORS = { Delay: "#3b5bdb", Speed: "#10b981", Energy: "#f97316", Usage: "#a855f7" };
 
-const AlgoCard = ({ title, color, data }) => (
+const AlgoCard = ({ title, data }) => (
   <div style={S.card}>
     <CardHeader title={title} desc="Detailed metrics and target destination." />
     <p style={{ fontSize: 12, color: "#9099a8", marginBottom: 12, fontStyle: "italic" }}>
@@ -470,7 +299,6 @@ const StepAlgorithms = ({ gbfs, pso }) => {
     const y = cy + r * Math.sin(-midAngle * Math.PI / 180);
     return <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">{`${(percent * 100).toFixed(0)}%`}</text>;
   };
-
   return (
     <div>
       <div style={S.pageHeader}>
@@ -504,8 +332,8 @@ const StepAlgorithms = ({ gbfs, pso }) => {
         </div>
       </div>
       <div style={S.row}>
-        <AlgoCard title="GBFS Evaluation" color="blue" data={gbfs} />
-        <AlgoCard title="PSO Evaluation" color="purple" data={pso} />
+        <AlgoCard title="GBFS Evaluation" data={gbfs} />
+        <AlgoCard title="PSO Evaluation" data={pso} />
       </div>
     </div>
   );
@@ -528,9 +356,7 @@ const StepDecision = ({ gbfs, pso, decision }) => {
       <div style={S.row}>
         <div style={{ ...S.card, flex: "0 1 320px" }}>
           <CardHeader title="Processing Decision" desc="Final destination chosen by the offloading logic." />
-          <div style={S.decisionBig(decision.server)}>
-            OFFLOAD TO {(decision.server || "...").toUpperCase()}
-          </div>
+          <div style={S.decisionBig(decision.server)}>OFFLOAD TO {(decision.server || "...").toUpperCase()}</div>
           <div style={S.decisionReason}>Chosen because {decision.reason}</div>
           <div style={{ marginTop: 16 }}>
             <span style={S.badge(decision.winner === "GBFS" ? "blue" : "amber")}>Best Algorithm: {decision.winner}</span>
@@ -554,24 +380,15 @@ const StepDecision = ({ gbfs, pso, decision }) => {
         <CardHeader title="Comparison Results" desc="Direct metric comparison of GBFS vs PSO." />
         <table style={S.table}>
           <thead>
-            <tr>
-              {["Metric", "GBFS", "PSO", "Better Result"].map(h => <th key={h} style={S.th}>{h}</th>)}
-            </tr>
+            <tr>{["Metric", "GBFS", "PSO", "Better Result"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
           </thead>
           <tbody>
-            {[
-              ["Delay (ms)", gbfs.latency, pso.latency, "Delay"],
-              ["Processing Speed (tasks/s)", gbfs.throughput, pso.throughput, "Speed"],
-              ["Energy (watts)", gbfs.energy, pso.energy, "Energy"],
-              ["Resource Usage (%)", gbfs.utilization, pso.utilization, "Usage"]
-            ].map(([label, g, p, metric]) => (
+            {[["Delay (ms)", gbfs.latency, pso.latency, "Delay"], ["Processing Speed (tasks/s)", gbfs.throughput, pso.throughput, "Speed"], ["Energy (watts)", gbfs.energy, pso.energy, "Energy"], ["Resource Usage (%)", gbfs.utilization, pso.utilization, "Usage"]].map(([label, g, p, metric]) => (
               <tr key={label}>
                 <td style={S.td}>{label}</td>
                 <td style={{ ...S.td, fontWeight: 600, color: "#3b5bdb" }}>{g}</td>
                 <td style={{ ...S.td, fontWeight: 600, color: "#7b2ff7" }}>{p}</td>
-                <td style={S.td}>
-                  <span style={S.badge(getW(metric) === "GBFS" ? "blue" : "amber")}>{getW(metric)}</span>
-                </td>
+                <td style={S.td}><span style={S.badge(getW(metric) === "GBFS" ? "blue" : "amber")}>{getW(metric)}</span></td>
               </tr>
             ))}
           </tbody>
@@ -592,18 +409,14 @@ const StepProcessing = ({ decision }) => (
       <div style={S.card}>
         <CardHeader title="Task Assignment" desc="Targeted server and task categorization." />
         <DataRow label="Task Type" value={<span style={S.badge("blue")}>{decision.taskType}</span>} />
+        <DataRow label="Machine" value={<span style={{ fontWeight: 600 }}>{decision.machineName} ({decision.machineId})</span>} />
         <DataRow label="Assigned Server" value={<span style={S.badge(decision.server === "Edge" ? "blue" : "amber")}>{decision.server} Server</span>} />
         <DataRow label="Algorithm Used" value={decision.winner} />
         <DataRow label="Summary" value={`${decision.winner} optimally assigned to ${decision.server} server.`} />
       </div>
       <div style={S.card}>
         <CardHeader title="Result Transmission" desc="Confirmation of data flow back to local device." />
-        {[
-          ["Processing Status", "Complete", "green"],
-          ["Transmission Time", "145 ms", "green"],
-          ["Network Return Status", "Confirmed", "green"],
-          ["Final Task Status", "Success", "green"]
-        ].map(([label, value, color]) => (
+        {[["Processing Status", "Complete", "green"], ["Transmission Time", "145 ms", "green"], ["Network Return Status", "Confirmed", "green"], ["Final Task Status", "Success", "green"]].map(([label, value, color]) => (
           <div key={label} style={S.dataRow}>
             <span style={S.dataLabel}>{label}</span>
             <span style={S.badge(color)}><span style={S.statusDot(true)} />{value}</span>
@@ -617,7 +430,6 @@ const StepProcessing = ({ decision }) => (
 /* ─── STEP 4: RESULTS ─── */
 const StepResults = ({ gbfs, pso, logs, setLogs }) => {
   const [viewMode, setViewMode] = useState("Single Run");
-
   const aggregateLogs = (mode) => {
     const groups = {};
     logs.forEach(L => {
@@ -643,14 +455,12 @@ const StepResults = ({ gbfs, pso, logs, setLogs }) => {
       return { time: g.time, t: g.t, GBFS_Delay: +(g.gbfsLat / c).toFixed(2), PSO_Delay: +(g.psoLat / c).toFixed(2), GBFS_Speed: +(g.gbfsSpeed / c).toFixed(2), PSO_Speed: +(g.psoSpeed / c).toFixed(2), GBFS_Energy: +(g.gbfsEng / c).toFixed(2), PSO_Energy: +(g.psoEng / c).toFixed(2), GBFS_Util: +(g.gbfsUtil / c).toFixed(2), PSO_Util: +(g.psoUtil / c).toFixed(2), TotalTasks: c, Winner: (g.psoLat / c) < (g.gbfsLat / c) ? "PSO" : "GBFS" };
     }).sort((a, b) => a.t - b.t);
   };
-
   const chartData = [
     { metric: "Delay (ms)", GBFS: Number(gbfs?.latency || 0), PSO: Number(pso?.latency || 0) },
     { metric: "Speed (t/s)", GBFS: Number(gbfs?.throughput || 0), PSO: Number(pso?.throughput || 0) },
     { metric: "Energy (W)", GBFS: Number(gbfs?.energy || 0), PSO: Number(pso?.energy || 0) },
     { metric: "Usage (%)", GBFS: Number(gbfs?.utilization || 0), PSO: Number(pso?.utilization || 0) }
   ];
-
   const trendData = viewMode !== "Single Run" ? aggregateLogs(viewMode) : [];
   const avgGbfs = trendData.length ? trendData.reduce((a, c) => a + c.GBFS_Delay, 0) / trendData.length : 0;
   const avgPso = trendData.length ? trendData.reduce((a, c) => a + c.PSO_Delay, 0) / trendData.length : 0;
@@ -662,8 +472,6 @@ const StepResults = ({ gbfs, pso, logs, setLogs }) => {
         <div style={S.pageTitle}>Execution Results</div>
         <div style={S.pageSubtitle}>View performance results, graphs, and execution logs.</div>
       </div>
-
-      {/* Stats row */}
       <div style={S.statsRow}>
         {[
           { label: "Total Simulations", value: logs.length, change: `+${logs.length} this session` },
@@ -678,8 +486,6 @@ const StepResults = ({ gbfs, pso, logs, setLogs }) => {
           </div>
         ))}
       </div>
-
-      {/* Bar chart */}
       <div style={S.cardFull}>
         <CardHeader title="Performance Monitoring" desc="Continuous tracking of system efficiency and utilization." />
         <ResponsiveContainer width="100%" height={280}>
@@ -701,32 +507,27 @@ const StepResults = ({ gbfs, pso, logs, setLogs }) => {
           Lower delay is better · Higher processing speed is better · Lower resource usage is better
         </p>
       </div>
-
-      {/* View mode tabs */}
       <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
         {["Single Run", "Daily Analysis", "Weekly Analysis"].map(m => (
           <button key={m} style={S.tabBtn(viewMode === m)} onClick={() => setViewMode(m)}>{m}</button>
         ))}
         <div style={{ flex: 1 }} />
-        <button onClick={() => setLogs([])}
-          style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#fce4ec", color: "#c62828", border: "1px solid #f8bbd0" }}>
-          Clear Logs
-        </button>
+        <button onClick={() => setLogs([])} style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#fce4ec", color: "#c62828", border: "1px solid #f8bbd0" }}>Clear Logs</button>
       </div>
-
       {viewMode === "Single Run" ? (
         <div style={S.cardFull}>
           <CardHeader title="Execution Logs" desc="Timestamped records of all historical decisions." />
           <div style={{ overflowX: "auto" }}>
             <table style={S.table}>
               <thead>
-                <tr>{["#", "Timestamp", "Category", "Task Type", "Delay", "Speed", "Best Algorithm", "Server", "Status"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+                <tr>{["#", "Timestamp", "Machine", "Category", "Task Type", "Delay", "Speed", "Best Algorithm", "Server", "Status"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {logs.map((L, i) => (
                   <tr key={i}>
                     <td style={{ ...S.td, color: "#9099a8" }}>{L.id}</td>
                     <td style={S.td}>{L.timestamp ? new Date(L.timestamp).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+                    <td style={S.td}><span style={{ fontWeight: 600, color: "#3b5bdb" }}>{L.machineId}</span> {L.machineName}</td>
                     <td style={S.td}>{L.category}</td>
                     <td style={S.td}><span style={S.badge("blue")}>{L.type}</span></td>
                     <td style={S.td}>{L.delay}</td>
@@ -737,7 +538,7 @@ const StepResults = ({ gbfs, pso, logs, setLogs }) => {
                   </tr>
                 ))}
                 {logs.length === 0 && (
-                  <tr><td colSpan={9} style={{ ...S.td, textAlign: "center", color: "#9099a8", fontStyle: "italic", padding: "28px" }}>No execution records. Run a simulation to generate results.</td></tr>
+                  <tr><td colSpan={10} style={{ ...S.td, textAlign: "center", color: "#9099a8", fontStyle: "italic", padding: "28px" }}>No execution records. Run a simulation to generate results.</td></tr>
                 )}
               </tbody>
             </table>
@@ -814,63 +615,41 @@ export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [maxReached, setMaxReached] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [inputs, setInputs] = useState({ "Material Type": "", "Material Thickness (millimeters)": "", "Cutting Current (amperes)": "" });
+  const [selectedMachineId, setSelectedMachineId] = useState("M1");
   const [gbfsData, setGbfsData] = useState(null);
   const [psoData, setPsoData] = useState(null);
   const [decisionData, setDecisionData] = useState({});
   const [logs, setLogs] = useState([]);
 
-  const category = "Cutting Machines";
-  const autoTask = "Computation-Intensive";
-
   const handleRun = () => {
     setIsProcessing(true);
     setTimeout(() => {
-      const materialType = inputs["Material Type"] || "Mild Steel";
-      const thickness = parseFloat(inputs["Material Thickness (millimeters)"]) || 10;
-      const current = parseFloat(inputs["Cutting Current (amperes)"]) || 45;
-      const autoFill = lookupPlasmaMatrix(materialType, thickness, current);
-      const materialFactor = materialType === "Aluminum" ? 0.8 : materialType === "Stainless Steel" ? 1.2 : 1.0;
-      const processingSpeed = autoFill.cutSpeed / 6000;
-      const latency_milliseconds = autoFill.pierceDelayTime * 1000;
-      const energy_watts = autoFill.voltage * current;
-      const complexity_score = thickness * materialFactor;
-      const cpuLoad = Math.random() * 45 + 50;
-
-      const params = {
-        "Net Latency (milliseconds)": latency_milliseconds,
-        "CPU Load (percent)": cpuLoad, cpuLoad,
-        "Task Queue": Math.random() * 9 + 1,
-        "Power Usage (watts)": energy_watts,
-        "Temperature (degrees Celsius)": Math.random() * 20 + 40,
-        "Task Type": autoTask, materialType, thickness_mm: thickness,
-        current_amperes: current, cutSpeed_mm_per_min: autoFill.cutSpeed,
-        voltage_volts: autoFill.voltage, pierceDelay_seconds: autoFill.pierceDelayTime,
-        torchDistance_mm: autoFill.torchDistance, pierceHeight_mm: autoFill.pierceHeight,
-        processingSpeed, latency_milliseconds, energy_watts, complexity_score
-      };
-
-      const gbfs = computeGbfsScore(params);
-      const pso = computePsoScore(params);
-      setGbfsData(gbfs); setPsoData(pso);
+      const machine = MACHINE_DATA[selectedMachineId];
+      const gbfs = computeGbfsScore(machine);
+      const pso = computePsoScore(machine);
+      setGbfsData(gbfs);
+      setPsoData(pso);
 
       let winner, server, reason;
-      if (autoTask === "Latency-Sensitive") {
+      if (machine.taskType === "Latency-Sensitive") {
         winner = parseFloat(gbfs.latency) < parseFloat(pso.latency) ? "GBFS" : "PSO";
-        reason = "it has a faster response (lower delay)."; server = "Edge";
-      } else if (autoTask === "Computation-Intensive") {
+        reason = "it has a faster response (lower delay).";
+        server = "Edge";
+      } else if (machine.taskType === "Computation-Intensive") {
         winner = parseFloat(gbfs.throughput) > parseFloat(pso.throughput) ? "GBFS" : "PSO";
-        reason = "it has higher processing speed."; server = "Cloud";
+        reason = "it has higher processing speed.";
+        server = "Cloud";
       } else {
         winner = parseFloat(gbfs.energy) < parseFloat(pso.energy) ? "GBFS" : "PSO";
         reason = "it has better energy efficiency.";
         server = parseFloat(pso.utilization) > 80 ? "Cloud" : "Edge";
       }
 
-      setDecisionData({ winner, server, reason, taskType: autoTask });
-      const newId = logs.length + 1;
+      setDecisionData({ winner, server, reason, taskType: machine.taskType, machineId: machine.id, machineName: machine.name });
       setLogs(prev => [...prev, {
-        id: newId, category, type: autoTask, timestamp: new Date().toISOString(),
+        id: prev.length + 1, machineId: machine.id, machineName: machine.name,
+        category: machine.category, type: machine.taskType,
+        timestamp: new Date().toISOString(),
         delay: `${gbfs.latency}/${pso.latency}`, speed: `${gbfs.throughput}/${pso.throughput}`,
         energy: `${gbfs.energy}/${pso.energy}`, utilization: `${gbfs.utilization}/${pso.utilization}`,
         gbfsLat: parseFloat(gbfs.latency), psoLat: parseFloat(pso.latency),
@@ -880,13 +659,15 @@ export default function App() {
         winner, server, status: "SUCCESS"
       }]);
 
-      setCurrentStep(1); setMaxReached(4); setIsProcessing(false);
+      setCurrentStep(1);
+      setMaxReached(4);
+      setIsProcessing(false);
     }, 800);
   };
 
   const renderStep = () => {
     switch (currentStep) {
-      case 0: return <StepInput inputs={inputs} setInputs={setInputs} category={category} autoTask={autoTask} onRun={handleRun} isProcessing={isProcessing} />;
+      case 0: return <StepInput selectedMachineId={selectedMachineId} setSelectedMachineId={setSelectedMachineId} onRun={handleRun} isProcessing={isProcessing} />;
       case 1: return <StepAlgorithms gbfs={gbfsData} pso={psoData} />;
       case 2: return <StepDecision gbfs={gbfsData} pso={psoData} decision={decisionData} />;
       case 3: return <StepProcessing decision={decisionData} />;
