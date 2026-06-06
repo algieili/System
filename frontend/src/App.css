@@ -490,3 +490,37 @@ body {
   width: 100%;
   box-sizing: border-box;
 }
+.machine-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.machine-table th {
+  background: #2563eb;
+  color: white;
+  padding: 14px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.machine-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.machine-table tr:hover {
+  background: #f8fafc;
+}
+
+.machine-table input,
+.machine-table select {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
