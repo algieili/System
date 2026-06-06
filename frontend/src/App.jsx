@@ -283,67 +283,153 @@ const TopBar = ({ step, maxReached, onJump }) => (
 /* ─── STEP 0: DATA INPUT ─── */
 const StepInput = ({ inputs, setInputs, category, autoTask, onRun, isProcessing }) => {
   const valid = Object.values(inputs).every(v => v !== "");
+
+  const tblWrap = { overflowX: "auto", marginBottom: 0 };
+  const tbl = { width: "100%", borderCollapse: "collapse", fontSize: 13 };
+  const thStyle = {
+    textAlign: "left", padding: "10px 14px",
+    fontSize: 11, fontWeight: 600, color: "#9099a8",
+    textTransform: "uppercase", letterSpacing: "0.05em",
+    borderBottom: "2px solid #e8eaf0", background: "#f9fafb",
+    whiteSpace: "nowrap"
+  };
+  const tdStyle = { padding: "11px 14px", borderBottom: "1px solid #f0f1f5", verticalAlign: "middle" };
+  const tdLabel = { ...tdStyle, color: "#5a6272", fontWeight: 500, width: "35%" };
+  const tdValue = { ...tdStyle, color: "#1a1d23", fontWeight: 500 };
+  const tdInput = { ...tdStyle };
+
   return (
     <div>
       <div style={S.pageHeader}>
         <div style={S.pageTitle}>Data Input & Generation</div>
-        <div style={{ ...S.pageSubtitle }}>Enter machine data to begin the offloading evaluation.</div>
+        <div style={S.pageSubtitle}>Enter machine data to begin the offloading evaluation.</div>
       </div>
-      <div style={S.row}>
-        <div style={S.card}>
-          <CardHeader title="Machine Information" desc="Configured for Plasma Cutting operations." />
-          <DataRow label="Specific Machine" value="Plasma Cutting Machine" valueStyle={{ color: "#3b5bdb", fontWeight: 600 }} />
-          <DataRow label="Machine Category" value={category} />
-          <DataRow label="Auto-Assigned Task Type" value={<span style={S.badge("blue")}>{autoTask}</span>} />
 
-          <div style={S.sectionTitle}>Machine Data Inputs</div>
-          {Object.keys(inputs).map(k => (
-            <div key={k} style={S.dataRow}>
-              <span style={S.dataLabel}>{k}</span>
-              {k === "Material Type" ? (
-                <select style={S.select} value={inputs[k]} onChange={e => setInputs({ ...inputs, [k]: e.target.value })}>
-                  <option value="">Select Material</option>
-                  <option value="Mild Steel">Mild Steel</option>
-                  <option value="Stainless Steel">Stainless Steel</option>
-                  <option value="Aluminum">Aluminum</option>
-                </select>
-              ) : (
-                <input style={S.input} type="number"
-                  placeholder={`Enter ${k.split("(")[0].trim()}`}
-                  value={inputs[k]}
-                  onChange={e => setInputs({ ...inputs, [k]: e.target.value })} />
-              )}
-            </div>
-          ))}
-          {!valid && <p style={{ color: "#b45309", fontSize: 12, marginTop: 10 }}>⚠ Please fill in all fields to continue.</p>}
-          <button style={valid && !isProcessing ? S.btnPrimary : S.btnDisabled}
-            disabled={!valid || isProcessing} onClick={onRun}>
+      {/* ── Machine Information Table ── */}
+      <div style={S.cardFull}>
+        <CardHeader title="Machine Information" desc="System-configured details for this simulation session." />
+        <div style={tblWrap}>
+          <table style={tbl}>
+            <thead>
+              <tr>
+                <th style={thStyle}>#</th>
+                <th style={thStyle}>Field</th>
+                <th style={thStyle}>Value</th>
+                <th style={thStyle}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { field: "Specific Machine", value: "Plasma Cutting Machine", badge: null, highlight: true },
+                { field: "Machine Category", value: category, badge: null },
+                { field: "Auto-Assigned Task Type", value: autoTask, badge: "blue" },
+              ].map(({ field, value, badge, highlight }, i) => (
+                <tr key={field} style={{ background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                  <td style={{ ...tdStyle, color: "#c4cad6", width: 36 }}>{i + 1}</td>
+                  <td style={tdLabel}>{field}</td>
+                  <td style={{ ...tdValue, color: highlight ? "#3b5bdb" : "#1a1d23" }}>
+                    {badge ? <span style={S.badge(badge)}>{value}</span> : value}
+                  </td>
+                  <td style={tdStyle}><span style={S.badge("green")}>✓ Set</span></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ── Machine Data Input Table ── */}
+      <div style={S.cardFull}>
+        <CardHeader title="Machine Data Inputs" desc="Fill in all fields below to run the simulation." />
+        <div style={tblWrap}>
+          <table style={tbl}>
+            <thead>
+              <tr>
+                <th style={thStyle}>#</th>
+                <th style={thStyle}>Parameter</th>
+                <th style={thStyle}>Unit</th>
+                <th style={thStyle}>Input Value</th>
+                <th style={thStyle}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { key: "Material Type", unit: "—", type: "select" },
+                { key: "Material Thickness (millimeters)", unit: "mm", type: "number" },
+                { key: "Cutting Current (amperes)", unit: "A", type: "number" },
+              ].map(({ key, unit, type }, i) => {
+                const filled = inputs[key] !== "";
+                return (
+                  <tr key={key} style={{ background: i % 2 === 0 ? "#fff" : "#fafbfc" }}>
+                    <td style={{ ...tdStyle, color: "#c4cad6", width: 36 }}>{i + 1}</td>
+                    <td style={tdLabel}>{key.split("(")[0].trim()}</td>
+                    <td style={{ ...tdStyle, color: "#9099a8" }}>{unit}</td>
+                    <td style={tdInput}>
+                      {type === "select" ? (
+                        <select style={{ ...S.select, width: "100%", maxWidth: 220 }}
+                          value={inputs[key]}
+                          onChange={e => setInputs({ ...inputs, [key]: e.target.value })}>
+                          <option value="">Select Material</option>
+                          <option value="Mild Steel">Mild Steel</option>
+                          <option value="Stainless Steel">Stainless Steel</option>
+                          <option value="Aluminum">Aluminum</option>
+                        </select>
+                      ) : (
+                        <input style={{ ...S.input, width: "100%", maxWidth: 220 }}
+                          type="number"
+                          placeholder={`Enter value`}
+                          value={inputs[key]}
+                          onChange={e => setInputs({ ...inputs, [key]: e.target.value })} />
+                      )}
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={S.badge(filled ? "green" : "amber")}>
+                        {filled ? "✓ Ready" : "⚠ Required"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {!valid && (
+          <p style={{ color: "#b45309", fontSize: 12, marginTop: 12 }}>
+            ⚠ Please fill in all required fields before generating.
+          </p>
+        )}
+
+        <div style={{ marginTop: 16, display: "flex", gap: 12, alignItems: "center" }}>
+          <button
+            style={valid && !isProcessing ? S.btnPrimary : S.btnDisabled}
+            disabled={!valid || isProcessing}
+            onClick={onRun}
+          >
             {isProcessing ? "⏳ Processing..." : "Generate & Offload Task →"}
           </button>
+          <span style={{ fontSize: 12, color: "#9099a8" }}>
+            {valid ? "All fields complete — ready to run." : `${Object.values(inputs).filter(v => v === "").length} field(s) remaining.`}
+          </span>
         </div>
-        <div style={S.card}>
-          <CardHeader title="Input Guide" desc="Follow these steps to run the simulation." />
-          <div style={S.alertBox("blue")}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a3db5", marginBottom: 6 }}>Welcome to the Simulator</div>
-            <div style={{ fontSize: 13, color: "#3b5bdb", lineHeight: 1.6 }}>
-              This system simulates task offloading decisions for plasma cutting operations using two AI algorithms.
+      </div>
+
+      {/* ── Guide strip ── */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        {[
+          { icon: "🔧", label: "Machine", text: "Pre-configured for Plasma Cutting." },
+          { icon: "✏️", label: "Fill Inputs", text: "Enter material type, thickness, and current." },
+          { icon: "▶️", label: "Generate", text: "Run GBFS & PSO simulation." },
+          { icon: "🔀", label: "Navigate", text: "Use NEXT / BACK to review results." }
+        ].map(({ icon, label, text }) => (
+          <div key={label} style={{ flex: "1 1 180px", background: "#fff", border: "1px solid #e8eaf0", borderRadius: 10, padding: "14px 16px", display: "flex", gap: 10, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 20 }}>{icon}</span>
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#1a1d23", marginBottom: 3 }}>{label}</div>
+              <div style={{ fontSize: 12, color: "#9099a8", lineHeight: 1.4 }}>{text}</div>
             </div>
           </div>
-          {[
-            { icon: "🔧", label: "Machine", text: "Configured for Plasma Cutting operations." },
-            { icon: "✏️", label: "Input values", text: "Enter material type, thickness, and current (ensure no blanks)." },
-            { icon: "▶️", label: "Click Generate", text: "The system will simulate offloading choices using GBFS and PSO." },
-            { icon: "🔀", label: "Navigation", text: "Use NEXT / BACK buttons or the top flow bar to review results." }
-          ].map(({ icon, label, text }) => (
-            <div key={label} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-              <span style={{ fontSize: 18 }}>{icon}</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1d23" }}>{label}</div>
-                <div style={{ fontSize: 12, color: "#5a6272", lineHeight: 1.5 }}>{text}</div>
-              </div>
-            </div>
-          ))}
-        </div>
+        ))}
       </div>
     </div>
   );
