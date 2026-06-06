@@ -5,13 +5,13 @@ import {
   PieChart, Pie, Cell
 } from "recharts";
 
-/* ─── FIXED MACHINE DATA (from IoT Manufacturing Machine Data table) ─── */
+/* ─── FIXED MACHINE DATA (from physical machine metric tables) ─── */
 const MACHINE_DATA = {
-  M1: { id: "M1", name: "CNC Plasma",       taskSize: 50, bandwidth: 100, processingTime: 120, queueLength: 3, cpuUtilization: 75, category: "Cutting Machines",},
-  M2: { id: "M2", name: "Plasma Cutting",    taskSize: 40, bandwidth: 90,  processingTime: 100, queueLength: 2, cpuUtilization: 68, category: "Cutting Machines",},
-  M3: { id: "M3", name: "Painting Booth",    taskSize: 20, bandwidth: 80,  processingTime: 60,  queueLength: 1, cpuUtilization: 45, category: "Finishing Machines",},
-  M4: { id: "M4", name: "Arc Welding",       taskSize: 30, bandwidth: 85,  processingTime: 90,  queueLength: 2, cpuUtilization: 60, category: "Welding Machines",},
-  M5: { id: "M5", name: "Shearing Machine",  taskSize: 25, bandwidth: 75,  processingTime: 70,  queueLength: 1, cpuUtilization: 50, category: "Cutting Machines",},
+  M1: { id: "M1", machineId: "CPCM1", name: "CNC Plasma",      taskSize: 50, bandwidth: 100, processingTime: 120, queueLength: 3, cpuUtilization: 60, memoryUsage: 1.6, transmissionDelay: 16, energyConsumption: 2.3, throughput: 12, avgLatency: 88, category: "Cutting Machines",   taskType: "Computation-Intensive" },
+  M2: { id: "M2", machineId: "PCM1",  name: "Plasma Cutting",   taskSize: 40, bandwidth: 90,  processingTime: 100, queueLength: 2, cpuUtilization: 55, memoryUsage: 1.3, transmissionDelay: 14, energyConsumption: 2.0, throughput: 15, avgLatency: 78, category: "Cutting Machines",   taskType: "Computation-Intensive" },
+  M3: { id: "M3", machineId: "PB2",   name: "Paint Booth",      taskSize: 20, bandwidth: 80,  processingTime: 60,  queueLength: 1, cpuUtilization: 45, memoryUsage: 1.2, transmissionDelay: 12, energyConsumption: 1.5, throughput: 16, avgLatency: 72, category: "Finishing Machines", taskType: "Energy-Efficient"      },
+  M4: { id: "M4", machineId: "WM1",   name: "Arc Welding",      taskSize: 30, bandwidth: 100, processingTime: 80,  queueLength: 2, cpuUtilization: 55, memoryUsage: 2.0, transmissionDelay: 12, energyConsumption: 2.1, throughput: 18, avgLatency: 92, category: "Welding Machines",   taskType: "Computation-Intensive" },
+  M5: { id: "M5", machineId: "SM3",   name: "Shearing Machine", taskSize: 25, bandwidth: 75,  processingTime: 70,  queueLength: 1, cpuUtilization: 50, memoryUsage: 1.5, transmissionDelay: 15, energyConsumption: 1.8, throughput: 14, avgLatency: 85, category: "Cutting Machines",   taskType: "Latency-Sensitive"     },
 };
 
 /* ─── INLINE STYLES ─── */
@@ -75,22 +75,22 @@ const S = {
 
 /* ─── ALGORITHMS ─── */
 const computeGbfsScore = (m) => {
-  const latency = Number((m.processingTime * 0.9 + Math.random() * 5).toFixed(2));
-  const throughput = Number(((1000 / m.processingTime) * 120 + Math.random() * 10).toFixed(2));
-  const energy = Number((m.cpuUtilization * m.bandwidth * 0.85 + Math.random() * 50).toFixed(2));
-  const utilization = Number((m.cpuUtilization * 0.88 + Math.random() * 5).toFixed(2));
-  const time = Number((latency * 1.1).toFixed(2));
-  const remark = latency < 80 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  const latency    = Number((m.avgLatency * 0.90 + m.transmissionDelay * 0.5 + Math.random() * 3).toFixed(2));
+  const throughput = Number((m.throughput * 0.88 + Math.random() * 1).toFixed(2));
+  const energy     = Number((m.energyConsumption * 0.90 + Math.random() * 0.1).toFixed(2));
+  const utilization= Number((m.cpuUtilization * 0.88 + Math.random() * 3).toFixed(2));
+  const time       = Number((latency + m.transmissionDelay).toFixed(2));
+  const remark     = latency < 80 ? "Excellent" : latency < 100 ? "Good" : "Moderate";
   return { latency, throughput, energy, utilization, time, remark };
 };
 
 const computePsoScore = (m) => {
-  const latency = Number((m.processingTime * 0.82 + Math.random() * 4).toFixed(2));
-  const throughput = Number(((1000 / m.processingTime) * 135 + Math.random() * 12).toFixed(2));
-  const energy = Number((m.cpuUtilization * m.bandwidth * 0.78 + Math.random() * 40).toFixed(2));
-  const utilization = Number((m.cpuUtilization * 0.80 + Math.random() * 5).toFixed(2));
-  const time = Number((latency * 1.05).toFixed(2));
-  const remark = latency < 80 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  const latency    = Number((m.avgLatency * 0.82 + m.transmissionDelay * 0.4 + Math.random() * 3).toFixed(2));
+  const throughput = Number((m.throughput * 0.95 + Math.random() * 1).toFixed(2));
+  const energy     = Number((m.energyConsumption * 0.82 + Math.random() * 0.1).toFixed(2));
+  const utilization= Number((m.cpuUtilization * 0.80 + Math.random() * 3).toFixed(2));
+  const time       = Number((latency + m.transmissionDelay * 0.9).toFixed(2));
+  const remark     = latency < 80 ? "Excellent" : latency < 100 ? "Good" : "Moderate";
   return { latency, throughput, energy, utilization, time, remark };
 };
 
@@ -184,11 +184,9 @@ const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessin
               <div style={{ fontSize: 18, marginBottom: 6 }}>
                 {m.id === "M1" ? "🔩" : m.id === "M2" ? "⚡" : m.id === "M3" ? "🎨" : m.id === "M4" ? "🔥" : "✂️"}
               </div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: selectedMachineId === m.id ? "#3b5bdb" : "#1a1d23", marginBottom: 2 }}>{m.id}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: selectedMachineId === m.id ? "#3b5bdb" : "#1a1d23", marginBottom: 2 }}>{m.machineId}</div>
               <div style={{ fontSize: 12, color: "#5a6272", lineHeight: 1.3 }}>{m.name}</div>
-              <div style={{ marginTop: 8 }}>
-                <span style={S.badge(selectedMachineId === m.id ? "blue" : "amber")}>{m.taskType === "Computation-Intensive" ? "Compute" : m.taskType === "Latency-Sensitive" ? "Latency" : "Energy"}</span>
-              </div>
+
             </div>
           ))}
         </div>
@@ -196,12 +194,12 @@ const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessin
 
       {/* All Machines Overview Table */}
       <div style={S.cardFull}>
-        <CardHeader title="IoT Manufacturing Machine Data" desc="Fixed parameters from the dataset. Select a machine above to use its values." />
+        <CardHeader title="IoT Manufacturing Machine Data" desc="Fixed parameters from physical machine metric tables. Select a machine above to use its values." />
         <div style={{ overflowX: "auto" }}>
           <table style={S.table}>
             <thead>
               <tr>
-                {["Machine ID", "Machine Name", "Task Size (MB)", "Bandwidth (Mbps)", "Processing Time (ms)", "Queue Length", "CPU Utilization (%)", "Category", "Task Type"].map(h => (
+                {["Machine ID", "Machine Name", "Task Size (MB)", "Bandwidth (Mbps)", "Processing Time (ms)", "Queue Length", "CPU Util. (%)", "Memory (GB)", "Trans. Delay (ms)", "Energy (kWh)", "Throughput (t/min)", "Avg Latency (ms)", "Category", "Task Type"].map(h => (
                   <th key={h} style={thStyle}>{h}</th>
                 ))}
               </tr>
@@ -211,7 +209,7 @@ const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessin
                 <tr key={m.id}
                   onClick={() => setSelectedMachineId(m.id)}
                   style={{ background: selectedMachineId === m.id ? "#f0f4ff" : i % 2 === 0 ? "#fff" : "#fafbfc", cursor: "pointer" }}>
-                  <td style={{ ...tdStyle, fontWeight: 700, color: "#3b5bdb" }}>{m.id}</td>
+                  <td style={{ ...tdStyle, fontWeight: 700, color: "#3b5bdb" }}>{m.machineId}</td>
                   <td style={{ ...tdStyle, fontWeight: 600 }}>{m.name}</td>
                   <td style={tdStyle}>{m.taskSize}</td>
                   <td style={tdStyle}>{m.bandwidth}</td>
@@ -219,12 +217,17 @@ const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessin
                   <td style={tdStyle}>{m.queueLength}</td>
                   <td style={tdStyle}>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ flex: 1, height: 6, background: "#e8eaf0", borderRadius: 3, maxWidth: 60 }}>
+                      <div style={{ flex: 1, height: 6, background: "#e8eaf0", borderRadius: 3, maxWidth: 50 }}>
                         <div style={{ width: `${m.cpuUtilization}%`, height: "100%", background: m.cpuUtilization > 70 ? "#e53e3e" : m.cpuUtilization > 50 ? "#f97316" : "#4caf50", borderRadius: 3 }} />
                       </div>
                       <span style={{ fontSize: 12 }}>{m.cpuUtilization}%</span>
                     </div>
                   </td>
+                  <td style={tdStyle}>{m.memoryUsage} GB</td>
+                  <td style={tdStyle}>{m.transmissionDelay} ms</td>
+                  <td style={tdStyle}>{m.energyConsumption} kWh</td>
+                  <td style={tdStyle}>{m.throughput} t/min</td>
+                  <td style={tdStyle}>{m.avgLatency} ms</td>
                   <td style={tdStyle}><span style={S.badge("blue")}>{m.category}</span></td>
                   <td style={tdStyle}><span style={S.badge(m.taskType === "Latency-Sensitive" ? "green" : m.taskType === "Energy-Efficient" ? "amber" : "blue")}>{m.taskType}</span></td>
                 </tr>
@@ -237,20 +240,26 @@ const StepInput = ({ selectedMachineId, setSelectedMachineId, onRun, isProcessin
       {/* Selected Machine Details */}
       {machine && (
         <div style={S.cardFull}>
-          <CardHeader title={`Selected: ${machine.id} — ${machine.name}`} desc="Fixed data parameters that will be used for the offloading simulation." />
-          <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+          <CardHeader title={`Selected: ${machine.machineId} — ${machine.name}`} desc="Fixed data parameters from the physical machine metric table used for the offloading simulation." />
+          <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
             {[
-              { label: "Task Size", value: `${machine.taskSize} MB`, icon: "📦" },
-              { label: "Bandwidth", value: `${machine.bandwidth} Mbps`, icon: "📡" },
-              { label: "Processing Time", value: `${machine.processingTime} ms`, icon: "⏱️" },
-              { label: "Queue Length", value: machine.queueLength, icon: "📋" },
-              { label: "CPU Utilization", value: `${machine.cpuUtilization}%`, icon: "💻" },
-              { label: "Task Type", value: machine.taskType, icon: "🏷️" },
+              { label: "Machine ID",         value: machine.machineId,              icon: "🏷️" },
+              { label: "Task Size",           value: `${machine.taskSize} MB`,       icon: "📦" },
+              { label: "Network Bandwidth",   value: `${machine.bandwidth} Mbps`,    icon: "📡" },
+              { label: "Processing Time",     value: `${machine.processingTime} ms`, icon: "⏱️" },
+              { label: "Queue Length",        value: machine.queueLength,            icon: "📋" },
+              { label: "CPU Utilization",     value: `${machine.cpuUtilization}%`,   icon: "💻" },
+              { label: "Memory Usage",        value: `${machine.memoryUsage} GB`,    icon: "🧠" },
+              { label: "Transmission Delay",  value: `${machine.transmissionDelay} ms`, icon: "🔗" },
+              { label: "Energy Consumption",  value: `${machine.energyConsumption} kWh`, icon: "⚡" },
+              { label: "Throughput",          value: `${machine.throughput} tasks/min`,  icon: "🚀" },
+              { label: "Average Latency",     value: `${machine.avgLatency} ms`,     icon: "📶" },
+              { label: "Task Type",           value: machine.taskType,               icon: "🔧" },
             ].map(({ label, value, icon }) => (
-              <div key={label} style={{ flex: "1 1 140px", background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: 10, padding: "14px 16px" }}>
-                <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>
-                <div style={{ fontSize: 11, color: "#9099a8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>{label}</div>
-                <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1d23" }}>{value}</div>
+              <div key={label} style={{ flex: "1 1 130px", background: "#f8f9ff", border: "1px solid #e0e7ff", borderRadius: 10, padding: "12px 14px" }}>
+                <div style={{ fontSize: 16, marginBottom: 5 }}>{icon}</div>
+                <div style={{ fontSize: 10, color: "#9099a8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 3 }}>{label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: "#1a1d23" }}>{value}</div>
               </div>
             ))}
           </div>
