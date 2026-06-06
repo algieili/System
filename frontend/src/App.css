@@ -459,3 +459,34 @@ body {
     flex-wrap: wrap;
   }
 }
+.machine-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 15px;
+  margin-bottom: 20px;
+}
+
+.machine-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  padding: 12px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.machine-table td {
+  padding: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.machine-table tbody tr:hover {
+  background: #f8fafc;
+}
+
+.machine-table .data-input,
+.machine-table .data-select {
+  width: 100%;
+  box-sizing: border-box;
+}
