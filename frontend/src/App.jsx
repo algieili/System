@@ -126,78 +126,42 @@ const OperationalMetricsPanel = ({ category, autoTask, inputs, setInputs, onRun,
     <div className="card">
       <PanelHeader title="DATA INPUT & GENERATION" description="Enter system data to begin the offloading evaluation." />
       
-   <table className="machine-table">
-  <thead>
-    <tr>
-      <th>Machine Information</th>
-      <th>Value</th>
-    </tr>
-  </thead>
+      <div className="section-title">Machine Information</div>
+      <div className="data-row">
+        <span className="data-label">Specific Machine</span>
+        <span className="data-value" style={{fontWeight: 'bold', color: 'var(--cyan)'}}>Plasma Cutting Machine</span>
+      </div>
+      <div className="data-row">
+        <span className="data-label">Machine Category</span>
+        <span className="data-value">{category || "-"}</span>
+      </div>
+      <div className="data-row">
+        <span className="data-label">Auto-Assigned Task Type</span>
+        <span className="data-value">{autoTask || "-"}</span>
+      </div>
 
-  <tbody>
-    <tr>
-      <td>Specific Machine</td>
-      <td>Plasma Cutting Machine</td>
-    </tr>
-
-    <tr>
-      <td>Machine Category</td>
-      <td>{category || "-"}</td>
-    </tr>
-
-    <tr>
-      <td>Auto-Assigned Task Type</td>
-      <td>{autoTask || "-"}</td>
-    </tr>
-  </tbody>
-</table>
-
-      
-<div className="section-title">Machine Data</div>
-{Object.keys(inputs).map(k => (
-  <div className="data-row" key={k}>
-  <tbody>
-    {Object.keys(inputs).map((k) => (
-      <tr key={k}>
-        <td>{k}</td>
-
-        <td>
+      <div className="section-title">Machine Data</div>
+      {Object.keys(inputs).map(k => (
+        <div className="data-row" key={k}>
+          <span className="data-label">{k}</span>
           {k === "Material Type" ? (
-            <select
-              className="data-select"
-              value={inputs[k]}
-              onChange={(e) =>
-                setInputs({
-                  ...inputs,
-                  [k]: e.target.value
-                })
-              }
-            >
+            <select className="data-select" value={inputs[k]} onChange={e => setInputs({...inputs, [k]: e.target.value})}>
               <option value="">Select Material</option>
               <option value="Mild Steel">Mild Steel</option>
               <option value="Stainless Steel">Stainless Steel</option>
               <option value="Aluminum">Aluminum</option>
             </select>
           ) : (
-            <input
-              className="data-input"
+            <input 
+              className="data-input" 
               type="number"
-              value={inputs[k]}
-              placeholder={`Enter ${k}`}
-              onChange={(e) =>
-                setInputs({
-                  ...inputs,
-                  [k]: e.target.value
-                })
-              }
+              placeholder={`Enter ${k.split("(")[0].trim()}`}
+              value={inputs[k]} 
+              onChange={e => setInputs({...inputs, [k]: e.target.value})} 
             />
           )}
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
-     
+        </div>
+      ))}
 
 
 
