@@ -782,21 +782,81 @@ export default function App() {
   };
 
   return (
-    <ErrorBoundary>
-      <div className="dashboard-layout">
-        <SidebarNavigation currentStep={currentStep} onJump={(i) => setCurrentStep(i)} />
-        <div className="content-area">
-          <SystemFlow currentStep={currentStep} maxReached={maxReached} onJump={(i) => setCurrentStep(i)} />
-          <div className="main-content">
-            {renderStepContent()}
+  <ErrorBoundary>
+    <div className="dashboard-shell">
+
+      {/* Sidebar (keep yours) */}
+      <SidebarNavigation currentStep={currentStep} onJump={setCurrentStep} />
+
+      {/* Main Dashboard Area */}
+      <div className="dashboard-main">
+
+        {/* TOP KPI ROW (like your image cards) */}
+        <div className="kpi-row">
+          <div className="kpi-card">
+            <h3>Total Datasets</h3>
+            <p>24</p>
+            <span>+12% from last month</span>
           </div>
-          <StepNavigation 
-            currentStep={currentStep} maxReached={maxReached} 
-            onPrev={() => setCurrentStep(prev => prev - 1)}
-            onNext={() => setCurrentStep(prev => prev + 1)} 
-          />
+
+          <div className="kpi-card">
+            <h3>Processes Run</h3>
+            <p>56</p>
+            <span>+8% from last month</span>
+          </div>
+
+          <div className="kpi-card">
+            <h3>Reports Generated</h3>
+            <p>18</p>
+            <span>-5% from last month</span>
+          </div>
+
+          <div className="kpi-card">
+            <h3>System Users</h3>
+            <p>15</p>
+            <span>+3% from last month</span>
+          </div>
         </div>
+
+        {/* MAIN GRID */}
+        <div className="dashboard-grid">
+
+          {/* LEFT COLUMN */}
+          <div className="left-col">
+
+            <div className="card">
+              <PanelHeader title="System Overview" description="Performance analytics overview" />
+              <PerformanceMonitoringPanel gbfs={gbfsData} pso={psoData} />
+            </div>
+
+            <div className="card">
+              <PanelHeader title="Decision Summary" description="Latest offloading decision" />
+              <ProcessingDecisionPanel
+                decision={decisionData.server}
+                reason={decisionData.reason}
+              />
+            </div>
+
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="right-col">
+
+            <div className="card">
+              <PanelHeader title="Recent Activities" description="Latest system events" />
+              <ExecutionResultsView
+                gbfs={gbfsData}
+                pso={psoData}
+                logs={logs}
+                setLogs={setLogs}
+              />
+            </div>
+
+          </div>
+        </div>
+
       </div>
-    </ErrorBoundary>
-  );
+    </div>
+  </ErrorBoundary>
+);
 }
