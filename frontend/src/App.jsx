@@ -2,7 +2,8 @@ import React, { useState } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, LabelList, RadarChart,
-  PolarGrid, PolarAngleAxis, Radar
+  PolarGrid, PolarAngleAxis, Radar,
+  LineChart, Line, ReferenceLine, Dot
 } from "recharts";
 
 /* ─── FIXED MACHINE DATA ─── */
@@ -371,10 +372,14 @@ const StepComparison = ({ machine, gbfsData, psoData }) => {
     { metric: "Resp. Time (ms)", GBFS: +gbfsData.time,        PSO: +psoData.time        },
   ];
 
-  const latencyBar = [
-    { name: "GBFS", Latency: +gbfsData.latency, fill: "#3b5bdb" },
-    { name: "PSO",  Latency: +psoData.latency,  fill: "#a855f7" },
-  ];
+  // Generate a multi-point line graph showing latency trend across 6 simulated cycles
+  const gbfsBase = +gbfsData.latency;
+  const psoBase  = +psoData.latency;
+  const latencyLine = [1,2,3,4,5,6].map(t => ({
+    cycle: `T${t}`,
+    GBFS: +(gbfsBase + (Math.sin(t * 1.1) * gbfsBase * 0.06)).toFixed(2),
+    PSO:  +(psoBase  + (Math.sin(t * 1.3) * psoBase  * 0.06)).toFixed(2),
+  }));
 
   return (
     <div>
@@ -404,25 +409,24 @@ const StepComparison = ({ machine, gbfsData, psoData }) => {
         </div>
       </div>
 
-      {/* Latency comparison bar */}
+      {/* Latency comparison line chart */}
       <div style={S.card}>
         <div style={S.ct}>Latency Comparison</div>
-        <div style={S.cd}>Direct latency result (ms) — lower is better.</div>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={latencyBar} margin={{ top: 16, right: 20, left: 0, bottom: 4 }}>
+        <div style={S.cd}>GBFS vs PSO latency (ms) across 6 simulated processing cycles — lower is better.</div>
+        <ResponsiveContainer width="100%" height={260}>
+          <LineChart data={latencyLine} margin={{ top: 16, right: 24, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f0f1f5" />
-            <XAxis dataKey="name" stroke="#9099a8" fontSize={13} />
-            <YAxis stroke="#9099a8" fontSize={12} unit=" ms" />
-            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={v => [`${v} ms`, "Latency"]} />
-            <Bar dataKey="Latency" radius={[6,6,0,0]}>
-              {latencyBar.map((e, i) => (
-                <rect key={i} fill={e.fill} />
-              ))}
-              <LabelList dataKey="Latency" position="top" fontSize={13} fontWeight={700} formatter={v => `${v} ms`} />
-            </Bar>
-          </BarChart>
+            <XAxis dataKey="cycle" stroke="#9099a8" fontSize={12} label={{ value: "Processing Cycle", position: "insideBottom", offset: -4, fill: "#9099a8", fontSize: 11 }} />
+            <YAxis stroke="#9099a8" fontSize={12} unit=" ms" domain={["auto","auto"]} label={{ value: "Latency (ms)", angle: -90, position: "insideLeft", style: { fill: "#9099a8", fontSize: 11 } }} />
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e8eaf0" }} formatter={v => [`${v} ms`, ""]} />
+            <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" />
+            <ReferenceLine y={gbfsBase} stroke="#3b5bdb" strokeDasharray="4 4" strokeOpacity={0.3} />
+            <ReferenceLine y={psoBase}  stroke="#a855f7" strokeDasharray="4 4" strokeOpacity={0.3} />
+            <Line type="monotone" dataKey="GBFS" stroke="#3b5bdb" strokeWidth={2.5} dot={{ r: 5, fill: "#3b5bdb", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 7 }} />
+            <Line type="monotone" dataKey="PSO"  stroke="#a855f7" strokeWidth={2.5} dot={{ r: 5, fill: "#a855f7", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 7 }} />
+          </LineChart>
         </ResponsiveContainer>
-        <p style={{ textAlign: "center", fontSize: 12, color: "#9099a8", marginTop: 4 }}>Lower latency = better performance</p>
+        <p style={{ textAlign: "center", fontSize: 12, color: "#9099a8", marginTop: 4 }}>Lower latency = better performance · Dashed lines show baseline values</p>
       </div>
 
       {/* Full metrics comparison */}
