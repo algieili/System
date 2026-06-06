@@ -7,11 +7,11 @@ import {
 
 /* ─── FIXED MACHINE DATA (from IoT Manufacturing Machine Data table) ─── */
 const MACHINE_DATA = {
-  M1: { id: "M1", name: "CNC Plasma",       taskSize: 50, bandwidth: 100, processingTime: 120, queueLength: 3, cpuUtilization: 75, category: "Cutting Machines",   taskType: "Computation-Intensive" },
-  M2: { id: "M2", name: "Plasma Cutting",    taskSize: 40, bandwidth: 90,  processingTime: 100, queueLength: 2, cpuUtilization: 68, category: "Cutting Machines",   taskType: "Computation-Intensive" },
-  M3: { id: "M3", name: "Painting Booth",    taskSize: 20, bandwidth: 80,  processingTime: 60,  queueLength: 1, cpuUtilization: 45, category: "Finishing Machines", taskType: "Energy-Efficient"      },
-  M4: { id: "M4", name: "Arc Welding",       taskSize: 30, bandwidth: 85,  processingTime: 90,  queueLength: 2, cpuUtilization: 60, category: "Welding Machines",   taskType: "Computation-Intensive" },
-  M5: { id: "M5", name: "Shearing Machine",  taskSize: 25, bandwidth: 75,  processingTime: 70,  queueLength: 1, cpuUtilization: 50, category: "Cutting Machines",   taskType: "Latency-Sensitive"     },
+  M1: { id: "M1", name: "CNC Plasma",       taskSize: 50, bandwidth: 100, processingTime: 120, queueLength: 3, cpuUtilization: 75, category: "Cutting Machines",},
+  M2: { id: "M2", name: "Plasma Cutting",    taskSize: 40, bandwidth: 90,  processingTime: 100, queueLength: 2, cpuUtilization: 68, category: "Cutting Machines",},
+  M3: { id: "M3", name: "Painting Booth",    taskSize: 20, bandwidth: 80,  processingTime: 60,  queueLength: 1, cpuUtilization: 45, category: "Finishing Machines",},
+  M4: { id: "M4", name: "Arc Welding",       taskSize: 30, bandwidth: 85,  processingTime: 90,  queueLength: 2, cpuUtilization: 60, category: "Welding Machines",},
+  M5: { id: "M5", name: "Shearing Machine",  taskSize: 25, bandwidth: 75,  processingTime: 70,  queueLength: 1, cpuUtilization: 50, category: "Cutting Machines",},
 };
 
 /* ─── INLINE STYLES ─── */
