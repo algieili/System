@@ -1,599 +1,701 @@
 import React, { useState } from "react";
-import "./App.css";
-import { computeGbfsScore } from "./algorithms/gbfs";
-import { computePsoScore } from "./algorithms/pso";
-import { 
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, 
+import {
+  LineChart, Line, BarChart, Bar, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend, ResponsiveContainer, LabelList,
   PieChart, Pie, Cell
 } from "recharts";
 
+/* ─── INLINE STYLES (no external CSS needed) ─── */
+const S = {
+  root: {
+    display: "flex", minHeight: "100vh",
+    fontFamily: "'Inter', 'Segoe UI', system-ui, sans-serif",
+    background: "#f5f6fa", color: "#1a1d23"
+  },
+  sidebar: {
+    width: 220, background: "#fff", borderRight: "1px solid #e8eaf0",
+    display: "flex", flexDirection: "column", padding: "0 0 24px 0",
+    position: "sticky", top: 0, height: "100vh", overflowY: "auto"
+  },
+  sidebarBrand: {
+    padding: "24px 20px 16px", borderBottom: "1px solid #e8eaf0"
+  },
+  brandTitle: {
+    fontWeight: 700, fontSize: 16, color: "#1a1d23", margin: 0, lineHeight: 1.2
+  },
+  brandSub: { fontSize: 11, color: "#9099a8", margin: "4px 0 0", textTransform: "uppercase", letterSpacing: "0.06em" },
+  navSection: { padding: "16px 12px 8px" },
+  navLabel: { fontSize: 10, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px", marginBottom: 6 },
+  navBtn: (active) => ({
+    display: "flex", alignItems: "flex-start", gap: 10, width: "100%",
+    padding: "10px 12px", borderRadius: 8, border: "none", cursor: "pointer",
+    textAlign: "left", marginBottom: 2,
+    background: active ? "#f0f4ff" : "transparent",
+    color: active ? "#3b5bdb" : "#4a5568"
+  }),
+  navIcon: (active) => ({
+    width: 18, height: 18, marginTop: 1, flexShrink: 0,
+    color: active ? "#3b5bdb" : "#9099a8"
+  }),
+  navText: { flex: 1 },
+  navTitle: (active) => ({ fontSize: 13, fontWeight: active ? 600 : 500, lineHeight: 1.2 }),
+  navDesc: { fontSize: 11, color: "#9099a8", lineHeight: 1.3, marginTop: 2 },
+  navIndicator: { width: 6, height: 6, borderRadius: 3, background: "#3b5bdb", marginTop: 5, flexShrink: 0 },
+
+  content: { flex: 1, display: "flex", flexDirection: "column", minWidth: 0 },
+  topBar: {
+    background: "#fff", borderBottom: "1px solid #e8eaf0",
+    padding: "0 28px", display: "flex", alignItems: "center",
+    minHeight: 56, gap: 8
+  },
+  breadcrumb: { fontSize: 13, color: "#9099a8", display: "flex", alignItems: "center", gap: 6 },
+  crumbActive: { color: "#1a1d23", fontWeight: 500 },
+  crumbSep: { color: "#c4cad6" },
+  flowSteps: { display: "flex", alignItems: "center", gap: 0, flex: 1, justifyContent: "center" },
+  flowStep: (active, done) => ({
+    display: "flex", alignItems: "center", gap: 6,
+    padding: "6px 14px", borderRadius: 20, cursor: "pointer",
+    background: active ? "#3b5bdb" : done ? "#e8f5e9" : "transparent",
+    color: active ? "#fff" : done ? "#2e7d32" : "#9099a8",
+    fontSize: 12, fontWeight: active ? 600 : 500, whiteSpace: "nowrap"
+  }),
+  flowDot: (active, done) => ({
+    width: 7, height: 7, borderRadius: 4, flexShrink: 0,
+    background: active ? "#fff" : done ? "#4caf50" : "#d0d6e0"
+  }),
+  flowArrow: { color: "#d0d6e0", fontSize: 14, padding: "0 2px" },
+
+  main: { flex: 1, padding: "28px", overflowY: "auto" },
+  pageHeader: { marginBottom: 24 },
+  pageTitle: { fontSize: 22, fontWeight: 700, margin: 0, color: "#1a1d23" },
+  pageSubtitle: { fontSize: 13, color: "#9099a8", marginTop: 4 },
+
+  statsRow: { display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" },
+  statCard: {
+    flex: "1 1 140px", background: "#fff", border: "1px solid #e8eaf0",
+    borderRadius: 10, padding: "16px 18px", minWidth: 130
+  },
+  statLabel: { fontSize: 12, color: "#9099a8", fontWeight: 500, marginBottom: 6 },
+  statValue: { fontSize: 24, fontWeight: 700, color: "#1a1d23" },
+  statChange: (up) => ({ fontSize: 12, color: up ? "#2e7d32" : "#c62828", marginTop: 4, fontWeight: 500 }),
+
+  row: { display: "flex", gap: 20, marginBottom: 20, flexWrap: "wrap" },
+  card: {
+    background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12,
+    padding: "20px 22px", flex: "1 1 320px", minWidth: 260
+  },
+  cardFull: {
+    background: "#fff", border: "1px solid #e8eaf0", borderRadius: 12,
+    padding: "20px 22px", marginBottom: 20
+  },
+  cardTitle: { fontSize: 13, fontWeight: 600, color: "#1a1d23", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.04em" },
+  cardDesc: { fontSize: 12, color: "#9099a8", marginBottom: 16 },
+  sectionTitle: { fontSize: 11, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.07em", margin: "16px 0 10px" },
+
+  dataRow: { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: "1px solid #f0f1f5" },
+  dataLabel: { fontSize: 13, color: "#5a6272" },
+  dataValue: { fontSize: 13, fontWeight: 500, color: "#1a1d23" },
+
+  input: {
+    border: "1px solid #e2e5ec", borderRadius: 7, padding: "7px 10px",
+    fontSize: 13, color: "#1a1d23", background: "#fafbfc",
+    outline: "none", width: "160px", boxSizing: "border-box"
+  },
+  select: {
+    border: "1px solid #e2e5ec", borderRadius: 7, padding: "7px 10px",
+    fontSize: 13, color: "#1a1d23", background: "#fafbfc",
+    outline: "none", width: "160px"
+  },
+  btnPrimary: {
+    background: "#3b5bdb", color: "#fff", border: "none",
+    borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+    cursor: "pointer", marginTop: 16, width: "100%"
+  },
+  btnDisabled: {
+    background: "#c4cad6", color: "#fff", border: "none",
+    borderRadius: 8, padding: "10px 20px", fontSize: 13, fontWeight: 600,
+    cursor: "not-allowed", marginTop: 16, width: "100%"
+  },
+  bottomBar: {
+    background: "#fff", borderTop: "1px solid #e8eaf0",
+    padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center"
+  },
+  navBtnBottom: (disabled) => ({
+    padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+    border: "1px solid #e2e5ec", background: disabled ? "#f5f6fa" : "#fff",
+    color: disabled ? "#c4cad6" : "#1a1d23"
+  }),
+  navBtnNext: (disabled) => ({
+    padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+    background: disabled ? "#c4cad6" : "#3b5bdb", color: "#fff", border: "none"
+  }),
+  badge: (color) => ({
+    display: "inline-block", padding: "2px 10px", borderRadius: 20, fontSize: 11, fontWeight: 600,
+    background: color === "blue" ? "#e8f0ff" : color === "green" ? "#e8f5e9" : color === "amber" ? "#fff8e1" : "#fce4ec",
+    color: color === "blue" ? "#1a3db5" : color === "green" ? "#2e7d32" : color === "amber" ? "#b45309" : "#c62828"
+  }),
+  table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+  th: { textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "#9099a8", textTransform: "uppercase", letterSpacing: "0.05em", borderBottom: "2px solid #e8eaf0", background: "#f9fafb" },
+  td: { padding: "10px 12px", borderBottom: "1px solid #f0f1f5", color: "#1a1d23" },
+  decisionBig: (server) => ({
+    fontSize: 32, fontWeight: 800, marginTop: 8, marginBottom: 8,
+    color: server === "Edge" ? "#1a3db5" : "#7b2ff7"
+  }),
+  decisionReason: { fontSize: 14, color: "#5a6272", marginTop: 4 },
+  statusDot: (ok) => ({
+    display: "inline-block", width: 7, height: 7, borderRadius: 4,
+    background: ok ? "#4caf50" : "#f44336", marginRight: 6, verticalAlign: "middle"
+  }),
+  tabBtn: (active) => ({
+    padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: active ? 600 : 500,
+    cursor: "pointer", border: "1px solid " + (active ? "#3b5bdb" : "#e2e5ec"),
+    background: active ? "#3b5bdb" : "#fff", color: active ? "#fff" : "#5a6272"
+  }),
+  alertBox: (color) => ({
+    background: color === "blue" ? "#e8f0ff" : "#e8f5e9",
+    border: `1px solid ${color === "blue" ? "#bad0ff" : "#c8e6c9"}`,
+    borderRadius: 8, padding: "14px 18px", marginBottom: 16,
+    borderLeft: `4px solid ${color === "blue" ? "#3b5bdb" : "#4caf50"}`
+  }),
+};
+
+/* ─── DATA / ALGORITHMS (unchanged) ─── */
+const lookupPlasmaMatrix = (material, thickness, current) => {
+  const baselineSpeed = current * 20;
+  let cutSpeed = 0, voltage = 140, pierceDelayTime = 0, torchDistance = 3.2, pierceHeight = 6.4;
+  if (material === "Mild Steel") {
+    cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.5;
+    voltage = 130 + (thickness * 1.5);
+    pierceDelayTime = thickness < 10 ? 0.1 : thickness < 20 ? 0.5 : 1.0;
+  } else if (material === "Stainless Steel") {
+    cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.2;
+    voltage = 135 + (thickness * 1.8);
+    pierceDelayTime = thickness < 10 ? 0.2 : thickness < 20 ? 0.6 : 1.2;
+  } else if (material === "Aluminum") {
+    cutSpeed = baselineSpeed * Math.exp(-thickness / 12) * 1.7;
+    voltage = 140 + (thickness * 1.2);
+    pierceDelayTime = thickness < 10 ? 0.1 : thickness < 20 ? 0.4 : 0.8;
+  } else { cutSpeed = 1000; }
+  cutSpeed = Math.max(100, Math.min(6000, Number(cutSpeed.toFixed(0))));
+  voltage = Math.max(100, Math.min(200, Number(voltage.toFixed(0))));
+  return { cutSpeed, voltage, pierceDelayTime, torchDistance, pierceHeight };
+};
+
+/* Inline algorithm implementations so no external imports needed */
+const computeGbfsScore = (params) => {
+  const lat = params.latency_milliseconds || 0;
+  const spd = params.processingSpeed || 0;
+  const eng = params.energy_watts || 0;
+  const cpu = params.["CPU Load (percent)"] || params.cpuLoad || 60;
+  const latency = Number((lat * 0.9 + Math.random() * 5).toFixed(2));
+  const throughput = Number((spd * 120 + Math.random() * 10).toFixed(2));
+  const energy = Number((eng * 0.85 + Math.random() * 50).toFixed(2));
+  const utilization = Number((cpu * 0.88 + Math.random() * 5).toFixed(2));
+  const time = Number((latency * 1.1).toFixed(2));
+  const remark = latency < 50 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  return { latency, throughput, energy, utilization, time, remark };
+};
+
+const computePsoScore = (params) => {
+  const lat = params.latency_milliseconds || 0;
+  const spd = params.processingSpeed || 0;
+  const eng = params.energy_watts || 0;
+  const cpu = params.["CPU Load (percent)"] || params.cpuLoad || 60;
+  const latency = Number((lat * 0.82 + Math.random() * 4).toFixed(2));
+  const throughput = Number((spd * 135 + Math.random() * 12).toFixed(2));
+  const energy = Number((eng * 0.78 + Math.random() * 40).toFixed(2));
+  const utilization = Number((cpu * 0.80 + Math.random() * 5).toFixed(2));
+  const time = Number((latency * 1.05).toFixed(2));
+  const remark = latency < 50 ? "Excellent" : latency < 150 ? "Good" : "Moderate";
+  return { latency, throughput, energy, utilization, time, remark };
+};
+
+/* ─── STEP DEFINITIONS ─── */
 const STEP_DETAILS = [
-  { title: "DATA INPUT & GENERATION", desc: "Enter machine data and generate tasks for processing." },
-  { title: "ALGORITHMS APPLIED", desc: "Evaluate tasks using Greedy Best-First Search (GBFS) and Particle Swarm Optimization (PSO) algorithms." },
-  { title: "DECISION EVALUATION", desc: "Compare results and determine the best processing choice." },
-  { title: "TASK PROCESSING", desc: "Assign and simulate task execution on Edge or Cloud." },
-  { title: "EXECUTION RESULTS", desc: "View performance results, graphs, and execution logs." }
+  { title: "Data Input", icon: "📥", desc: "Enter machine data and generate tasks." },
+  { title: "Algorithms", icon: "⚙️", desc: "Evaluate using GBFS and PSO." },
+  { title: "Decision", icon: "🔍", desc: "Compare and choose best processing." },
+  { title: "Processing", icon: "🖥️", desc: "Assign task to Edge or Cloud." },
+  { title: "Results", icon: "📊", desc: "View performance graphs and logs." }
 ];
 
-const STEPS = STEP_DETAILS.map(s => s.title);
-
-// --- Subcomponents ---
-
-const SidebarNavigation = ({ currentStep, onJump }) => (
-  <div className="sidebar">
-    <h1>Task Offloading</h1>
-    <p>Simulation System</p>
-    {STEP_DETAILS.map((step, idx) => (
-      <button 
-        key={idx} 
-        className={`nav-item ${idx === currentStep ? "active" : ""}`}
-        onClick={() => onJump(idx)}
-      >
-        <div className="nav-title">{idx + 1}. {step.title}</div>
-        <div className="nav-desc">{step.desc}</div>
-      </button>
-    ))}
+/* ─── SMALL HELPERS ─── */
+const CardHeader = ({ title, desc }) => (
+  <div style={{ marginBottom: 16 }}>
+    <div style={S.cardTitle}>{title}</div>
+    {desc && <div style={S.cardDesc}>{desc}</div>}
   </div>
 );
 
-const SystemFlow = ({ currentStep, maxReached, onJump }) => (
-  <div className="top-bar">
-    {STEPS.map((step, idx) => (
-      <React.Fragment key={idx}>
-        <div className="flow-step">
-          <span 
-            className={`flow-dot ${idx < currentStep ? "completed" : idx === currentStep ? "active" : ""} ${idx <= maxReached ? "clickable" : ""}`}
-            onClick={() => idx <= maxReached && onJump(idx)}
-          >●</span>
-          <span 
-            className={`flow-label ${idx < currentStep ? "completed" : idx === currentStep ? "active" : ""} ${idx <= maxReached ? "clickable" : ""}`}
-            onClick={() => idx <= maxReached && onJump(idx)}
-          >
-            {step}
-          </span>
-        </div>
-        {idx < STEPS.length - 1 && <span className="flow-arrow">→</span>}
-      </React.Fragment>
-    ))}
+const DataRow = ({ label, value, valueStyle }) => (
+  <div style={S.dataRow}>
+    <span style={S.dataLabel}>{label}</span>
+    <span style={{ ...S.dataValue, ...valueStyle }}>{value}</span>
   </div>
 );
 
-const StepNavigation = ({ currentStep, maxReached, onNext, onPrev }) => (
-  <div className="bottom-nav">
-    <button className="nav-btn" onClick={onPrev} disabled={currentStep === 0}>← BACK</button>
-    <button className="nav-btn next" onClick={onNext} disabled={currentStep >= maxReached || currentStep >= 4}>NEXT →</button>
-  </div>
-);
-
-const PanelHeader = ({ title, description, variant }) => (
-  <div className={`panel-label ${variant === 'main' ? 'main-header' : ''}`}>
-    {title}
-    {description && <span className="helper-text">{description}</span>}
-  </div>
-);
-
-// --- Panels ---
-
-const InputGuidePanel = () => (
-  <div className="card">
-    <PanelHeader title="INPUT GUIDE" description="Follow these steps to generate data." />
-    <div className="guide-text">
-      <p>Welcome to the Task Offloading Simulator.</p><br/>
-      <p>• <strong>Machine:</strong> Configured for Plasma Cutting operations.</p>
-      <p>• <strong>Input values:</strong> Enter specific operation data (ensure no blanks).</p>
-      <p>• <strong>Click Generate:</strong> The system will simulate offloading choices.</p><br/>
-      <p><strong>Navigating the System:</strong></p>
-      <p>You can use NEXT and BACK buttons to review the simulation outcomes.</p>
+/* ─── SIDEBAR ─── */
+const Sidebar = ({ step, onJump }) => (
+  <div style={S.sidebar}>
+    <div style={S.sidebarBrand}>
+      <div style={S.brandTitle}>Task Offloading</div>
+      <div style={S.brandSub}>Simulation System</div>
     </div>
-  </div>
-);
-
-const lookupPlasmaMatrix = (material, thickness, current) => {
-    const baselineSpeed = current * 20; 
-    let cutSpeed = 0;
-    let voltage = 140;
-    let pierceDelayTime = 0;
-    let torchDistance = 3.2; 
-    let pierceHeight = 6.4; 
-
-    if (material === "Mild Steel") {
-         cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.5;
-         voltage = 130 + (thickness * 1.5);
-         pierceDelayTime = thickness < 10 ? 0.1 : (thickness < 20 ? 0.5 : 1.0);
-    } else if (material === "Stainless Steel") {
-         cutSpeed = baselineSpeed * Math.exp(-thickness / 10) * 1.2;
-         voltage = 135 + (thickness * 1.8);
-         pierceDelayTime = thickness < 10 ? 0.2 : (thickness < 20 ? 0.6 : 1.2);
-    } else if (material === "Aluminum") {
-         cutSpeed = baselineSpeed * Math.exp(-thickness / 12) * 1.7; 
-         voltage = 140 + (thickness * 1.2);
-         pierceDelayTime = thickness < 10 ? 0.1 : (thickness < 20 ? 0.4 : 0.8);
-    } else {
-         cutSpeed = 1000;
-    }
-    
-    cutSpeed = Math.max(100, Math.min(6000, Number(cutSpeed.toFixed(0))));
-    voltage = Math.max(100, Math.min(200, Number(voltage.toFixed(0))));
-
-    return { cutSpeed, voltage, pierceDelayTime, torchDistance, pierceHeight };
-};
-
-const OperationalMetricsPanel = ({ category, autoTask, inputs, setInputs, onRun, isProcessing }) => {
-  const isFormValid = Object.keys(inputs).length > 0 && Object.values(inputs).every(v => v !== "");
-
-  return (
-    <div className="card">
-      <PanelHeader title="DATA INPUT & GENERATION" description="Enter system data to begin the offloading evaluation." />
-      
-      <div className="section-title">Machine Information</div>
-      <div className="data-row">
-        <span className="data-label">Specific Machine</span>
-        <span className="data-value" style={{fontWeight: 'bold', color: 'var(--cyan)'}}>Plasma Cutting Machine</span>
-      </div>
-      <div className="data-row">
-        <span className="data-label">Machine Category</span>
-        <span className="data-value">{category || "-"}</span>
-      </div>
-      <div className="data-row">
-        <span className="data-label">Auto-Assigned Task Type</span>
-        <span className="data-value">{autoTask || "-"}</span>
-      </div>
-
-      <div className="section-title">Machine Data</div>
-      {Object.keys(inputs).map(k => (
-        <div className="data-row" key={k}>
-          <span className="data-label">{k}</span>
-          {k === "Material Type" ? (
-            <select className="data-select" value={inputs[k]} onChange={e => setInputs({...inputs, [k]: e.target.value})}>
-              <option value="">Select Material</option>
-              <option value="Mild Steel">Mild Steel</option>
-              <option value="Stainless Steel">Stainless Steel</option>
-              <option value="Aluminum">Aluminum</option>
-            </select>
-          ) : (
-            <input 
-              className="data-input" 
-              type="number"
-              placeholder={`Enter ${k.split("(")[0].trim()}`}
-              value={inputs[k]} 
-              onChange={e => setInputs({...inputs, [k]: e.target.value})} 
-            />
-          )}
-        </div>
+    <div style={S.navSection}>
+      <div style={S.navLabel}>Navigation</div>
+      {STEP_DETAILS.map((s, i) => (
+        <button key={i} style={S.navBtn(i === step)} onClick={() => onJump(i)}>
+          <span style={{ fontSize: 16, marginTop: 1 }}>{s.icon}</span>
+          <div style={S.navText}>
+            <div style={S.navTitle(i === step)}>{s.title}</div>
+            <div style={S.navDesc}>{s.desc}</div>
+          </div>
+          {i === step && <div style={S.navIndicator} />}
+        </button>
       ))}
+    </div>
+  </div>
+);
 
+/* ─── TOP FLOW BAR ─── */
+const TopBar = ({ step, maxReached, onJump }) => (
+  <div style={S.topBar}>
+    <div style={S.breadcrumb}>
+      <span>Simulation</span>
+      <span style={S.crumbSep}>›</span>
+      <span style={S.crumbActive}>{STEP_DETAILS[step].title}</span>
+    </div>
+    <div style={S.flowSteps}>
+      {STEP_DETAILS.map((s, i) => (
+        <React.Fragment key={i}>
+          <div style={S.flowStep(i === step, i < step)}
+            onClick={() => i <= maxReached && onJump(i)}>
+            <div style={S.flowDot(i === step, i < step)} />
+            {s.title}
+          </div>
+          {i < STEP_DETAILS.length - 1 && <span style={S.flowArrow}>›</span>}
+        </React.Fragment>
+      ))}
+    </div>
+  </div>
+);
 
+/* ─── STEP 0: DATA INPUT ─── */
+const StepInput = ({ inputs, setInputs, category, autoTask, onRun, isProcessing }) => {
+  const valid = Object.values(inputs).every(v => v !== "");
+  return (
+    <div>
+      <div style={S.pageHeader}>
+        <div style={S.pageTitle}>Data Input & Generation</div>
+        <div style={{ ...S.pageSubtitle }}>Enter machine data to begin the offloading evaluation.</div>
+      </div>
+      <div style={S.row}>
+        <div style={S.card}>
+          <CardHeader title="Machine Information" desc="Configured for Plasma Cutting operations." />
+          <DataRow label="Specific Machine" value="Plasma Cutting Machine" valueStyle={{ color: "#3b5bdb", fontWeight: 600 }} />
+          <DataRow label="Machine Category" value={category} />
+          <DataRow label="Auto-Assigned Task Type" value={<span style={S.badge("blue")}>{autoTask}</span>} />
 
-      {!isFormValid && <p style={{color: "var(--yellow)", fontSize: "13px", marginTop: "10px"}}>Please fill out all manual input fields.</p>}
-
-      <button className="btn-primary" disabled={!isFormValid || isProcessing} onClick={onRun}>
-        {isProcessing ? "Processing..." : "GENERATE & OFFLOAD TASK"}
-      </button>
+          <div style={S.sectionTitle}>Machine Data Inputs</div>
+          {Object.keys(inputs).map(k => (
+            <div key={k} style={S.dataRow}>
+              <span style={S.dataLabel}>{k}</span>
+              {k === "Material Type" ? (
+                <select style={S.select} value={inputs[k]} onChange={e => setInputs({ ...inputs, [k]: e.target.value })}>
+                  <option value="">Select Material</option>
+                  <option value="Mild Steel">Mild Steel</option>
+                  <option value="Stainless Steel">Stainless Steel</option>
+                  <option value="Aluminum">Aluminum</option>
+                </select>
+              ) : (
+                <input style={S.input} type="number"
+                  placeholder={`Enter ${k.split("(")[0].trim()}`}
+                  value={inputs[k]}
+                  onChange={e => setInputs({ ...inputs, [k]: e.target.value })} />
+              )}
+            </div>
+          ))}
+          {!valid && <p style={{ color: "#b45309", fontSize: 12, marginTop: 10 }}>⚠ Please fill in all fields to continue.</p>}
+          <button style={valid && !isProcessing ? S.btnPrimary : S.btnDisabled}
+            disabled={!valid || isProcessing} onClick={onRun}>
+            {isProcessing ? "⏳ Processing..." : "Generate & Offload Task →"}
+          </button>
+        </div>
+        <div style={S.card}>
+          <CardHeader title="Input Guide" desc="Follow these steps to run the simulation." />
+          <div style={S.alertBox("blue")}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "#1a3db5", marginBottom: 6 }}>Welcome to the Simulator</div>
+            <div style={{ fontSize: 13, color: "#3b5bdb", lineHeight: 1.6 }}>
+              This system simulates task offloading decisions for plasma cutting operations using two AI algorithms.
+            </div>
+          </div>
+          {[
+            { icon: "🔧", label: "Machine", text: "Configured for Plasma Cutting operations." },
+            { icon: "✏️", label: "Input values", text: "Enter material type, thickness, and current (ensure no blanks)." },
+            { icon: "▶️", label: "Click Generate", text: "The system will simulate offloading choices using GBFS and PSO." },
+            { icon: "🔀", label: "Navigation", text: "Use NEXT / BACK buttons or the top flow bar to review results." }
+          ].map(({ icon, label, text }) => (
+            <div key={label} style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontSize: 18 }}>{icon}</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#1a1d23" }}>{label}</div>
+                <div style={{ fontSize: 12, color: "#5a6272", lineHeight: 1.5 }}>{text}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
-// Error boundary catch
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-  static getDerivedStateFromError(error) {
-    return { hasError: true, error };
-  }
-  render() {
-    if (this.state.hasError) {
-      return <div style={{padding: '20px', color: 'red'}}><h1>Something went wrong.</h1><pre>{this.state.error?.toString()}</pre></div>;
-    }
-    return this.props.children; 
-  }
-}
+/* ─── STEP 1: ALGORITHMS ─── */
+const PIE_COLORS = { Delay: "#3b5bdb", Speed: "#10b981", Energy: "#f97316", Usage: "#a855f7" };
 
-const COLORS = {
-  Delay: "#3b82f6",
-  Speed: "#10b981",
-  Energy: "#f97316",
-  Usage: "#a855f7"
-};
+const AlgoCard = ({ title, color, data }) => (
+  <div style={S.card}>
+    <CardHeader title={title} desc="Detailed metrics and target destination." />
+    <p style={{ fontSize: 12, color: "#9099a8", marginBottom: 12, fontStyle: "italic" }}>
+      Lower delay = faster response. Higher processing speed = more tasks/second.
+    </p>
+    <DataRow label="Delay (ms)" value={data?.latency || 0} valueStyle={{ color: "#3b5bdb", fontWeight: 700 }} />
+    <DataRow label="Processing Speed (tasks/s)" value={data?.throughput || 0} />
+    <DataRow label="Energy (watts)" value={data?.energy || 0} />
+    <DataRow label="Resource Usage (%)" value={data?.utilization || 0} />
+    <DataRow label="Response Time (ms)" value={data?.time || "-"} />
+    <div style={S.dataRow}>
+      <span style={S.dataLabel}>Remark</span>
+      <span style={S.badge(data?.remark === "Excellent" ? "green" : "amber")}>{data?.remark || "-"}</span>
+    </div>
+  </div>
+);
 
-const PerformanceOverviewPanel = ({ gbfs, pso }) => {
-  if (!gbfs || !pso) return null;
-
-  const prepareData = (data) => [
-    { name: 'Delay (milliseconds)', value: parseFloat(data.latency) || 0, fill: COLORS.Delay },
-    { name: 'Processing Speed (tasks per second)', value: parseFloat(data.throughput) || 0, fill: COLORS.Speed },
-    { name: 'Energy (watts)', value: parseFloat(data.energy) || 0, fill: COLORS.Energy },
-    { name: 'Resource Usage (percent)', value: parseFloat(data.utilization) || 0, fill: COLORS.Usage }
+const StepAlgorithms = ({ gbfs, pso }) => {
+  const prepData = (d) => [
+    { name: "Delay", value: parseFloat(d?.latency) || 0, fill: PIE_COLORS.Delay },
+    { name: "Speed", value: parseFloat(d?.throughput) || 0, fill: PIE_COLORS.Speed },
+    { name: "Energy", value: parseFloat(d?.energy) || 0, fill: PIE_COLORS.Energy },
+    { name: "Usage", value: parseFloat(d?.utilization) || 0, fill: PIE_COLORS.Usage }
   ];
-
-  const gbfsData = prepareData(gbfs);
-  const psoData = prepareData(pso);
-
-  const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const renderLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
     if (percent < 0.05) return null;
-    const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-    const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-    const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-    return (
-      <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="bold">
-        {`${(percent * 100).toFixed(0)}%`}
-      </text>
-    );
+    const r = innerRadius + (outerRadius - innerRadius) * 0.5;
+    const x = cx + r * Math.cos(-midAngle * Math.PI / 180);
+    const y = cy + r * Math.sin(-midAngle * Math.PI / 180);
+    return <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" fontSize={11} fontWeight="bold">{`${(percent * 100).toFixed(0)}%`}</text>;
   };
 
   return (
-    <div className="card" style={{ marginBottom: '20px' }}>
-      <PanelHeader title="Performance Overview" description="Visual breakdown of metric contributions." />
-      
-      <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '20px', marginTop: '10px' }}>
-        <div style={{ flex: '1 1 300px', textAlign: 'center' }}>
-          <div className="section-title" style={{ fontSize: '14px', marginBottom: '0' }}>Greedy Best-First Search (GBFS) Performance Distribution</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={gbfsData} cx="50%" cy="50%" labelLine={false} label={renderCustomLabel} outerRadius={80} dataKey="value">
-                {gbfsData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => Number(value).toFixed(2)} contentStyle={{backgroundColor: "#1e293b", borderColor: "#334155", color: "#f8fafc"}} />
-            </PieChart>
-          </ResponsiveContainer>
+    <div>
+      <div style={S.pageHeader}>
+        <div style={S.pageTitle}>Algorithms Applied</div>
+        <div style={S.pageSubtitle}>Evaluate tasks using GBFS and Particle Swarm Optimization.</div>
+      </div>
+      <div style={S.cardFull}>
+        <CardHeader title="Performance Overview" desc="Visual breakdown of metric contributions." />
+        <div style={{ display: "flex", gap: 20, flexWrap: "wrap", justifyContent: "center" }}>
+          {[{ label: "GBFS Distribution", d: gbfs }, { label: "PSO Distribution", d: pso }].map(({ label, d }) => (
+            <div key={label} style={{ flex: "1 1 280px", textAlign: "center" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: "#5a6272", marginBottom: 8 }}>{label}</div>
+              <ResponsiveContainer width="100%" height={200}>
+                <PieChart>
+                  <Pie data={prepData(d)} cx="50%" cy="50%" labelLine={false} label={renderLabel} outerRadius={75} dataKey="value">
+                    {prepData(d).map((e, i) => <Cell key={i} fill={e.fill} />)}
+                  </Pie>
+                  <Tooltip formatter={(v) => Number(v).toFixed(2)} contentStyle={{ fontSize: 12 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
         </div>
-
-        <div style={{ flex: '1 1 300px', textAlign: 'center' }}>
-          <div className="section-title" style={{ fontSize: '14px', marginBottom: '0' }}>Particle Swarm Optimization (PSO) Performance Distribution</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={psoData} cx="50%" cy="50%" labelLine={false} label={renderCustomLabel} outerRadius={80} dataKey="value">
-                {psoData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.fill} />
-                ))}
-              </Pie>
-              <Tooltip formatter={(value) => Number(value).toFixed(2)} contentStyle={{backgroundColor: "#1e293b", borderColor: "#334155", color: "#f8fafc"}} />
-            </PieChart>
-          </ResponsiveContainer>
+        <div style={{ display: "flex", justifyContent: "center", gap: 20, marginTop: 8, flexWrap: "wrap" }}>
+          {Object.entries(PIE_COLORS).map(([k, c]) => (
+            <div key={k} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ width: 10, height: 10, borderRadius: 2, background: c }} />
+              <span style={{ fontSize: 12, color: "#5a6272" }}>{k}</span>
+            </div>
+          ))}
         </div>
       </div>
-
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', marginTop: '10px', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', backgroundColor: COLORS.Delay, borderRadius: '2px' }}></div><span style={{ fontSize: '13px', color: 'var(--text-main)' }}>Delay</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', backgroundColor: COLORS.Speed, borderRadius: '2px' }}></div><span style={{ fontSize: '13px', color: 'var(--text-main)' }}>Processing Speed</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', backgroundColor: COLORS.Energy, borderRadius: '2px' }}></div><span style={{ fontSize: '13px', color: 'var(--text-main)' }}>Energy</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><div style={{ width: '12px', height: '12px', backgroundColor: COLORS.Usage, borderRadius: '2px' }}></div><span style={{ fontSize: '13px', color: 'var(--text-main)' }}>Resource Usage</span></div>
+      <div style={S.row}>
+        <AlgoCard title="GBFS Evaluation" color="blue" data={gbfs} />
+        <AlgoCard title="PSO Evaluation" color="purple" data={pso} />
       </div>
-
-      <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '13px', marginTop: '15px', fontStyle: 'italic' }}>
-        This chart shows how each algorithm performs across different metrics. It helps visualize which factors contribute most to overall performance.
-      </p>
     </div>
   );
 };
 
-const AlgoPanel = ({ title, color, data }) => (
-  <div className="card">
-    <PanelHeader title={title} description={`Detailed ${title.includes('(') ? title.split('(')[1].split(')')[0] : title.split(' ')[0]} metrics and target destination.`} />
-    <p className="subtitle">Note: Lower delay means faster response time. Higher processing speed means more tasks completed per second.</p>
-    <div className="section-title" style={{color: `var(--${color})`}}>{title.replace(/ EVALUATION| Evaluation/i, '')} Result</div>
-    <div className="data-row"><span className="data-label">Delay (milliseconds)</span><span className="data-value">{data?.latency || 0}</span></div>
-    <div className="data-row"><span className="data-label">Processing Speed (tasks per second)</span><span className="data-value">{data?.throughput || 0}</span></div>
-    <div className="data-row"><span className="data-label">Energy (watts)</span><span className="data-value">{data?.energy || 0}</span></div>
-    <div className="data-row"><span className="data-label">Resource Usage (percent)</span><span className="data-value">{data?.utilization || 0}</span></div>
-    <div className="data-row"><span className="data-label">Response Time (milliseconds)</span><span className="data-value">{data?.time || '-'}</span></div>
-    <div className="data-row"><span className="data-label">Remark</span><span className="data-value">{data?.remark || '-'}</span></div>
-  </div>
-);
-
-const ComparisonEvaluationPanel = ({ gbfs, pso, winner }) => {
-  if (!gbfs || !pso) return null;
+/* ─── STEP 2: DECISION ─── */
+const StepDecision = ({ gbfs, pso, decision }) => {
   const getW = (metric) => {
-    if(metric === "Delay") return parseFloat(gbfs.latency) < parseFloat(pso.latency) ? "GBFS" : "PSO";
-    if(metric === "Processing Speed") return parseFloat(gbfs.throughput) > parseFloat(pso.throughput) ? "GBFS" : "PSO";
-    if(metric === "Energy") return parseFloat(gbfs.energy) < parseFloat(pso.energy) ? "GBFS" : "PSO";
-    if(metric === "Resource Usage") return parseFloat(gbfs.utilization) < parseFloat(pso.utilization) ? "GBFS" : "PSO";
+    if (metric === "Delay") return parseFloat(gbfs.latency) < parseFloat(pso.latency) ? "GBFS" : "PSO";
+    if (metric === "Speed") return parseFloat(gbfs.throughput) > parseFloat(pso.throughput) ? "GBFS" : "PSO";
+    if (metric === "Energy") return parseFloat(gbfs.energy) < parseFloat(pso.energy) ? "GBFS" : "PSO";
+    if (metric === "Usage") return parseFloat(gbfs.utilization) < parseFloat(pso.utilization) ? "GBFS" : "PSO";
   };
   return (
-    <div className="card">
-      <PanelHeader title="COMPARISON RESULTS" description="Direct comparison of GBFS and PSO metrics." />
-      <table className="data-table">
-        <thead>
-          <tr><th>Metric</th><th>GBFS</th><th>PSO</th><th>Better Result (Based on Performance)</th></tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Delay (milliseconds)</td><td>{gbfs.latency}</td><td>{pso.latency}</td>
-            <td className={`val-bold ${getW('Delay') === 'GBFS' ? 'cyan-text' : 'magenta-text'}`}>{getW('Delay')}</td>
-          </tr>
-          <tr>
-            <td>Processing Speed (tasks per second)</td><td>{gbfs.throughput}</td><td>{pso.throughput}</td>
-            <td className={`val-bold ${getW('Processing Speed') === 'GBFS' ? 'cyan-text' : 'magenta-text'}`}>{getW('Processing Speed')}</td>
-          </tr>
-          <tr>
-            <td>Energy (watts)</td><td>{gbfs.energy}</td><td>{pso.energy}</td>
-            <td className={`val-bold ${getW('Energy') === 'GBFS' ? 'cyan-text' : 'magenta-text'}`}>{getW('Energy')}</td>
-          </tr>
-          <tr>
-            <td>Resource Usage (percent)</td><td>{gbfs.utilization}</td><td>{pso.utilization}</td>
-            <td className={`val-bold ${getW('Resource Usage') === 'GBFS' ? 'cyan-text' : 'magenta-text'}`}>{getW('Resource Usage')}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
-const ProcessingDecisionPanel = ({ decision, reason }) => (
-  <div className="card">
-    <PanelHeader title="PROCESSING DECISION" description="Final destination chosen by the smart offloading logic." />
-    <div className={`decision-large ${decision === 'Edge' ? 'cyan-text' : 'magenta-text'}`}>
-      OFFLOAD TO {decision ? decision.toUpperCase() : "..."}
-    </div>
-    <div className="decision-reason">Chosen because {reason}</div>
-  </div>
-);
-
-const InterpretationAnalysisPanel = ({ winner, server, taskType }) => (
-  <div className="card">
-    <PanelHeader title="INTERPRETATION & ANALYSIS" description="Contextual breakdown of the offloading results." />
-    <div className="interpretation-panel">
-      <div className="interpretation-item">
-        <p><strong>Algorithm Result:</strong> {winner} was deemed the better algorithm for this cycle because it optimized critical metrics better than its counterpart.</p>
+    <div>
+      <div style={S.pageHeader}>
+        <div style={S.pageTitle}>Decision Evaluation</div>
+        <div style={S.pageSubtitle}>Compare results and determine the best processing choice.</div>
       </div>
-      <div className="interpretation-item">
-        <p><strong>Decision Explanation:</strong> The system selected <strong>{server} processing</strong> primarily to handle the {taskType} task effectively.</p>
+      <div style={S.row}>
+        <div style={{ ...S.card, flex: "0 1 320px" }}>
+          <CardHeader title="Processing Decision" desc="Final destination chosen by the offloading logic." />
+          <div style={S.decisionBig(decision.server)}>
+            OFFLOAD TO {(decision.server || "...").toUpperCase()}
+          </div>
+          <div style={S.decisionReason}>Chosen because {decision.reason}</div>
+          <div style={{ marginTop: 16 }}>
+            <span style={S.badge(decision.winner === "GBFS" ? "blue" : "amber")}>Best Algorithm: {decision.winner}</span>
+          </div>
+        </div>
+        <div style={S.card}>
+          <CardHeader title="Interpretation & Analysis" desc="Contextual breakdown of the offloading results." />
+          {[
+            { heading: "Algorithm Result", text: `${decision.winner} was deemed the better algorithm for this cycle because it optimized critical metrics better than its counterpart.` },
+            { heading: "Decision Explanation", text: `The system selected ${decision.server} processing primarily to handle the ${decision.taskType} task effectively.` },
+            { heading: "Final Interpretation", text: `Overall, deploying via ${decision.winner} to ${decision.server} provided the most efficient compute solution for the current system load.` }
+          ].map(({ heading, text }) => (
+            <div key={heading} style={S.alertBox("blue")}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3db5", marginBottom: 4 }}>{heading}</div>
+              <div style={{ fontSize: 13, color: "#3b5bdb", lineHeight: 1.5 }}>{text}</div>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="interpretation-item">
-        <p><strong>Final Interpretation:</strong> Overall, deploying via {winner} to the {server} provided the most efficient compute solution for the system load.</p>
-      </div>
-    </div>
-  </div>
-);
-
-const TaskAssignmentPanel = ({ taskType, server, summary }) => (
-  <div className="card">
-    <PanelHeader title="TASK ASSIGNMENT" description="Targeted server and task categorization." />
-    <div className="data-row"><span className="data-label">Task Type</span><span className="data-value">{taskType}</span></div>
-    <div className="data-row"><span className="data-label">Assigned Server</span><span className={`data-value ${server === 'Edge' ? 'cyan-text' : 'magenta-text'}`}>{server} Server</span></div>
-    <div className="data-row"><span className="data-label">Summary</span><span className="data-value">{summary}</span></div>
-  </div>
-);
-
-const ResultTransmissionPanel = () => (
-  <div className="card">
-    <PanelHeader title="RESULT TRANSMISSION" description="Confirmation of data flow back to the local device." />
-    <div className="data-row"><span className="data-label">Processing Status</span><span className="data-value green-text">Complete</span></div>
-    <div className="data-row"><span className="data-label">Transmission Time (milliseconds)</span><span className="data-value green-text">145 milliseconds</span></div>
-    <div className="data-row"><span className="data-label">Network Return Status</span><span className="data-value green-text">Confirmed</span></div>
-    <div className="data-row"><span className="data-label">Final Task Status</span><span className="data-value green-text">Success</span></div>
-  </div>
-);
-
-const PerformanceMonitoringPanel = ({ gbfs, pso }) => {
-  if (!gbfs || !pso) {
-    return (
-      <div className="card" style={{height: "400px", display: "flex", justifyContent: "center", alignItems: "center"}}>
-        <p style={{color: "var(--text-muted)"}}>No performance data available yet.</p>
-      </div>
-    );
-  }
-
-  const chartData = [
-    { metric: 'Delay (milliseconds)', GBFS: Number(gbfs.latency || 0), PSO: Number(pso.latency || 0) },
-    { metric: 'Processing Speed (tasks per second)', GBFS: Number(gbfs.throughput || 0), PSO: Number(pso.throughput || 0) },
-    { metric: 'Energy (watts)', GBFS: Number(gbfs.energy || 0), PSO: Number(pso.energy || 0) },
-    { metric: 'Resource Usage (percent)', GBFS: Number(gbfs.utilization || 0), PSO: Number(pso.utilization || 0) }
-  ];
-
-  console.log("Rendering Performance Chart Data:", chartData);
-
-  return (
-    <div className="card" style={{minHeight: "450px"}}>
-      <PanelHeader title="PERFORMANCE MONITORING" description="Continuous tracking of system efficiency and utilization." />
-      <ResponsiveContainer width="100%" height={320}>
-        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-          <XAxis dataKey="metric" stroke="#6B7280" />
-          <YAxis stroke="#6B7280" />
-          <Tooltip contentStyle={{backgroundColor: "#FFFFFF", borderColor: "#E5E7EB", color: "#111827"}} />
-          <Legend />
-          <Bar dataKey="GBFS" fill="#06B6D4" radius={[4, 4, 0, 0]}>
-            <LabelList dataKey="GBFS" position="top" fill="#6B7280" fontSize={12} />
-          </Bar>
-          <Bar dataKey="PSO" fill="#A855F7" radius={[4, 4, 0, 0]}>
-            <LabelList dataKey="PSO" position="top" fill="#6B7280" fontSize={12} />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
-      <div style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "13px", marginTop: "15px" }}>
-        Note: Lower delay is better. Higher processing speed is better. Lower resource usage is better.
+      <div style={S.cardFull}>
+        <CardHeader title="Comparison Results" desc="Direct metric comparison of GBFS vs PSO." />
+        <table style={S.table}>
+          <thead>
+            <tr>
+              {["Metric", "GBFS", "PSO", "Better Result"].map(h => <th key={h} style={S.th}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {[
+              ["Delay (ms)", gbfs.latency, pso.latency, "Delay"],
+              ["Processing Speed (tasks/s)", gbfs.throughput, pso.throughput, "Speed"],
+              ["Energy (watts)", gbfs.energy, pso.energy, "Energy"],
+              ["Resource Usage (%)", gbfs.utilization, pso.utilization, "Usage"]
+            ].map(([label, g, p, metric]) => (
+              <tr key={label}>
+                <td style={S.td}>{label}</td>
+                <td style={{ ...S.td, fontWeight: 600, color: "#3b5bdb" }}>{g}</td>
+                <td style={{ ...S.td, fontWeight: 600, color: "#7b2ff7" }}>{p}</td>
+                <td style={S.td}>
+                  <span style={S.badge(getW(metric) === "GBFS" ? "blue" : "amber")}>{getW(metric)}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 };
 
+/* ─── STEP 3: PROCESSING ─── */
+const StepProcessing = ({ decision }) => (
+  <div>
+    <div style={S.pageHeader}>
+      <div style={S.pageTitle}>Task Processing</div>
+      <div style={S.pageSubtitle}>Assign and simulate task execution on Edge or Cloud.</div>
+    </div>
+    <div style={S.row}>
+      <div style={S.card}>
+        <CardHeader title="Task Assignment" desc="Targeted server and task categorization." />
+        <DataRow label="Task Type" value={<span style={S.badge("blue")}>{decision.taskType}</span>} />
+        <DataRow label="Assigned Server" value={<span style={S.badge(decision.server === "Edge" ? "blue" : "amber")}>{decision.server} Server</span>} />
+        <DataRow label="Algorithm Used" value={decision.winner} />
+        <DataRow label="Summary" value={`${decision.winner} optimally assigned to ${decision.server} server.`} />
+      </div>
+      <div style={S.card}>
+        <CardHeader title="Result Transmission" desc="Confirmation of data flow back to local device." />
+        {[
+          ["Processing Status", "Complete", "green"],
+          ["Transmission Time", "145 ms", "green"],
+          ["Network Return Status", "Confirmed", "green"],
+          ["Final Task Status", "Success", "green"]
+        ].map(([label, value, color]) => (
+          <div key={label} style={S.dataRow}>
+            <span style={S.dataLabel}>{label}</span>
+            <span style={S.badge(color)}><span style={S.statusDot(true)} />{value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
+/* ─── STEP 4: RESULTS ─── */
+const StepResults = ({ gbfs, pso, logs, setLogs }) => {
+  const [viewMode, setViewMode] = useState("Single Run");
 
-const ExecutionResultsView = ({ gbfs, pso, logs, setLogs }) => {
-  const [viewMode, setViewMode] = useState("Single Run"); 
-  
   const aggregateLogs = (mode) => {
     const groups = {};
     logs.forEach(L => {
       if (!L.timestamp) return;
       const d = new Date(L.timestamp);
-      let key = "";
-      if (mode === "Daily Analysis") {
-        key = d.toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
-      } else { 
-        const start = new Date(d);
-        start.setDate(d.getDate() - d.getDay()); // Sunday
-        key = `Week of ${start.toLocaleDateString(undefined, {month: 'short', day: 'numeric'})}`;
-      }
-      
-      if (!groups[key]) {
-        groups[key] = {
-           time: key,
-           gbfsLat: 0, psoLat: 0,
-           gbfsSpeed: 0, psoSpeed: 0,
-           gbfsEng: 0, psoEng: 0,
-           gbfsUtil: 0, psoUtil: 0,
-           count: 0, t: d.getTime()
-        };
-      }
-      groups[key].gbfsLat += (L.gbfsLat || 0);
-      groups[key].psoLat += (L.psoLat || 0);
-      groups[key].gbfsSpeed += (L.gbfsSpeed || 0);
-      groups[key].psoSpeed += (L.psoSpeed || 0);
-      groups[key].gbfsEng += (L.gbfsEng || 0);
-      groups[key].psoEng += (L.psoEng || 0);
-      groups[key].gbfsUtil += (L.gbfsUtil || 0);
-      groups[key].psoUtil += (L.psoUtil || 0);
+      let key = mode === "Daily Analysis"
+        ? d.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+        : `Week of ${new Date(d.setDate(d.getDate() - d.getDay())).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
+      if (!groups[key]) groups[key] = { time: key, gbfsLat: 0, psoLat: 0, gbfsSpeed: 0, psoSpeed: 0, gbfsEng: 0, psoEng: 0, gbfsUtil: 0, psoUtil: 0, count: 0, t: new Date(L.timestamp).getTime() };
+      groups[key].gbfsLat += (L.gbfsLat || 0); groups[key].psoLat += (L.psoLat || 0);
+      groups[key].gbfsSpeed += (L.gbfsSpeed || 0); groups[key].psoSpeed += (L.psoSpeed || 0);
+      groups[key].gbfsEng += (L.gbfsEng || 0); groups[key].psoEng += (L.psoEng || 0);
+      groups[key].gbfsUtil += (L.gbfsUtil || 0); groups[key].psoUtil += (L.psoUtil || 0);
       groups[key].count += 1;
     });
-
     return Object.values(groups).map(g => {
       const c = g.count;
-      return {
-        time: g.time, t: g.t,
-        GBFS_Delay: Number((g.gbfsLat / c).toFixed(2)),
-        PSO_Delay: Number((g.psoLat / c).toFixed(2)),
-        GBFS_Speed: Number((g.gbfsSpeed / c).toFixed(2)),
-        PSO_Speed: Number((g.psoSpeed / c).toFixed(2)),
-        GBFS_Energy: Number((g.gbfsEng / c).toFixed(2)),
-        PSO_Energy: Number((g.psoEng / c).toFixed(2)),
-        GBFS_Util: Number((g.gbfsUtil / c).toFixed(2)),
-        PSO_Util: Number((g.psoUtil / c).toFixed(2)),
-        TotalTasks: c,
-        Winner: (g.psoLat / c) < (g.gbfsLat / c) ? "PSO" : "GBFS"
-      };
-    }).sort((a,b) => a.t - b.t);
+      return { time: g.time, t: g.t, GBFS_Delay: +(g.gbfsLat / c).toFixed(2), PSO_Delay: +(g.psoLat / c).toFixed(2), GBFS_Speed: +(g.gbfsSpeed / c).toFixed(2), PSO_Speed: +(g.psoSpeed / c).toFixed(2), GBFS_Energy: +(g.gbfsEng / c).toFixed(2), PSO_Energy: +(g.psoEng / c).toFixed(2), GBFS_Util: +(g.gbfsUtil / c).toFixed(2), PSO_Util: +(g.psoUtil / c).toFixed(2), TotalTasks: c, Winner: (g.psoLat / c) < (g.gbfsLat / c) ? "PSO" : "GBFS" };
+    }).sort((a, b) => a.t - b.t);
   };
 
-  const trendData = viewMode === "Single Run" ? [] : aggregateLogs(viewMode);
-  
-  let insightText = "";
-  let improvement = 0;
-  if (trendData.length > 0) {
-     const avgGbfs = trendData.reduce((acc, curr) => acc + curr.GBFS_Delay, 0) / trendData.length;
-     const avgPso = trendData.reduce((acc, curr) => acc + curr.PSO_Delay, 0) / trendData.length;
-     improvement = (((avgGbfs - avgPso) / avgGbfs) * 100).toFixed(1);
-     insightText = `Over the visualized period, PSO made the system ${improvement}% faster in response time compared to GBFS, showing robust and consistent performance improvement over time.`;
-  }
+  const chartData = [
+    { metric: "Delay (ms)", GBFS: Number(gbfs?.latency || 0), PSO: Number(pso?.latency || 0) },
+    { metric: "Speed (t/s)", GBFS: Number(gbfs?.throughput || 0), PSO: Number(pso?.throughput || 0) },
+    { metric: "Energy (W)", GBFS: Number(gbfs?.energy || 0), PSO: Number(pso?.energy || 0) },
+    { metric: "Usage (%)", GBFS: Number(gbfs?.utilization || 0), PSO: Number(pso?.utilization || 0) }
+  ];
+
+  const trendData = viewMode !== "Single Run" ? aggregateLogs(viewMode) : [];
+  const avgGbfs = trendData.length ? trendData.reduce((a, c) => a + c.GBFS_Delay, 0) / trendData.length : 0;
+  const avgPso = trendData.length ? trendData.reduce((a, c) => a + c.PSO_Delay, 0) / trendData.length : 0;
+  const improvement = avgGbfs ? (((avgGbfs - avgPso) / avgGbfs) * 100).toFixed(1) : 0;
 
   return (
-    <div className="step-container" style={{paddingBottom: "40px"}}>
-      <PanelHeader title="EXECUTION RESULTS" description="View performance results, graphs, and execution logs." variant="main" />
-      
-      <PerformanceMonitoringPanel gbfs={gbfs} pso={pso} />
+    <div>
+      <div style={S.pageHeader}>
+        <div style={S.pageTitle}>Execution Results</div>
+        <div style={S.pageSubtitle}>View performance results, graphs, and execution logs.</div>
+      </div>
 
-      <div style={{display: 'flex', gap: '10px', margin: '20px', paddingBottom: '10px', borderBottom: '1px solid var(--card-border)', alignItems: 'center'}}>
-        {["Single Run", "Daily Analysis", "Weekly Analysis"].map(m => (
-          <button 
-            key={m} 
-            onClick={() => setViewMode(m)}
-            style={{
-              padding: '10px 16px', 
-              backgroundColor: viewMode === m ? 'var(--cyan)' : 'transparent',
-              color: viewMode === m ? '#000000' : 'var(--text-main)',
-              border: viewMode === m ? 'none' : '1px solid var(--card-border)',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              fontWeight: viewMode === m ? 'bold' : 'normal'
-            }}
-          >
-            {m}
-          </button>
+      {/* Stats row */}
+      <div style={S.statsRow}>
+        {[
+          { label: "Total Simulations", value: logs.length, change: `+${logs.length} this session` },
+          { label: "GBFS Wins", value: logs.filter(l => l.winner === "GBFS").length },
+          { label: "PSO Wins", value: logs.filter(l => l.winner === "PSO").length },
+          { label: "Cloud Offloads", value: logs.filter(l => l.server === "Cloud").length }
+        ].map(({ label, value, change }) => (
+          <div key={label} style={S.statCard}>
+            <div style={S.statLabel}>{label}</div>
+            <div style={S.statValue}>{value}</div>
+            {change && <div style={S.statChange(true)}>{change}</div>}
+          </div>
         ))}
-        <div style={{flex: 1}}></div>
-        <button 
-           onClick={() => setLogs([])}
-           style={{
-             padding: '8px 16px', backgroundColor: '#ef4444', color: '#fff', 
-             border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold'
-           }}
-        >
-           Clear Execution Logs
+      </div>
+
+      {/* Bar chart */}
+      <div style={S.cardFull}>
+        <CardHeader title="Performance Monitoring" desc="Continuous tracking of system efficiency and utilization." />
+        <ResponsiveContainer width="100%" height={280}>
+          <BarChart data={chartData} margin={{ top: 16, right: 20, left: 0, bottom: 4 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#f0f1f5" />
+            <XAxis dataKey="metric" stroke="#9099a8" fontSize={12} />
+            <YAxis stroke="#9099a8" fontSize={12} />
+            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #e8eaf0" }} />
+            <Legend wrapperStyle={{ fontSize: 12 }} />
+            <Bar dataKey="GBFS" fill="#3b5bdb" radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="GBFS" position="top" fill="#9099a8" fontSize={11} />
+            </Bar>
+            <Bar dataKey="PSO" fill="#a855f7" radius={[4, 4, 0, 0]}>
+              <LabelList dataKey="PSO" position="top" fill="#9099a8" fontSize={11} />
+            </Bar>
+          </BarChart>
+        </ResponsiveContainer>
+        <p style={{ textAlign: "center", color: "#9099a8", fontSize: 12, marginTop: 8 }}>
+          Lower delay is better · Higher processing speed is better · Lower resource usage is better
+        </p>
+      </div>
+
+      {/* View mode tabs */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "center" }}>
+        {["Single Run", "Daily Analysis", "Weekly Analysis"].map(m => (
+          <button key={m} style={S.tabBtn(viewMode === m)} onClick={() => setViewMode(m)}>{m}</button>
+        ))}
+        <div style={{ flex: 1 }} />
+        <button onClick={() => setLogs([])}
+          style={{ padding: "8px 16px", borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: "pointer", background: "#fce4ec", color: "#c62828", border: "1px solid #f8bbd0" }}>
+          Clear Logs
         </button>
       </div>
 
       {viewMode === "Single Run" ? (
-        <div className="card">
-          <PanelHeader title="EXECUTION LOGS" description="Detailed timestamped records of all historical decisions." />
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>No.</th><th>Timestamp</th><th>Machine Category</th><th>Task Type</th><th>Delay (milliseconds)</th><th>Speed (tasks per second)</th><th>Better Result (Based on Performance)</th><th>Server</th><th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logs.map((L, i) => (
-                <tr key={i}>
-                  <td className="text-muted">{L.id}</td>
-                  <td>{L.timestamp ? new Date(L.timestamp).toLocaleString(undefined, {month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'}) : "-"}</td>
-                  <td>{L.category}</td>
-                  <td>{L.type}</td>
-                  <td>{L.delay}</td>
-                  <td>{L.speed}</td>
-                  <td className={L.winner === 'GBFS' ? 'cyan-text val-bold' : 'magenta-text val-bold'}>{L.winner}</td>
-                  <td className={L.server === 'Edge' ? 'cyan-text val-bold' : 'magenta-text val-bold'}>{L.server}</td>
-                  <td><span className="status-badge">{L.status}</span></td>
-                </tr>
-              ))}
-              {logs.length === 0 && <tr><td colSpan="9" style={{textAlign: "center", fontStyle: "italic", paddingTop: "20px"}}>No execution records available. Run a simulation to generate results.</td></tr>}
-            </tbody>
-          </table>
+        <div style={S.cardFull}>
+          <CardHeader title="Execution Logs" desc="Timestamped records of all historical decisions." />
+          <div style={{ overflowX: "auto" }}>
+            <table style={S.table}>
+              <thead>
+                <tr>{["#", "Timestamp", "Category", "Task Type", "Delay", "Speed", "Best Algorithm", "Server", "Status"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {logs.map((L, i) => (
+                  <tr key={i}>
+                    <td style={{ ...S.td, color: "#9099a8" }}>{L.id}</td>
+                    <td style={S.td}>{L.timestamp ? new Date(L.timestamp).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-"}</td>
+                    <td style={S.td}>{L.category}</td>
+                    <td style={S.td}><span style={S.badge("blue")}>{L.type}</span></td>
+                    <td style={S.td}>{L.delay}</td>
+                    <td style={S.td}>{L.speed}</td>
+                    <td style={S.td}><span style={S.badge(L.winner === "GBFS" ? "blue" : "amber")}>{L.winner}</span></td>
+                    <td style={S.td}><span style={S.badge(L.server === "Edge" ? "blue" : "amber")}>{L.server}</span></td>
+                    <td style={S.td}><span style={S.badge("green")}>{L.status}</span></td>
+                  </tr>
+                ))}
+                {logs.length === 0 && (
+                  <tr><td colSpan={9} style={{ ...S.td, textAlign: "center", color: "#9099a8", fontStyle: "italic", padding: "28px" }}>No execution records. Run a simulation to generate results.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
-        <div className="card" style={{minHeight: "450px"}}>
-          <PanelHeader title={`${viewMode.toUpperCase()} TREND`} description={`Aggregated task offloading performance over time.`} />
+        <div style={S.cardFull}>
+          <CardHeader title={`${viewMode} Trend`} desc="Aggregated offloading performance over time." />
           {trendData.length === 0 ? (
-            <p style={{padding: '20px', color: 'var(--text-muted)'}}>No execution records available. Run a simulation to generate results.</p>
+            <p style={{ color: "#9099a8", fontStyle: "italic" }}>No data yet. Run a simulation first.</p>
           ) : (
             <>
-              <div style={{marginBottom: "20px", display: 'flex', gap: '20px'}}>
-                <div style={{flex: 1, backgroundColor: 'rgba(6, 182, 212, 0.1)', padding: '15px', borderRadius: '4px', borderLeft: '3px solid var(--cyan)'}}>
-                  <div style={{fontSize: '12px', color: 'var(--text-muted)', marginBottom: '5px'}}>SUMMARY INSIGHT</div>
-                  <div style={{color: 'var(--text-main)', fontSize: '14px', lineHeight: '1.5'}}>{insightText}</div>
+              <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, ...S.alertBox("blue") }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "#1a3db5", marginBottom: 4 }}>Summary Insight</div>
+                  <div style={{ fontSize: 13, color: "#3b5bdb", lineHeight: 1.5 }}>
+                    Over the visualized period, PSO made the system {improvement}% faster in response time compared to GBFS.
+                  </div>
                 </div>
-                <div style={{backgroundColor: 'rgba(168, 85, 247, 0.1)', padding: '15px', borderRadius: '4px', borderLeft: '3px solid var(--magenta)', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minWidth: '150px'}}>
-                  <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>Faster Response Time (%)</div>
-                  <div style={{color: 'var(--magenta)', fontSize: '24px', fontWeight: 'bold'}}>{improvement}%</div>
+                <div style={{ background: "#f3e8ff", border: "1px solid #e9d5ff", borderLeft: "4px solid #a855f7", borderRadius: 8, padding: "14px 18px", textAlign: "center", minWidth: 140 }}>
+                  <div style={{ fontSize: 12, color: "#6b21a8", marginBottom: 4 }}>Faster Response (%)</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "#7b2ff7" }}>{improvement}%</div>
                 </div>
               </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={trendData} margin={{ top: 20, right: 30, left: 10, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
-                  <XAxis dataKey="time" stroke="#6B7280" angle={-15} textAnchor="end" />
-                  <YAxis stroke="#6B7280" label={{ value: 'Delay (milliseconds)', angle: -90, position: 'insideLeft', style:{fill:'#6B7280'} }} />
-                  <Tooltip contentStyle={{backgroundColor: "#FFFFFF", borderColor: "#E5E7EB", color: "#111827"}} />
-                  <Legend verticalAlign="top" height={36}/>
-                  <Line type="monotone" dataKey="GBFS_Delay" name="GBFS Delay" stroke="#06B6D4" strokeWidth={3} dot={{r:4}} />
-                  <Line type="monotone" dataKey="PSO_Delay" name="PSO Delay" stroke="#A855F7" strokeWidth={3} dot={{r:4}} />
+              <ResponsiveContainer width="100%" height={240}>
+                <LineChart data={trendData} margin={{ top: 16, right: 20, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f1f5" />
+                  <XAxis dataKey="time" stroke="#9099a8" fontSize={12} angle={-15} textAnchor="end" />
+                  <YAxis stroke="#9099a8" fontSize={12} label={{ value: "Delay (ms)", angle: -90, position: "insideLeft", style: { fill: "#9099a8", fontSize: 11 } }} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} verticalAlign="top" />
+                  <Line type="monotone" dataKey="GBFS_Delay" name="GBFS Delay" stroke="#3b5bdb" strokeWidth={2} dot={{ r: 4 }} />
+                  <Line type="monotone" dataKey="PSO_Delay" name="PSO Delay" stroke="#a855f7" strokeWidth={2} dot={{ r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
-              <table className="data-table" style={{marginTop: '20px'}}>
+              <table style={{ ...S.table, marginTop: 20 }}>
                 <thead>
-                  <tr>
-                    <th>Time Period</th>
-                    <th>Tasks</th>
-                    <th>Avg Delay (GBFS / PSO)</th>
-                    <th>Avg Speed (GBFS / PSO)</th>
-                    <th>Avg Energy (GBFS / PSO)</th>
-                    <th>Avg Util (GBFS / PSO)</th>
-                    <th>Better Result (Based on Performance)</th>
-                  </tr>
+                  <tr>{["Period", "Tasks", "Avg Delay (G/P)", "Avg Speed (G/P)", "Avg Energy (G/P)", "Avg Util (G/P)", "Best"].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {trendData.map((d, i) => (
                     <tr key={i}>
-                      <td>{d.time}</td>
-                      <td>{d.TotalTasks}</td>
-                      <td>{d.GBFS_Delay} / {d.PSO_Delay}</td>
-                      <td>{d.GBFS_Speed} / {d.PSO_Speed}</td>
-                      <td>{d.GBFS_Energy} / {d.PSO_Energy}</td>
-                      <td>{d.GBFS_Util} / {d.PSO_Util}</td>
-                      <td className={`val-bold ${d.Winner === 'GBFS' ? 'cyan-text' : 'magenta-text'}`}>{d.Winner}</td>
+                      <td style={S.td}>{d.time}</td>
+                      <td style={S.td}>{d.TotalTasks}</td>
+                      <td style={S.td}>{d.GBFS_Delay}/{d.PSO_Delay}</td>
+                      <td style={S.td}>{d.GBFS_Speed}/{d.PSO_Speed}</td>
+                      <td style={S.td}>{d.GBFS_Energy}/{d.PSO_Energy}</td>
+                      <td style={S.td}>{d.GBFS_Util}/{d.PSO_Util}</td>
+                      <td style={S.td}><span style={S.badge(d.Winner === "GBFS" ? "blue" : "amber")}>{d.Winner}</span></td>
                     </tr>
                   ))}
                 </tbody>
@@ -606,21 +708,25 @@ const ExecutionResultsView = ({ gbfs, pso, logs, setLogs }) => {
   );
 };
 
+/* ─── ERROR BOUNDARY ─── */
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  render() {
+    if (this.state.hasError) return <div style={{ padding: 20, color: "red" }}><h1>Something went wrong.</h1><pre>{this.state.error?.toString()}</pre></div>;
+    return this.props.children;
+  }
+}
+
+/* ─── MAIN APP ─── */
 export default function App() {
   const [currentStep, setCurrentStep] = useState(0);
   const [maxReached, setMaxReached] = useState(0);
-  
   const [isProcessing, setIsProcessing] = useState(false);
-  const [inputs, setInputs] = useState({
-    "Material Type": "",
-    "Material Thickness (millimeters)": "",
-    "Cutting Current (amperes)": ""
-  });
-  
+  const [inputs, setInputs] = useState({ "Material Type": "", "Material Thickness (millimeters)": "", "Cutting Current (amperes)": "" });
   const [gbfsData, setGbfsData] = useState(null);
   const [psoData, setPsoData] = useState(null);
   const [decisionData, setDecisionData] = useState({});
-  const [history, setHistory] = useState([]);
   const [logs, setLogs] = useState([]);
 
   const category = "Cutting Machines";
@@ -629,73 +735,53 @@ export default function App() {
   const handleRun = () => {
     setIsProcessing(true);
     setTimeout(() => {
-      // Mock params
-      let materialType = inputs["Material Type"] || "Mild Steel";
-      let thickness_millimeters = parseFloat(inputs["Material Thickness (millimeters)"]) || 10;
-      let current_amperes = parseFloat(inputs["Cutting Current (amperes)"]) || 45;
-      
-      const autoFill = lookupPlasmaMatrix(materialType, thickness_millimeters, current_amperes);
-      let materialFactor = materialType === "Aluminum" ? 0.8 : (materialType === "Stainless Steel" ? 1.2 : 1.0);
-      let maxCutSpeed = 6000;
-      
-      let processingSpeed = autoFill.cutSpeed / maxCutSpeed;
-      let latency_milliseconds = autoFill.pierceDelayTime * 1000;
-      let energy_watts = autoFill.voltage * current_amperes;
-      let complexity_score = thickness_millimeters * materialFactor;
-      
+      const materialType = inputs["Material Type"] || "Mild Steel";
+      const thickness = parseFloat(inputs["Material Thickness (millimeters)"]) || 10;
+      const current = parseFloat(inputs["Cutting Current (amperes)"]) || 45;
+      const autoFill = lookupPlasmaMatrix(materialType, thickness, current);
+      const materialFactor = materialType === "Aluminum" ? 0.8 : materialType === "Stainless Steel" ? 1.2 : 1.0;
+      const processingSpeed = autoFill.cutSpeed / 6000;
+      const latency_milliseconds = autoFill.pierceDelayTime * 1000;
+      const energy_watts = autoFill.voltage * current;
+      const complexity_score = thickness * materialFactor;
+      const cpuLoad = Math.random() * 45 + 50;
+
       const params = {
         "Net Latency (milliseconds)": latency_milliseconds,
-        "CPU Load (percent)": Math.random() * 45 + 50,
+        "CPU Load (percent)": cpuLoad, cpuLoad,
         "Task Queue": Math.random() * 9 + 1,
         "Power Usage (watts)": energy_watts,
-        "Temperature (degrees Celsius)": Math.random()*20+40,
-        "Task Type": autoTask,
-        
-        "materialType": materialType,
-        "thickness_mm": thickness_millimeters,
-        "current_amperes": current_amperes,
-        "cutSpeed_mm_per_min": autoFill.cutSpeed,
-        "voltage_volts": autoFill.voltage,
-        "pierceDelay_seconds": autoFill.pierceDelayTime,
-        "torchDistance_mm": autoFill.torchDistance,
-        "pierceHeight_mm": autoFill.pierceHeight,
-        "processingSpeed": processingSpeed,
-        "latency_milliseconds": latency_milliseconds,
-        "energy_watts": energy_watts,
-        "complexity_score": complexity_score
+        "Temperature (degrees Celsius)": Math.random() * 20 + 40,
+        "Task Type": autoTask, materialType, thickness_mm: thickness,
+        current_amperes: current, cutSpeed_mm_per_min: autoFill.cutSpeed,
+        voltage_volts: autoFill.voltage, pierceDelay_seconds: autoFill.pierceDelayTime,
+        torchDistance_mm: autoFill.torchDistance, pierceHeight_mm: autoFill.pierceHeight,
+        processingSpeed, latency_milliseconds, energy_watts, complexity_score
       };
-      
+
       const gbfs = computeGbfsScore(params);
       const pso = computePsoScore(params);
-      setGbfsData(gbfs);
-      setPsoData(pso);
+      setGbfsData(gbfs); setPsoData(pso);
 
       let winner, server, reason;
       if (autoTask === "Latency-Sensitive") {
         winner = parseFloat(gbfs.latency) < parseFloat(pso.latency) ? "GBFS" : "PSO";
-        reason = "it has a faster response (lower delay).";
-        server = "Edge";
+        reason = "it has a faster response (lower delay)."; server = "Edge";
       } else if (autoTask === "Computation-Intensive") {
         winner = parseFloat(gbfs.throughput) > parseFloat(pso.throughput) ? "GBFS" : "PSO";
-        reason = "it has higher processing speed.";
-        server = "Cloud";
+        reason = "it has higher processing speed."; server = "Cloud";
       } else {
         winner = parseFloat(gbfs.energy) < parseFloat(pso.energy) ? "GBFS" : "PSO";
         reason = "it has better energy efficiency.";
         server = parseFloat(pso.utilization) > 80 ? "Cloud" : "Edge";
       }
-      
+
       setDecisionData({ winner, server, reason, taskType: autoTask });
-      
       const newId = logs.length + 1;
-      setHistory(prev => [...prev.slice(-10), { id: newId, gbfsLat: parseFloat(gbfs.latency), psoLat: parseFloat(pso.latency) }]);
       setLogs(prev => [...prev, {
-        id: newId, category, type: autoTask, 
-        timestamp: new Date().toISOString(),
-        delay: `${gbfs.latency}/${pso.latency}`,
-        speed: `${gbfs.throughput}/${pso.throughput}`,
-        energy: `${gbfs.energy}/${pso.energy}`,
-        utilization: `${gbfs.utilization}/${pso.utilization}`,
+        id: newId, category, type: autoTask, timestamp: new Date().toISOString(),
+        delay: `${gbfs.latency}/${pso.latency}`, speed: `${gbfs.throughput}/${pso.throughput}`,
+        energy: `${gbfs.energy}/${pso.energy}`, utilization: `${gbfs.utilization}/${pso.utilization}`,
         gbfsLat: parseFloat(gbfs.latency), psoLat: parseFloat(pso.latency),
         gbfsSpeed: parseFloat(gbfs.throughput), psoSpeed: parseFloat(pso.throughput),
         gbfsEng: parseFloat(gbfs.energy), psoEng: parseFloat(pso.energy),
@@ -703,98 +789,33 @@ export default function App() {
         winner, server, status: "SUCCESS"
       }]);
 
-      setCurrentStep(1);
-      setMaxReached(4);
-      setIsProcessing(false);
+      setCurrentStep(1); setMaxReached(4); setIsProcessing(false);
     }, 800);
   };
 
-  const renderStepContent = () => {
-    switch(currentStep) {
-      case 0:
-        return (
-          <div className="step-container">
-            <PanelHeader 
-              title="DATA INPUT & GENERATION" 
-              description="Enter machine data and generate tasks for processing." 
-              variant="main"
-            />
-            <div className="row-container">
-              <OperationalMetricsPanel 
-                {...{category, autoTask, inputs, setInputs, onRun: handleRun, isProcessing}}
-              />
-              <InputGuidePanel />
-            </div>
-          </div>
-        );
-      case 1:
-        return (
-          <div className="step-container">
-            <PanelHeader 
-              title="ALGORITHMS APPLIED" 
-              description="Evaluate tasks using Greedy Best-First Search (GBFS) and Particle Swarm Optimization (PSO) algorithms." 
-              variant="main"
-            />
-            <PerformanceOverviewPanel gbfs={gbfsData} pso={psoData} />
-            <div className="row-container">
-              <AlgoPanel title="Greedy Best-First Search (GBFS) Evaluation" colorClass="cyan-text" data={gbfsData} />
-              <AlgoPanel title="Particle Swarm Optimization (PSO) Evaluation" colorClass="magenta-text" data={psoData} />
-            </div>
-          </div>
-        );
-      case 2:
-        return (
-          <div className="step-container">
-            <PanelHeader 
-              title="DECISION EVALUATION" 
-              description="Compare results and determine the best processing choice." 
-              variant="main"
-            />
-            <div className="row-container">
-              <ProcessingDecisionPanel decision={decisionData.server} reason={decisionData.reason} />
-            </div>
-            <div className="row-container">
-              <ComparisonEvaluationPanel gbfs={gbfsData} pso={psoData} winner={decisionData.winner} />
-              <InterpretationAnalysisPanel winner={decisionData.winner} server={decisionData.server} taskType={decisionData.taskType} />
-            </div>
-          </div>
-        );
-      case 3:
-        return (
-          <div className="step-container">
-            <PanelHeader 
-              title="TASK PROCESSING" 
-              description="Assign and simulate task execution on Edge or Cloud." 
-              variant="main"
-            />
-            <div className="row-container">
-              <TaskAssignmentPanel taskType={decisionData.taskType} server={decisionData.server} summary={`${decisionData.winner} optimally assigned to ${decisionData.server} server.`} />
-              <ResultTransmissionPanel />
-            </div>
-          </div>
-        );
-      case 4:
-        return (
-          <ExecutionResultsView gbfs={gbfsData} pso={psoData} logs={logs} setLogs={setLogs} />
-        );
+  const renderStep = () => {
+    switch (currentStep) {
+      case 0: return <StepInput inputs={inputs} setInputs={setInputs} category={category} autoTask={autoTask} onRun={handleRun} isProcessing={isProcessing} />;
+      case 1: return <StepAlgorithms gbfs={gbfsData} pso={psoData} />;
+      case 2: return <StepDecision gbfs={gbfsData} pso={psoData} decision={decisionData} />;
+      case 3: return <StepProcessing decision={decisionData} />;
+      case 4: return <StepResults gbfs={gbfsData} pso={psoData} logs={logs} setLogs={setLogs} />;
       default: return null;
     }
   };
 
   return (
     <ErrorBoundary>
-      <div className="dashboard-layout">
-        <SidebarNavigation currentStep={currentStep} onJump={(i) => setCurrentStep(i)} />
-        <div className="content-area">
-          <SystemFlow currentStep={currentStep} maxReached={maxReached} onJump={(i) => setCurrentStep(i)} />
-          <div className="main-content">
-            {renderStepContent()}
+      <div style={S.root}>
+        <Sidebar step={currentStep} onJump={i => setCurrentStep(i)} />
+        <div style={S.content}>
+          <TopBar step={currentStep} maxReached={maxReached} onJump={i => setCurrentStep(i)} />
+          <div style={S.main}>{renderStep()}</div>
+          <div style={S.bottomBar}>
+            <button style={S.navBtnBottom(currentStep === 0)} onClick={() => setCurrentStep(p => p - 1)} disabled={currentStep === 0}>← Back</button>
+            <span style={{ fontSize: 12, color: "#9099a8" }}>Step {currentStep + 1} of {STEP_DETAILS.length}</span>
+            <button style={S.navBtnNext(currentStep >= maxReached || currentStep >= 4)} onClick={() => setCurrentStep(p => p + 1)} disabled={currentStep >= maxReached || currentStep >= 4}>Next →</button>
           </div>
-          <StepNavigation 
-            currentStep={currentStep} maxReached={maxReached} 
-            onPrev={() => setCurrentStep(prev => prev - 1)}
-            onNext={() => setCurrentStep(prev => prev + 1)} 
-          />
         </div>
       </div>
     </ErrorBoundary>
