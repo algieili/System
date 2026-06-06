@@ -782,79 +782,21 @@ export default function App() {
   };
 
   return (
-  <ErrorBoundary>
-    <div className="app-layout">
-
-      {/* SIDEBAR */}
-      <div className="sidebar">
-        <h2 className="logo">Dashboard</h2>
-
-        <nav className="nav">
-          <a className="nav-item active">Dashboard</a>
-          <a className="nav-item">Data Management</a>
-          <a className="nav-item">Process</a>
-          <a className="nav-item">Reports</a>
-          <a className="nav-item">Analytics</a>
-          <a className="nav-item">Settings</a>
-        </nav>
-      </div>
-
-      {/* MAIN AREA */}
-      <div className="main">
-
-        {/* TOP CARDS */}
-        <div className="kpi-grid">
-          <div className="kpi-card">
-            <h3>24</h3>
-            <p>Total Datasets</p>
+    <ErrorBoundary>
+      <div className="dashboard-layout">
+        <SidebarNavigation currentStep={currentStep} onJump={(i) => setCurrentStep(i)} />
+        <div className="content-area">
+          <SystemFlow currentStep={currentStep} maxReached={maxReached} onJump={(i) => setCurrentStep(i)} />
+          <div className="main-content">
+            {renderStepContent()}
           </div>
-
-          <div className="kpi-card">
-            <h3>56</h3>
-            <p>Processes Run</p>
-          </div>
-
-          <div className="kpi-card">
-            <h3>18</h3>
-            <p>Reports Generated</p>
-          </div>
-
-          <div className="kpi-card">
-            <h3>15</h3>
-            <p>System Users</p>
-          </div>
+          <StepNavigation 
+            currentStep={currentStep} maxReached={maxReached} 
+            onPrev={() => setCurrentStep(prev => prev - 1)}
+            onNext={() => setCurrentStep(prev => prev + 1)} 
+          />
         </div>
-
-        {/* CONTENT GRID */}
-        <div className="dashboard-grid">
-
-          <div className="card">
-            <h3>Recent Activities</h3>
-            <ul>
-              <li>Data “Student Records” uploaded</li>
-              <li>Process “Data Cleaning” completed</li>
-              <li>Report “Summary Report” generated</li>
-              <li>User “Mark” added</li>
-            </ul>
-          </div>
-
-          <div className="card">
-            <h3>System Overview</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={logs.slice(-7)}>
-                <XAxis dataKey="id" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="gbfsLat" stroke="#06B6D4" />
-                <Line type="monotone" dataKey="psoLat" stroke="#A855F7" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-        </div>
-
       </div>
-    </div>
-  </ErrorBoundary>
-);
+    </ErrorBoundary>
+  );
 }
