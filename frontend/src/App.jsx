@@ -139,29 +139,56 @@ const OperationalMetricsPanel = ({ category, autoTask, inputs, setInputs, onRun,
         <span className="data-label">Auto-Assigned Task Type</span>
         <span className="data-value">{autoTask || "-"}</span>
       </div>
+<table className="machine-table">
+  <thead>
+    <tr>
+      <th>Parameter</th>
+      <th>Value</th>
+    </tr>
+  </thead>
 
-      <div className="section-title">Machine Data</div>
-      {Object.keys(inputs).map(k => (
-        <div className="data-row" key={k}>
-          <span className="data-label">{k}</span>
+  <tbody>
+    {Object.keys(inputs).map((k) => (
+      <tr key={k}>
+        <td>{k}</td>
+
+        <td>
           {k === "Material Type" ? (
-            <select className="data-select" value={inputs[k]} onChange={e => setInputs({...inputs, [k]: e.target.value})}>
+            <select
+              className="data-select"
+              value={inputs[k]}
+              onChange={(e) =>
+                setInputs({
+                  ...inputs,
+                  [k]: e.target.value
+                })
+              }
+            >
               <option value="">Select Material</option>
               <option value="Mild Steel">Mild Steel</option>
               <option value="Stainless Steel">Stainless Steel</option>
               <option value="Aluminum">Aluminum</option>
             </select>
           ) : (
-            <input 
-              className="data-input" 
+            <input
+              className="data-input"
               type="number"
-              placeholder={`Enter ${k.split("(")[0].trim()}`}
-              value={inputs[k]} 
-              onChange={e => setInputs({...inputs, [k]: e.target.value})} 
+              value={inputs[k]}
+              placeholder={`Enter ${k}`}
+              onChange={(e) =>
+                setInputs({
+                  ...inputs,
+                  [k]: e.target.value
+                })
+              }
             />
           )}
-        </div>
-      ))}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+     
 
 
 
