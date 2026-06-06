@@ -126,27 +126,36 @@ const OperationalMetricsPanel = ({ category, autoTask, inputs, setInputs, onRun,
     <div className="card">
       <PanelHeader title="DATA INPUT & GENERATION" description="Enter system data to begin the offloading evaluation." />
       
-      <div className="section-title">Machine Information</div>
-      <div className="data-row">
-        <span className="data-label">Specific Machine</span>
-        <span className="data-value" style={{fontWeight: 'bold', color: 'var(--cyan)'}}>Plasma Cutting Machine</span>
-      </div>
-      <div className="data-row">
-        <span className="data-label">Machine Category</span>
-        <span className="data-value">{category || "-"}</span>
-      </div>
-      <div className="data-row">
-        <span className="data-label">Auto-Assigned Task Type</span>
-        <span className="data-value">{autoTask || "-"}</span>
-      </div>
-<table className="machine-table">
+   <table className="machine-table">
   <thead>
     <tr>
-      <th>Parameter</th>
+      <th>Machine Information</th>
       <th>Value</th>
     </tr>
   </thead>
 
+  <tbody>
+    <tr>
+      <td>Specific Machine</td>
+      <td>Plasma Cutting Machine</td>
+    </tr>
+
+    <tr>
+      <td>Machine Category</td>
+      <td>{category || "-"}</td>
+    </tr>
+
+    <tr>
+      <td>Auto-Assigned Task Type</td>
+      <td>{autoTask || "-"}</td>
+    </tr>
+  </tbody>
+</table>
+
+      
+<div className="section-title">Machine Data</div>
+{Object.keys(inputs).map(k => (
+  <div className="data-row" key={k}>
   <tbody>
     {Object.keys(inputs).map((k) => (
       <tr key={k}>
