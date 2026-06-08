@@ -3,6 +3,7 @@ from flask_cors import CORS
 import psycopg2
 import psycopg2.extras
 import os
+import socket
 
 app = Flask(__name__)
 CORS(app)
@@ -13,20 +14,32 @@ DB_USER     = os.environ.get("DB_USER",     "postgres")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
 DB_PORT     = os.environ.get("DB_PORT",     "5432")
 
+def resolve_ipv4(hostname):
+    """Force resolve hostname to IPv4 address only."""
+    try:
+        results = socket.getaddrinfo(hostname, None, socket.AF_INET)
+        if results:
+            return results[0][4][0]
+    except Exception:
+        pass
+    return hostname
+
 def get_db():
+    """Connect using IPv4 to avoid Render free tier IPv6 issue."""
+    host = resolve_ipv4(DB_HOST) if DB_HOST else DB_HOST
     return psycopg2.connect(
-        host=DB_HOST, dbname=DB_NAME,
+        host=host, dbname=DB_NAME,
         user=DB_USER, password=DB_PASSWORD, port=DB_PORT
     )
 
 # ══════════════════════════════════════════════════
-# ROOT — confirms server is alive
+# ROOT
 # ══════════════════════════════════════════════════
 @app.route("/")
 def index():
     return jsonify({
         "status":  "online",
-        "message": "EdgeOffload API is running ✅",
+        "message": "EdgeOffload API is running",
         "routes": [
             "GET  /health",
             "GET  /api/setup",
@@ -40,19 +53,19 @@ def index():
     })
 
 # ══════════════════════════════════════════════════
-# HEALTH CHECK — tests DB connection
+# HEALTH CHECK
 # ══════════════════════════════════════════════════
 @app.route("/health")
 def health():
     try:
         conn = get_db()
         conn.close()
-        return jsonify({"status": "ok", "db": "connected ✅"})
+        return jsonify({"status": "ok", "db": "connected"})
     except Exception as e:
         return jsonify({"status": "error", "db": str(e)}), 500
 
 # ══════════════════════════════════════════════════
-# SETUP — creates tables and seeds machine data
+# SETUP
 # ══════════════════════════════════════════════════
 @app.route("/api/setup")
 def setup_db():
@@ -91,7 +104,6 @@ def setup_db():
                 created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-
         cur.execute("SELECT COUNT(*) FROM machines")
         if cur.fetchone()[0] == 0:
             cur.executemany("""
@@ -107,9 +119,8 @@ def setup_db():
                 ("M4","WM1",  "Arc Welding",     30,100,80, 2,55.0,2.0,12,2.1,18,92,"Welding Machines",  "Computation-Intensive"),
                 ("M5","SM3",  "Shearing Machine",25,75, 70, 1,50.0,1.5,15,1.8,14,85,"Cutting Machines",  "Latency-Sensitive"    ),
             ])
-
         conn.commit()
-        return jsonify({"status": "ok", "message": "Database setup complete ✅"})
+        return jsonify({"status": "ok", "message": "Database setup complete"})
     except Exception as e:
         conn.rollback()
         return jsonify({"error": str(e)}), 500
@@ -229,7 +240,8 @@ def offload_task():
         measured_latency = round(min(data["gbfsLatency"], data["psoLatency"]) * 0.97, 2)
         cur.execute("""
             INSERT INTO offload_logs
-            (machine_id, algorithm, target_server, gbfs_latency, pso_latency, measured_latency, status)
+            (machine_id, algorithm, target_server, gbfs_latency,
+             pso_latency, measured_latency, status)
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (data["machineId"], data["algorithm"], data["targetServer"],
               data["gbfsLatency"], data["psoLatency"], measured_latency, "success"))
