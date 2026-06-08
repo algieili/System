@@ -1,36 +1,48 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import psycopg2
-import psycopg2.extras
 import os
-import socket
+import requests  # uses HTTPS — no IPv6 issue
 
 app = Flask(__name__)
 CORS(app)
 
-DB_HOST     = os.environ.get("DB_HOST",     "")
-DB_NAME     = os.environ.get("DB_NAME",     "postgres")
-DB_USER     = os.environ.get("DB_USER",     "postgres")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "")
-DB_PORT     = os.environ.get("DB_PORT",     "5432")
+# ══════════════════════════════════════════════════
+# SUPABASE REST API CONFIG
+# Set these in Render → Environment Variables:
+#   SUPABASE_URL = https://bsqxvqbrxwecdexkijpd.supabase.co
+#   SUPABASE_KEY = your anon/public key (from Supabase → Settings → API)
+# ══════════════════════════════════════════════════
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY", "")
 
-def resolve_ipv4(hostname):
-    """Force resolve hostname to IPv4 address only."""
-    try:
-        results = socket.getaddrinfo(hostname, None, socket.AF_INET)
-        if results:
-            return results[0][4][0]
-    except Exception:
-        pass
-    return hostname
+def sb_headers():
+    """Supabase REST API headers."""
+    return {
+        "apikey":        SUPABASE_KEY,
+        "Authorization": f"Bearer {SUPABASE_KEY}",
+        "Content-Type":  "application/json",
+        "Prefer":        "return=representation"
+    }
 
-def get_db():
-    """Connect using IPv4 to avoid Render free tier IPv6 issue."""
-    host = resolve_ipv4(DB_HOST) if DB_HOST else DB_HOST
-    return psycopg2.connect(
-        host=host, dbname=DB_NAME,
-        user=DB_USER, password=DB_PASSWORD, port=DB_PORT
+def sb_get(table, params=None):
+    """GET rows from a Supabase table."""
+    r = requests.get(
+        f"{SUPABASE_URL}/rest/v1/{table}",
+        headers=sb_headers(),
+        params=params or {}
     )
+    r.raise_for_status()
+    return r.json()
+
+def sb_post(table, data):
+    """INSERT a row into a Supabase table."""
+    r = requests.post(
+        f"{SUPABASE_URL}/rest/v1/{table}",
+        headers=sb_headers(),
+        json=data
+    )
+    r.raise_for_status()
+    return r.json()
 
 # ══════════════════════════════════════════════════
 # ROOT
@@ -40,6 +52,7 @@ def index():
     return jsonify({
         "status":  "online",
         "message": "EdgeOffload API is running",
+        "mode":    "Supabase REST API (HTTPS)",
         "routes": [
             "GET  /health",
             "GET  /api/setup",
@@ -58,87 +71,53 @@ def index():
 @app.route("/health")
 def health():
     try:
-        conn = get_db()
-        conn.close()
-        return jsonify({"status": "ok", "db": "connected"})
+        r = requests.get(
+            f"{SUPABASE_URL}/rest/v1/machines?limit=1",
+            headers=sb_headers()
+        )
+        if r.status_code in [200, 206]:
+            return jsonify({"status": "ok", "db": "connected via Supabase REST"})
+        else:
+            return jsonify({"status": "error", "db": r.text}), 500
     except Exception as e:
         return jsonify({"status": "error", "db": str(e)}), 500
 
 # ══════════════════════════════════════════════════
-# SETUP
+# SETUP — inserts machine data if table is empty
 # ══════════════════════════════════════════════════
 @app.route("/api/setup")
 def setup_db():
-    conn = get_db()
-    cur  = conn.cursor()
     try:
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS machines (
-                id                 VARCHAR(10)  PRIMARY KEY,
-                machine_id         VARCHAR(20)  NOT NULL,
-                name               VARCHAR(100) NOT NULL,
-                task_size          INTEGER,
-                bandwidth          INTEGER,
-                processing_time    INTEGER,
-                queue_length       INTEGER,
-                cpu_utilization    FLOAT,
-                memory_usage       FLOAT,
-                transmission_delay INTEGER,
-                energy_consumption FLOAT,
-                throughput         INTEGER,
-                avg_latency        INTEGER,
-                category           VARCHAR(100),
-                task_type          VARCHAR(100)
-            )
-        """)
-        cur.execute("""
-            CREATE TABLE IF NOT EXISTS offload_logs (
-                id               SERIAL PRIMARY KEY,
-                machine_id       VARCHAR(20),
-                algorithm        VARCHAR(10),
-                target_server    VARCHAR(100),
-                gbfs_latency     FLOAT,
-                pso_latency      FLOAT,
-                measured_latency FLOAT,
-                status           VARCHAR(20),
-                created_at       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        cur.execute("SELECT COUNT(*) FROM machines")
-        if cur.fetchone()[0] == 0:
-            cur.executemany("""
-                INSERT INTO machines
-                (id,machine_id,name,task_size,bandwidth,processing_time,queue_length,
-                 cpu_utilization,memory_usage,transmission_delay,energy_consumption,
-                 throughput,avg_latency,category,task_type)
-                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
-            """, [
-                ("M1","CPCM1","CNC Plasma",      50,100,120,3,60.0,1.6,16,2.3,12,88,"Cutting Machines",  "Computation-Intensive"),
-                ("M2","PCM1", "Plasma Cutting",  40,90, 100,2,55.0,1.3,14,2.0,15,78,"Cutting Machines",  "Computation-Intensive"),
-                ("M3","PB2",  "Paint Booth",     20,80, 60, 1,45.0,1.2,12,1.5,16,72,"Finishing Machines","Energy-Efficient"     ),
-                ("M4","WM1",  "Arc Welding",     30,100,80, 2,55.0,2.0,12,2.1,18,92,"Welding Machines",  "Computation-Intensive"),
-                ("M5","SM3",  "Shearing Machine",25,75, 70, 1,50.0,1.5,15,1.8,14,85,"Cutting Machines",  "Latency-Sensitive"    ),
-            ])
-        conn.commit()
-        return jsonify({"status": "ok", "message": "Database setup complete"})
+        # Check if machines already exist
+        existing = sb_get("machines", {"select": "id"})
+        if len(existing) > 0:
+            return jsonify({"status": "ok", "message": f"Already set up — {len(existing)} machines found"})
+
+        # Insert all 5 machines
+        machines = [
+            {"id":"M1","machine_id":"CPCM1","name":"CNC Plasma",      "task_size":50,"bandwidth":100,"processing_time":120,"queue_length":3,"cpu_utilization":60.0,"memory_usage":1.6,"transmission_delay":16,"energy_consumption":2.3,"throughput":12,"avg_latency":88, "category":"Cutting Machines",  "task_type":"Computation-Intensive"},
+            {"id":"M2","machine_id":"PCM1", "name":"Plasma Cutting",  "task_size":40,"bandwidth":90, "processing_time":100,"queue_length":2,"cpu_utilization":55.0,"memory_usage":1.3,"transmission_delay":14,"energy_consumption":2.0,"throughput":15,"avg_latency":78, "category":"Cutting Machines",  "task_type":"Computation-Intensive"},
+            {"id":"M3","machine_id":"PB2",  "name":"Paint Booth",     "task_size":20,"bandwidth":80, "processing_time":60, "queue_length":1,"cpu_utilization":45.0,"memory_usage":1.2,"transmission_delay":12,"energy_consumption":1.5,"throughput":16,"avg_latency":72, "category":"Finishing Machines","task_type":"Energy-Efficient"},
+            {"id":"M4","machine_id":"WM1",  "name":"Arc Welding",     "task_size":30,"bandwidth":100,"processing_time":80, "queue_length":2,"cpu_utilization":55.0,"memory_usage":2.0,"transmission_delay":12,"energy_consumption":2.1,"throughput":18,"avg_latency":92, "category":"Welding Machines",  "task_type":"Computation-Intensive"},
+            {"id":"M5","machine_id":"SM3",  "name":"Shearing Machine","task_size":25,"bandwidth":75, "processing_time":70, "queue_length":1,"cpu_utilization":50.0,"memory_usage":1.5,"transmission_delay":15,"energy_consumption":1.8,"throughput":14,"avg_latency":85, "category":"Cutting Machines",  "task_type":"Latency-Sensitive"},
+        ]
+
+        for machine in machines:
+            sb_post("machines", machine)
+
+        return jsonify({"status": "ok", "message": "Database setup complete — 5 machines inserted"})
     except Exception as e:
-        conn.rollback()
         return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close(); conn.close()
 
 # ══════════════════════════════════════════════════
 # GET /api/machines
 # ══════════════════════════════════════════════════
 @app.route("/api/machines")
 def get_machines():
-    conn = get_db()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cur.execute("SELECT * FROM machines ORDER BY id")
+        rows = sb_get("machines", {"select": "*", "order": "id"})
         result = {}
-        for row in cur.fetchall():
-            m = dict(row)
+        for m in rows:
             result[m["id"]] = {
                 "id":                m["id"],
                 "machineId":         m["machine_id"],
@@ -159,22 +138,17 @@ def get_machines():
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close(); conn.close()
 
 # ══════════════════════════════════════════════════
 # GET /api/machines/<id>/task-data
 # ══════════════════════════════════════════════════
 @app.route("/api/machines/<machine_id>/task-data")
 def get_task_data(machine_id):
-    conn = get_db()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cur.execute("SELECT * FROM machines WHERE id = %s", (machine_id,))
-        row = cur.fetchone()
-        if not row:
+        rows = sb_get("machines", {"select": "*", "id": f"eq.{machine_id}"})
+        if not rows:
             return jsonify({"error": "Machine not found"}), 404
-        m = dict(row)
+        m = rows[0]
         return jsonify({
             "id": m["id"], "machineId": m["machine_id"], "name": m["name"],
             "taskSize": m["task_size"], "bandwidth": m["bandwidth"],
@@ -187,8 +161,6 @@ def get_task_data(machine_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close(); conn.close()
 
 # ══════════════════════════════════════════════════
 # POST /api/gbfs
@@ -196,7 +168,7 @@ def get_task_data(machine_id):
 @app.route("/api/gbfs", methods=["POST"])
 def run_gbfs():
     try:
-        m = request.json["machine"]
+        m           = request.json["machine"]
         latency     = round(m["avgLatency"] * 0.90 + m["transmissionDelay"] * 0.5, 2)
         throughput  = round(m["throughput"]  * 0.88, 2)
         energy      = round(m["energyConsumption"] * 0.90, 2)
@@ -215,7 +187,7 @@ def run_gbfs():
 @app.route("/api/pso", methods=["POST"])
 def run_pso():
     try:
-        m = request.json["machine"]
+        m           = request.json["machine"]
         latency     = round(m["avgLatency"] * 0.82 + m["transmissionDelay"] * 0.4, 2)
         throughput  = round(m["throughput"]  * 0.95, 2)
         energy      = round(m["energyConsumption"] * 0.82, 2)
@@ -233,41 +205,33 @@ def run_pso():
 # ══════════════════════════════════════════════════
 @app.route("/api/offload", methods=["POST"])
 def offload_task():
-    conn = get_db()
-    cur  = conn.cursor()
     try:
         data             = request.json
         measured_latency = round(min(data["gbfsLatency"], data["psoLatency"]) * 0.97, 2)
-        cur.execute("""
-            INSERT INTO offload_logs
-            (machine_id, algorithm, target_server, gbfs_latency,
-             pso_latency, measured_latency, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (data["machineId"], data["algorithm"], data["targetServer"],
-              data["gbfsLatency"], data["psoLatency"], measured_latency, "success"))
-        conn.commit()
+        sb_post("offload_logs", {
+            "machine_id":       data["machineId"],
+            "algorithm":        data["algorithm"],
+            "target_server":    data["targetServer"],
+            "gbfs_latency":     data["gbfsLatency"],
+            "pso_latency":      data["psoLatency"],
+            "measured_latency": measured_latency,
+            "status":           "success"
+        })
         return jsonify({"status": "success", "measuredLatency": measured_latency,
                         "server": data["targetServer"], "algorithm": data["algorithm"]})
     except Exception as e:
-        conn.rollback()
         return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close(); conn.close()
 
 # ══════════════════════════════════════════════════
 # GET /api/logs
 # ══════════════════════════════════════════════════
 @app.route("/api/logs")
 def get_logs():
-    conn = get_db()
-    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     try:
-        cur.execute("SELECT * FROM offload_logs ORDER BY created_at DESC LIMIT 50")
-        return jsonify([dict(r) for r in cur.fetchall()])
+        rows = sb_get("offload_logs", {"select": "*", "order": "created_at.desc", "limit": "50"})
+        return jsonify(rows)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-    finally:
-        cur.close(); conn.close()
 
 if __name__ == "__main__":
     app.run(debug=True)
