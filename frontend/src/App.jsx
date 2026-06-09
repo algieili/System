@@ -434,14 +434,42 @@ const Step1CollectData = ({ machine:m }) => {
 };
 
 /* ── Step 2: GBFS ── */
-const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error }) => {
-  const sKey = taskTypeToServer(m.taskType);
-  const srv  = SERVERS[sKey];
+const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error, selectedServer, setSelectedServer }) => {
+  const srv = SERVERS[selectedServer];
   return (
     <div>
       <div style={S.ph}>
         <div style={S.pt}>GBFS Algorithm — Decision Making</div>
-        <div style={S.ps}>Greedy Best-First Search runs on <strong>{srv.icon} {srv.label}</strong> for <strong>{m.name}</strong>.</div>
+        <div style={S.ps}>Choose which server runs Greedy Best-First Search for <strong>{m.name}</strong>.</div>
+      </div>
+      {/* Server Picker */}
+      <div style={S.card}>
+        <div style={S.ct}>Choose Server</div>
+        <div style={S.cd}>Select which backend runs the GBFS algorithm.</div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,s])=>{
+            const active = key === selectedServer;
+            return (
+              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
+                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
+                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
+                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <span style={{fontSize:26}}>{s.icon}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
+                  </div>
+                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
+                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
+                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
+                  {s.baseUrl}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div style={S.card}>
         <div style={S.ct}>How GBFS Works</div>
@@ -474,8 +502,8 @@ const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error }) => {
           <div style={S.ct}>GBFS Result — from {srv.label}</div>
           <div style={S.cd}>Response received for {m.name}.</div>
           <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-            <div style={{flex:"1 1 200px",border:"2px solid #bfdbfe",borderRadius:12,padding:"20px",background:"#eff6ff",textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#1d4ed8",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
               <div style={S.bigNum("gbfs")}>{gbfsData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
               <span style={S.badge(gbfsData.remark==="Excellent"?"green":"amber")}>{gbfsData.remark}</span>
             </div>
@@ -495,14 +523,42 @@ const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error }) => {
 };
 
 /* ── Step 3: PSO ── */
-const Step3PSO = ({ machine:m, psoData, onRun, running, error }) => {
-  const sKey = taskTypeToServer(m.taskType);
-  const srv  = SERVERS[sKey];
+const Step3PSO = ({ machine:m, psoData, onRun, running, error, selectedServer, setSelectedServer }) => {
+  const srv = SERVERS[selectedServer];
   return (
     <div>
       <div style={S.ph}>
         <div style={S.pt}>PSO Algorithm — Decision Making</div>
-        <div style={S.ps}>Particle Swarm Optimization runs on <strong>{srv.icon} {srv.label}</strong> for <strong>{m.name}</strong>.</div>
+        <div style={S.ps}>Choose which server runs Particle Swarm Optimization for <strong>{m.name}</strong>.</div>
+      </div>
+      {/* Server Picker */}
+      <div style={S.card}>
+        <div style={S.ct}>Choose Server</div>
+        <div style={S.cd}>Select which backend runs the PSO algorithm.</div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,s])=>{
+            const active = key === selectedServer;
+            return (
+              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
+                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
+                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
+                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <span style={{fontSize:26}}>{s.icon}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
+                  </div>
+                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
+                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
+                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
+                  {s.baseUrl}
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <div style={S.card}>
         <div style={S.ct}>How PSO Works</div>
@@ -535,8 +591,8 @@ const Step3PSO = ({ machine:m, psoData, onRun, running, error }) => {
           <div style={S.ct}>PSO Result — from {srv.label}</div>
           <div style={S.cd}>Response received for {m.name}.</div>
           <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-            <div style={{flex:"1 1 200px",border:"2px solid #e9d5ff",borderRadius:12,padding:"20px",background:"#faf5ff",textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
               <div style={S.bigNum("pso")}>{psoData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
               <span style={S.badge(psoData.remark==="Excellent"?"green":"amber")}>{psoData.remark}</span>
             </div>
@@ -558,11 +614,14 @@ const Step3PSO = ({ machine:m, psoData, onRun, running, error }) => {
 /* ── Step 4: Select Edge Server ── */
 const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
   if (!gbfsData||!psoData) return <div style={S.card}><div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>⚠️ Please run both GBFS and PSO first.</div></div>;
-  const gbfsWins = gbfsData.latency <= psoData.latency;
-  const bestAlgo = gbfsWins ? "GBFS" : "PSO";
-  const bestLat  = Math.min(+gbfsData.latency, +psoData.latency);
-  const sKey     = taskTypeToServer(m.taskType);
-  const srv      = SERVERS[sKey];
+  const gbfsWins  = gbfsData.latency <= psoData.latency;
+  const bestAlgo  = gbfsWins ? "GBFS" : "PSO";
+  const bestLat   = Math.min(+gbfsData.latency, +psoData.latency);
+  const gbfsSrvKey= gbfsData.ranOnServer || "A";
+  const psoSrvKey = psoData.ranOnServer  || "A";
+  const bestSrvKey= gbfsWins ? gbfsSrvKey : psoSrvKey;
+  const sKey      = bestSrvKey;
+  const srv       = SERVERS[sKey];
 
   return (
     <div>
@@ -611,7 +670,8 @@ const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
       </div>
 
       <div style={S.card}>
-        <div style={S.ct}>Algorithm Comparison</div><div style={S.cd}>GBFS vs PSO from {srv.label}.</div>
+        <div style={S.ct}>Algorithm Comparison</div>
+        <div style={S.cd}>GBFS ran on <strong>{SERVERS[gbfsSrvKey].icon} {SERVERS[gbfsSrvKey].label}</strong> · PSO ran on <strong>{SERVERS[psoSrvKey].icon} {SERVERS[psoSrvKey].label}</strong>.</div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr>{["Metric","GBFS","PSO","Better"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
@@ -876,27 +936,29 @@ export default function App() {
     pingServers();
   }, [loadMachines, pingServers]);
 
-  /* Run GBFS on the active server */
+  /* Run GBFS on the manually selected server */
   const runGBFS = async () => {
+    const srv = SERVERS[gbfsServer];
     setGbfsRunning(true); setGbfsError(null); setGbfsData(null);
     try {
-      const result = await apiFetch(activeSrv.baseUrl, "/gbfs", {
+      const result = await apiFetch(srv.baseUrl, "/gbfs", {
         method:"POST", body:JSON.stringify({ machine })
       });
-      setGbfsData(result);
+      setGbfsData({ ...result, ranOnServer: gbfsServer });
       setMaxReached(r => Math.max(r, 2));
     } catch (err) { setGbfsError(err.message); }
     finally { setGbfsRunning(false); }
   };
 
-  /* Run PSO on the active server */
+  /* Run PSO on the manually selected server */
   const runPSO = async () => {
+    const srv = SERVERS[psoServer];
     setPsoRunning(true); setPsoError(null); setPsoData(null);
     try {
-      const result = await apiFetch(activeSrv.baseUrl, "/pso", {
+      const result = await apiFetch(srv.baseUrl, "/pso", {
         method:"POST", body:JSON.stringify({ machine })
       });
-      setPsoData(result);
+      setPsoData({ ...result, ranOnServer: psoServer });
       setMaxReached(r => Math.max(r, 6));
     } catch (err) { setPsoError(err.message); }
     finally { setPsoRunning(false); }
@@ -928,6 +990,7 @@ export default function App() {
   const handleSelectMachine = id => {
     setSelectedId(id); setGbfsData(null); setPsoData(null);
     setOffloadResult(null); setMaxReached(0);
+    setGbfsServer("A"); setPsoServer("A");
   };
 
   const canNext = () => {
@@ -945,8 +1008,8 @@ export default function App() {
     switch(step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines}/>;
       case 1: return machine ? <Step1CollectData machine={machine}/> : null;
-      case 2: return machine ? <Step2GBFS machine={machine} gbfsData={gbfsData} onRun={runGBFS} running={gbfsRunning} error={gbfsError}/> : null;
-      case 3: return machine ? <Step3PSO  machine={machine} psoData={psoData}   onRun={runPSO}  running={psoRunning}  error={psoError}/> : null;
+      case 2: return machine ? <Step2GBFS machine={machine} gbfsData={gbfsData} onRun={runGBFS} running={gbfsRunning} error={gbfsError} selectedServer={gbfsServer} setSelectedServer={setGbfsServer}/> : null;
+      case 3: return machine ? <Step3PSO  machine={machine} psoData={psoData}   onRun={runPSO}  running={psoRunning}  error={psoError} selectedServer={psoServer} setSelectedServer={setPsoServer}/> : null;
       case 4: return machine ? <Step4SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData}/> : null;
       case 5: return machine ? <Step5Offload machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} offloading={offloading} offloadError={offloadError} onOffload={offloadTask}/> : null;
       case 6: return machine ? <Step6Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult}/> : null;
