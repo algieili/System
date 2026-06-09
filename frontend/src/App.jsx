@@ -12,7 +12,7 @@ import {
 ══════════════════════════════════════════════════════ */
 const SERVERS = {
   A: {
-    label:   "Edge Server A",
+    label:   "Cloud Server A",
     sub:     "Latency-Sensitive · Computation-Intensive",
     icon:    "☁",
     color:   "blue",
