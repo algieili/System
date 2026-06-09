@@ -235,3 +235,6 @@ def get_logs():
 
 if __name__ == "__main__":
     app.run(debug=True)
+@app.route("/api/health")
+def api_health():
+    return jsonify({"status": "online", "server": "A"})
