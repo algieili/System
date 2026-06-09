@@ -431,7 +431,27 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
     { label: "Welding",       value: machines.filter(x => x.category === "Welding Machines").length,   color: "amber" },
   ];
 
-  const machineIcons = { M1: "⚙", M2: "⚡", M3: "◈", M4: "⊕", default: "✦" };
+  // Unsplash source images matched to each machine category
+  // Using specific photo IDs for reliable, relevant industrial machinery images
+  const MACHINE_IMAGES = {
+    "Cutting Machines":   "https://images.unsplash.com/photo-1565776630587-2e4f9e3eb5c9?w=400&h=220&fit=crop&auto=format&q=80",
+    "Welding Machines":   "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=400&h=220&fit=crop&auto=format&q=80",
+    "Finishing Machines": "https://images.unsplash.com/photo-1601058268499-e52658b8bb88?w=400&h=220&fit=crop&auto=format&q=80",
+    "default":            "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=400&h=220&fit=crop&auto=format&q=80",
+  };
+
+  // Larger detail images for the selected machine panel
+  const MACHINE_IMAGES_DETAIL = {
+    "Cutting Machines":   "https://images.unsplash.com/photo-1565776630587-2e4f9e3eb5c9?w=700&h=260&fit=crop&auto=format&q=85",
+    "Welding Machines":   "https://images.unsplash.com/photo-1504328345606-18bbc8c9d7d1?w=700&h=260&fit=crop&auto=format&q=85",
+    "Finishing Machines": "https://images.unsplash.com/photo-1601058268499-e52658b8bb88?w=700&h=260&fit=crop&auto=format&q=85",
+    "default":            "https://images.unsplash.com/photo-1581091226825-a6a2a5aee158?w=700&h=260&fit=crop&auto=format&q=85",
+  };
+
+  const getMachineImg     = (mc, size = "card") => {
+    const map = size === "detail" ? MACHINE_IMAGES_DETAIL : MACHINE_IMAGES;
+    return map[mc.category] || map["default"];
+  };
 
   return (
     <div>
@@ -447,23 +467,43 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
       </div>
 
       <Card title="Registered Devices" sub="Live data from Supabase" accent={T.blue}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {machines.map(mc => {
             const sel = selectedId === mc.id;
+            const imgSrc = getMachineImg(mc, "card");
             return (
               <div key={mc.id} onClick={() => setSelectedId(mc.id)} style={{
-                flex: "1 1 140px", maxWidth: 170,
+                flex: "1 1 160px", maxWidth: 200,
                 border: `1px solid ${sel ? T.green : T.border}`,
-                borderRadius: 8, padding: "14px 14px", cursor: "pointer",
+                borderRadius: 10, overflow: "hidden", cursor: "pointer",
                 background: sel ? T.greenBg : T.elevated,
-                outline: sel ? `1px solid ${T.greenDim}` : "none",
-                transition: "all 0.12s",
+                outline: sel ? `2px solid ${T.greenDim}` : "none",
+                transition: "all 0.15s",
               }}>
-                <div style={{ fontSize: 22, marginBottom: 8 }}>{machineIcons[mc.id] || machineIcons.default}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: sel ? T.green : T.text, marginBottom: 3, fontFamily: T.fontMono }}>{mc.machineId}</div>
-                <div style={{ fontSize: 11, color: T.muted, marginBottom: 6, fontFamily: T.fontSans, lineHeight: 1.4 }}>{mc.name}</div>
-                <div style={{ fontSize: 10, color: T.dim, fontFamily: T.fontMono }}>{mc.taskType}</div>
-                {sel && <div style={{ marginTop: 10 }}><Badge color="green" dot>selected</Badge></div>}
+                {/* Machine photo */}
+                <div style={{ position: "relative", width: "100%", height: 110, overflow: "hidden", background: T.bg }}>
+                  <img
+                    src={imgSrc}
+                    alt={mc.name}
+                    onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: sel ? "none" : "grayscale(30%) brightness(0.8)" }}
+                  />
+                  {/* Fallback if image fails */}
+                  <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", fontSize: 28, background: T.elevated }}>⚙</div>
+                  {/* Overlay gradient */}
+                  <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 40, background: "linear-gradient(to top, rgba(13,17,23,0.9), transparent)" }} />
+                  {sel && (
+                    <div style={{ position: "absolute", top: 8, right: 8 }}>
+                      <Badge color="green" dot>selected</Badge>
+                    </div>
+                  )}
+                </div>
+                {/* Info */}
+                <div style={{ padding: "10px 12px 12px" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: sel ? T.green : T.text, marginBottom: 2, fontFamily: T.fontMono }}>{mc.machineId}</div>
+                  <div style={{ fontSize: 11, color: T.muted, marginBottom: 6, fontFamily: T.fontSans, lineHeight: 1.4 }}>{mc.name}</div>
+                  <div style={{ fontSize: 10, color: T.dim, fontFamily: T.fontMono }}>{mc.taskType}</div>
+                </div>
               </div>
             );
           })}
@@ -472,6 +512,23 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 
       {m && (
         <Card title={`${m.machineId} — ${m.name}`} sub="Device metadata" accent={T.green}>
+          {/* Hero image */}
+          <div style={{ width: "100%", height: 180, borderRadius: 8, overflow: "hidden", marginBottom: 16, position: "relative", background: T.bg }}>
+            <img
+              src={getMachineImg(m, "detail")}
+              alt={m.name}
+              onError={e => { e.target.style.display = "none"; }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(13,17,23,0.1) 0%, rgba(13,17,23,0.5) 100%)" }} />
+            <div style={{ position: "absolute", bottom: 14, left: 16 }}>
+              <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: T.fontSans, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>{m.name}</div>
+              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: T.fontMono, marginTop: 3 }}>{m.category}</div>
+            </div>
+            <div style={{ position: "absolute", top: 12, right: 12 }}>
+              <Badge color="green" dot>{m.machineId}</Badge>
+            </div>
+          </div>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             {[["Machine ID", m.machineId, "blue"], ["Category", m.category, "dim"], ["Task Type", m.taskType, "amber"]].map(([l, v, c]) => (
               <div key={l} style={{ flex: "1 1 160px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 14px" }}>
