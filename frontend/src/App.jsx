@@ -12,9 +12,9 @@ import {
 ══════════════════════════════════════════════════════ */
 const SERVERS = {
   A: {
-    label:   "Cloud Server A",
+    label:   "Edge Server A",
     sub:     "Latency-Sensitive · Computation-Intensive",
-    icon:    "☁️",
+    icon:    "⚡",
     color:   "blue",
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
@@ -171,7 +171,7 @@ const STEPS = [
 /* ── Server Status Panel (used in sidebar) ── */
 const ServerStatusList = ({ statuses }) => (
   <div style={{ padding:"12px 14px 0" }}>
-    <div style={S.sbLabel}>Servers</div>
+    <div style={S.sbLabel}>Backend Servers</div>
     {Object.entries(SERVERS).map(([key, srv]) => {
       const st = statuses[key];
       const online = st === "online";
