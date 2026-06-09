@@ -434,42 +434,14 @@ const Step1CollectData = ({ machine:m }) => {
 };
 
 /* ── Step 2: GBFS ── */
-const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error, selectedServer, setSelectedServer }) => {
-  const srv = SERVERS[selectedServer];
+const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error }) => {
+  const sKey = taskTypeToServer(m.taskType);
+  const srv  = SERVERS[sKey];
   return (
     <div>
       <div style={S.ph}>
         <div style={S.pt}>GBFS Algorithm — Decision Making</div>
-        <div style={S.ps}>Choose which server runs Greedy Best-First Search for <strong>{m.name}</strong>.</div>
-      </div>
-      {/* Server Picker */}
-      <div style={S.card}>
-        <div style={S.ct}>Choose Server</div>
-        <div style={S.cd}>Select which backend runs the GBFS algorithm.</div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          {Object.entries(SERVERS).map(([key,s])=>{
-            const active = key === selectedServer;
-            return (
-              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
-                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
-                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
-                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                  <span style={{fontSize:26}}>{s.icon}</span>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
-                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
-                  </div>
-                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
-                </div>
-                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
-                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
-                  {s.baseUrl}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <div style={S.ps}>Greedy Best-First Search runs on <strong>{srv.icon} {srv.label}</strong> for <strong>{m.name}</strong>.</div>
       </div>
       <div style={S.card}>
         <div style={S.ct}>How GBFS Works</div>
@@ -502,8 +474,8 @@ const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error, selectedServer,
           <div style={S.ct}>GBFS Result — from {srv.label}</div>
           <div style={S.cd}>Response received for {m.name}.</div>
           <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+            <div style={{flex:"1 1 200px",border:"2px solid #bfdbfe",borderRadius:12,padding:"20px",background:"#eff6ff",textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#1d4ed8",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
               <div style={S.bigNum("gbfs")}>{gbfsData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
               <span style={S.badge(gbfsData.remark==="Excellent"?"green":"amber")}>{gbfsData.remark}</span>
             </div>
@@ -523,42 +495,14 @@ const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error, selectedServer,
 };
 
 /* ── Step 3: PSO ── */
-const Step3PSO = ({ machine:m, psoData, onRun, running, error, selectedServer, setSelectedServer }) => {
-  const srv = SERVERS[selectedServer];
+const Step3PSO = ({ machine:m, psoData, onRun, running, error }) => {
+  const sKey = taskTypeToServer(m.taskType);
+  const srv  = SERVERS[sKey];
   return (
     <div>
       <div style={S.ph}>
         <div style={S.pt}>PSO Algorithm — Decision Making</div>
-        <div style={S.ps}>Choose which server runs Particle Swarm Optimization for <strong>{m.name}</strong>.</div>
-      </div>
-      {/* Server Picker */}
-      <div style={S.card}>
-        <div style={S.ct}>Choose Server</div>
-        <div style={S.cd}>Select which backend runs the PSO algorithm.</div>
-        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
-          {Object.entries(SERVERS).map(([key,s])=>{
-            const active = key === selectedServer;
-            return (
-              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
-                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
-                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
-                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
-                  <span style={{fontSize:26}}>{s.icon}</span>
-                  <div>
-                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
-                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
-                  </div>
-                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
-                </div>
-                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
-                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
-                  {s.baseUrl}
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <div style={S.ps}>Particle Swarm Optimization runs on <strong>{srv.icon} {srv.label}</strong> for <strong>{m.name}</strong>.</div>
       </div>
       <div style={S.card}>
         <div style={S.ct}>How PSO Works</div>
@@ -591,8 +535,8 @@ const Step3PSO = ({ machine:m, psoData, onRun, running, error, selectedServer, s
           <div style={S.ct}>PSO Result — from {srv.label}</div>
           <div style={S.cd}>Response received for {m.name}.</div>
           <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
-              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+            <div style={{flex:"1 1 200px",border:"2px solid #e9d5ff",borderRadius:12,padding:"20px",background:"#faf5ff",textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
               <div style={S.bigNum("pso")}>{psoData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
               <span style={S.badge(psoData.remark==="Excellent"?"green":"amber")}>{psoData.remark}</span>
             </div>
