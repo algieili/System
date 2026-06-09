@@ -19,7 +19,7 @@ const SERVERS = {
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
     border:  "#bfdbfe",
-    baseUrl: "https://your-server-a.onrender.com/api",   // ← replace
+    baseUrl: "https://system-ctld.onrender.com/api",   // ← replace
   },
   B: {
     label:   "Edge Server B",
