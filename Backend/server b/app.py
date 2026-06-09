@@ -89,11 +89,12 @@ def api_health():
 def run_gbfs():
     try:
         m           = request.json["machine"]
-        latency     = round(m["avgLatency"] * 0.90 + m["transmissionDelay"] * 0.5, 2)
-        throughput  = round(m["throughput"]  * 0.88, 2)
-        energy      = round(m["energyConsumption"] * 0.90, 2)
-        utilization = round(m["cpuUtilization"] * 0.88, 2)
-        time        = round(latency + m["transmissionDelay"], 2)
+        # Server B — Energy-Efficient node: lower energy, slightly higher latency
+        latency     = round(m["avgLatency"] * 1.05 + m["transmissionDelay"] * 0.6, 2)
+        throughput  = round(m["throughput"]  * 0.80, 2)
+        energy      = round(m["energyConsumption"] * 0.65, 2)
+        utilization = round(m["cpuUtilization"] * 0.75, 2)
+        time        = round(latency + m["transmissionDelay"] * 1.1, 2)
         remark      = "Excellent" if latency < 80 else "Good" if latency < 100 else "Moderate"
         return jsonify({
             "latency":     latency,
@@ -113,11 +114,12 @@ def run_gbfs():
 def run_pso():
     try:
         m           = request.json["machine"]
-        latency     = round(m["avgLatency"] * 0.82 + m["transmissionDelay"] * 0.4, 2)
-        throughput  = round(m["throughput"]  * 0.95, 2)
-        energy      = round(m["energyConsumption"] * 0.82, 2)
-        utilization = round(m["cpuUtilization"] * 0.80, 2)
-        time        = round(latency + m["transmissionDelay"] * 0.9, 2)
+        # Server B — Energy-Efficient node: PSO optimizes for energy over speed
+        latency     = round(m["avgLatency"] * 0.98 + m["transmissionDelay"] * 0.5, 2)
+        throughput  = round(m["throughput"]  * 0.85, 2)
+        energy      = round(m["energyConsumption"] * 0.55, 2)
+        utilization = round(m["cpuUtilization"] * 0.70, 2)
+        time        = round(latency + m["transmissionDelay"] * 1.0, 2)
         remark      = "Excellent" if latency < 80 else "Good" if latency < 100 else "Moderate"
         return jsonify({
             "latency":     latency,
