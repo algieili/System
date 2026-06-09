@@ -13,29 +13,35 @@ import {
 const SERVERS = {
   A: {
     label:   "Edge Server A",
-    sub:     "Low-Latency Node",
+    sub:     "Latency-Sensitive · Computation-Intensive",
     icon:    "⚡",
     color:   "blue",
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
     border:  "#bfdbfe",
-    baseUrl: "https://system-ctld.onrender.com/api",   // ← replace
+    baseUrl: "https://system-ctld.onrender.com/api",
   },
   B: {
     label:   "Edge Server B",
-    sub:     "High-Compute Node",
-    icon:    "☁️",
-    color:   "purple",
-    hex:     "#7c3aed",
-    bg:      "#faf5ff",
-    border:  "#e9d5ff",
-    baseUrl: "https://system-1-rcpl.onrender.com/api",   // ← replace
+    sub:     "Energy-Efficient",
+    icon:    "🌿",
+    color:   "green",
+    hex:     "#15803d",
+    bg:      "#f0fdf4",
+    border:  "#86efac",
+    baseUrl: "https://system-1-rcpl.onrender.com/api",
   },
 };
 
-/* Map task type → server key */
+/* Map task type → server key
+   M1 CNC Plasma       → Computation-Intensive → Server A
+   M2 Plasma Cutting   → Computation-Intensive → Server A
+   M4 Arc Welding      → Computation-Intensive → Server A
+   M5 Shearing Machine → Latency-Sensitive     → Server A
+   M3 Paint Booth      → Energy-Efficient      → Server B
+*/
 const taskTypeToServer = (taskType) => {
-  if (taskType === "Latency-Sensitive") return "A";
+  if (taskType === "Latency-Sensitive" || taskType === "Computation-Intensive") return "A";
   return "B";
 };
 
@@ -596,7 +602,7 @@ const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
                   {s.baseUrl}
                 </div>
                 <div style={{fontSize:11,color:"#9ca3af"}}>
-                  {key==="A"?"Latency-Sensitive tasks":"All other tasks"}
+                  {key==="A"?"Latency-Sensitive · Computation-Intensive":"Energy-Efficient"}
                 </div>
               </div>
             );
@@ -806,7 +812,7 @@ export default function App() {
   const [step,          setStep]          = useState(0);
   const [maxReached,    setMaxReached]    = useState(0);
   const [selectedId,    setSelectedId]    = useState(null);
-  const [serverStatuses,setServerStatuses]= useState({A:"checking",B:"checking",C:"checking"});
+  const [serverStatuses,setServerStatuses]= useState({A:"checking",B:"checking"});
   const [machineData,   setMachineData]   = useState({});
   const [machinesLoading,setMachinesLoading]=useState(true);
   const [machinesError,  setMachinesError]  =useState(null);
