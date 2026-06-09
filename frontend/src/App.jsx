@@ -29,7 +29,7 @@ const SERVERS = {
     hex:     "#7c3aed",
     bg:      "#faf5ff",
     border:  "#e9d5ff",
-    baseUrl: "https://your-server-b.onrender.com/api",   // ← replace
+    baseUrl: "https://system-1-rcpl.onrender.com/api",   // ← replace
   },
 };
 
