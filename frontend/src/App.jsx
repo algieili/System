@@ -14,7 +14,7 @@ const SERVERS = {
   A: {
     label:   "Edge Server A",
     sub:     "Latency-Sensitive · Computation-Intensive",
-    icon:    "⚡",
+    icon:    "☁",
     color:   "blue",
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
@@ -24,8 +24,8 @@ const SERVERS = {
   B: {
     label:   "Edge Server B",
     sub:     "Energy-Efficient",
-    icon:    "🌿",
-    color:   "green",
+    icon:    "⚡",
+    color:   "yellow",
     hex:     "#15803d",
     bg:      "#f0fdf4",
     border:  "#86efac",
