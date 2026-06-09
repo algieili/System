@@ -6,17 +6,48 @@ import {
 } from "recharts";
 
 /* ══════════════════════════════════════════════════════
-   🔧 CONFIG — Replace with your Render backend URL
-   After deploying to Render it will look like:
-   https://your-app-name.onrender.com
+   🔧 DUAL-SERVER CONFIG
+   Replace each URL with your actual Render service URLs.
+   Each server handles a different edge node.
 ══════════════════════════════════════════════════════ */
-const API_BASE = "https://your-app-name.onrender.com/api";
+const SERVERS = {
+  A: {
+    label:   "Edge Server A",
+    sub:     "Latency-Sensitive · Computation-Intensive",
+    icon:    "⚡",
+    color:   "blue",
+    hex:     "#1d4ed8",
+    bg:      "#eff6ff",
+    border:  "#bfdbfe",
+    baseUrl: "https://system-ctld.onrender.com/api",
+  },
+  B: {
+    label:   "Edge Server B",
+    sub:     "Energy-Efficient",
+    icon:    "🌿",
+    color:   "green",
+    hex:     "#15803d",
+    bg:      "#f0fdf4",
+    border:  "#86efac",
+    baseUrl: "https://system-1-rcpl.onrender.com/api",
+  },
+};
 
-/* ══════════════════════════════════════════════════════
-   API HELPER — all fetch calls go through here
-══════════════════════════════════════════════════════ */
-const apiFetch = async (path, options = {}) => {
-  const res = await fetch(`${API_BASE}${path}`, {
+/* Map task type → server key
+   M1 CNC Plasma       → Computation-Intensive → Server A
+   M2 Plasma Cutting   → Computation-Intensive → Server A
+   M4 Arc Welding      → Computation-Intensive → Server A
+   M5 Shearing Machine → Latency-Sensitive     → Server A
+   M3 Paint Booth      → Energy-Efficient      → Server B
+*/
+const taskTypeToServer = (taskType) => {
+  if (taskType === "Latency-Sensitive" || taskType === "Computation-Intensive") return "A";
+  return "B";
+};
+
+/* API helper — accepts an explicit baseUrl */
+const apiFetch = async (baseUrl, path, options = {}) => {
+  const res = await fetch(`${baseUrl}${path}`, {
     headers: { "Content-Type": "application/json" },
     ...options,
   });
@@ -26,6 +57,9 @@ const apiFetch = async (path, options = {}) => {
   }
   return res.json();
 };
+
+/* Machines always load from Server A (primary) */
+const PRIMARY_BASE = SERVERS.A.baseUrl;
 
 /* ══════════════════════════════════════════════════════
    DESIGN TOKENS
@@ -53,6 +87,19 @@ const S = {
   sbBtnT: a  => ({ fontSize:13, fontWeight:a?600:400, lineHeight:1.2, color:a?ACCENT:TEXT_MUTED }),
   sbBtnD:    { fontSize:10, color:"#4d6b4d", marginTop:1 },
   sbBadge:   { fontSize:10, fontWeight:700, background:"rgba(74,222,128,0.2)", color:ACCENT, borderRadius:10, padding:"2px 7px", flexShrink:0 },
+  /* Server status pills in sidebar */
+  sbSrvPill: (online) => ({
+    display:"flex", alignItems:"center", gap:6, padding:"6px 10px",
+    borderRadius:8, marginBottom:4,
+    background: online ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)",
+    border: `1px solid ${online ? "#2d442d" : "rgba(239,68,68,0.2)"}`,
+  }),
+  sbSrvDot:  (online) => ({
+    width:6, height:6, borderRadius:"50%", flexShrink:0,
+    background: online ? ACCENT : "#ef4444",
+  }),
+  sbSrvName: { fontSize:11, color:TEXT_MUTED, flex:1 },
+  sbSrvStat: (online) => ({ fontSize:10, color: online ? ACCENT_DIM : "#ef4444", fontWeight:600 }),
   sbFooter:  { marginTop:"auto", padding:"16px 20px", borderTop:"1px solid #2d442d" },
   sbFootT:   { fontSize:11, color:"#4d6b4d" },
   sbFootV:   { fontSize:12, color:TEXT_MUTED, fontWeight:600 },
@@ -64,6 +111,14 @@ const S = {
   hBCActive: { color:"#111827", fontWeight:600 },
   hRight:    { marginLeft:"auto", display:"flex", alignItems:"center", gap:8 },
   hStepPill: { background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:20, padding:"5px 14px", fontSize:12, fontWeight:600, color:"#15803d" },
+  /* Active server badge in header */
+  hSrvBadge: (srv) => ({
+    display:"flex", alignItems:"center", gap:6, fontSize:12,
+    color: srv ? SERVERS[srv].hex : "#92400e",
+    background: srv ? SERVERS[srv].bg : "#fffbeb",
+    border: `1px solid ${srv ? SERVERS[srv].border : "#fde68a"}`,
+    borderRadius:20, padding:"5px 12px", fontWeight:600,
+  }),
   progBar:   { background:"#fff", borderBottom:"1px solid #e5e7eb", padding:"12px 28px", display:"flex", alignItems:"center", gap:0, overflowX:"auto" },
   progStep: (a,d) => ({ display:"flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:6, cursor:"pointer", background:a?"#052e16":d?"#f0fdf4":"transparent", border:a?"none":d?"1px solid #bbf7d0":"none", flexShrink:0 }),
   progNum:  (a,d) => ({ width:22, height:22, borderRadius:11, fontSize:11, fontWeight:700, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, background:a?"#4ade80":d?"#16a34a":"#e5e7eb", color:a?"#052e16":d?"#fff":"#9ca3af" }),
@@ -113,8 +168,27 @@ const STEPS = [
   { title:"Measure Latency",    icon:"📊", short:"Latency",     desc:"Results & measurement"    },
 ];
 
+/* ── Server Status Panel (used in sidebar) ── */
+const ServerStatusList = ({ statuses }) => (
+  <div style={{ padding:"12px 14px 0" }}>
+    <div style={S.sbLabel}>Backend Servers</div>
+    {Object.entries(SERVERS).map(([key, srv]) => {
+      const st = statuses[key];
+      const online = st === "online";
+      return (
+        <div key={key} style={S.sbSrvPill(online)}>
+          <span style={{ fontSize:13 }}>{srv.icon}</span>
+          <span style={S.sbSrvName}>{srv.label}</span>
+          <span style={S.sbSrvStat(online)}>{online ? "Online" : st === "checking" ? "…" : "Offline"}</span>
+          <div style={S.sbSrvDot(online)} />
+        </div>
+      );
+    })}
+  </div>
+);
+
 /* ── Sidebar ── */
-const Sidebar = ({ step, maxReached, onJump }) => (
+const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => (
   <div style={S.sidebar}>
     <div style={S.sbTop}>
       <div style={S.sbLogo}>
@@ -140,48 +214,49 @@ const Sidebar = ({ step, maxReached, onJump }) => (
         );
       })}
     </div>
+    <ServerStatusList statuses={serverStatuses} />
     <div style={S.sbFooter}>
       <div style={S.sbFootT}>IoT Task Offloading</div>
-      <div style={S.sbFootV}>v3.0 · Supabase + Render</div>
+      <div style={S.sbFootV}>v4.0 · 2-Server Distributed</div>
     </div>
   </div>
 );
 
 /* ── Header ── */
-const Header = ({ step, maxReached, onJump, serverStatus }) => (
-  <>
-    <div style={S.header}>
-      <div style={S.hBreadcrumb}>
-        <span style={S.hBCRoot}>Simulation</span>
-        <span style={S.hBCSep}>›</span>
-        <span style={S.hBCActive}>{STEPS[step].title}</span>
-      </div>
-      <div style={S.hRight}>
-        <div style={{ display:"flex", alignItems:"center", gap:6, fontSize:12,
-          color:serverStatus==="online"?"#15803d":serverStatus==="error"?"#dc2626":"#92400e",
-          background:serverStatus==="online"?"#f0fdf4":serverStatus==="error"?"#fef2f2":"#fffbeb",
-          border:`1px solid ${serverStatus==="online"?"#bbf7d0":serverStatus==="error"?"#fecaca":"#fde68a"}`,
-          borderRadius:20, padding:"5px 12px", fontWeight:600 }}>
-          <span style={{ width:7, height:7, borderRadius:"50%", display:"inline-block",
-            background:serverStatus==="online"?"#16a34a":serverStatus==="error"?"#dc2626":"#f59e0b" }}/>
-          {serverStatus==="online"?"Server Online":serverStatus==="error"?"Server Offline":"Connecting…"}
+const Header = ({ step, maxReached, onJump, activeServerKey }) => {
+  const srv = activeServerKey ? SERVERS[activeServerKey] : null;
+  return (
+    <>
+      <div style={S.header}>
+        <div style={S.hBreadcrumb}>
+          <span style={S.hBCRoot}>Simulation</span>
+          <span style={S.hBCSep}>›</span>
+          <span style={S.hBCActive}>{STEPS[step].title}</span>
         </div>
-        <div style={S.hStepPill}>Step {step+1} of {STEPS.length}</div>
+        <div style={S.hRight}>
+          {srv && (
+            <div style={S.hSrvBadge(activeServerKey)}>
+              <span>{srv.icon}</span>
+              {srv.label}
+            </div>
+          )}
+          <div style={S.hStepPill}>Step {step+1} of {STEPS.length}</div>
+        </div>
       </div>
-    </div>
-    <div style={S.progBar}>
-      {STEPS.map((s,i)=>(
-        <React.Fragment key={i}>
-          <div style={S.progStep(i===step,i<step)} onClick={()=>i<=maxReached&&onJump(i)}>
-            <div style={S.progNum(i===step,i<step)}>{i<step?"✓":i+1}</div>
-            <span style={S.progTxt(i===step,i<step)}>{s.short}</span>
-          </div>
-          {i<STEPS.length-1&&<div style={i<step?S.progLineDone:S.progLine}/>}
-        </React.Fragment>
-      ))}
-    </div>
-  </>
-);
+      <div style={S.progBar}>
+        {STEPS.map((s,i)=>(
+          <React.Fragment key={i}>
+            <div style={S.progStep(i===step,i<step)} onClick={()=>i<=maxReached&&onJump(i)}>
+              <div style={S.progNum(i===step,i<step)}>{i<step?"✓":i+1}</div>
+              <span style={S.progTxt(i===step,i<step)}>{s.short}</span>
+            </div>
+            {i<STEPS.length-1&&<div style={i<step?S.progLineDone:S.progLine}/>}
+          </React.Fragment>
+        ))}
+      </div>
+    </>
+  );
+};
 
 /* ── Step 0: Select Machine ── */
 const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
@@ -192,7 +267,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
     <div style={S.card}>
       <div style={{textAlign:"center",padding:40}}>
         <div style={{fontSize:32,marginBottom:12}}>⏳</div>
-        <div style={{color:"#6b7280"}}>Loading machines from Supabase…</div>
+        <div style={{color:"#6b7280"}}>Loading machines from Supabase via Server A…</div>
       </div>
     </div>
   );
@@ -210,7 +285,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
     <div>
       <div style={S.ph}>
         <div style={S.pt}>IoT Machine (Device)</div>
-        <div style={S.ps}>Machines loaded live from your <strong>Supabase</strong> database.</div>
+        <div style={S.ps}>Machines loaded via <strong>Server A</strong> from your Supabase database. Task type determines which of the 2 edge servers handles processing.</div>
       </div>
       <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
         {[
@@ -226,227 +301,377 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
           </div>
         ))}
       </div>
-      <div style={S.card}>
-        <div style={S.ct}>Available IoT Machines</div>
-        <div style={S.cd}>Click a machine to select it.</div>
-        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
-          {machines.map(mc=>(
-            <div key={mc.id} style={S.mCard(selectedId===mc.id)} onClick={()=>setSelectedId(mc.id)}>
-              <div style={{fontSize:26,marginBottom:8}}>
-                {mc.id==="M1"?"🔩":mc.id==="M2"?"⚡":mc.id==="M3"?"🎨":mc.id==="M4"?"🔥":"✂️"}
+
+      {/* Server routing preview */}
+      <div style={{...S.card,marginBottom:20}}>
+        <div style={S.ct}>Server Routing Map</div>
+        <div style={S.cd}>Each task type is routed to a dedicated Render backend.</div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,srv])=>(
+            <div key={key} style={{flex:"1 1 180px",border:`2px solid ${srv.border}`,borderRadius:10,padding:"14px 16px",background:srv.bg}}>
+              <div style={{fontSize:24,marginBottom:6}}>{srv.icon}</div>
+              <div style={{fontSize:13,fontWeight:700,color:"#111827",marginBottom:2}}>{srv.label}</div>
+              <div style={{fontSize:11,color:"#6b7280",marginBottom:8}}>{srv.sub}</div>
+              <div style={{fontSize:10,fontFamily:"monospace",color:srv.hex,background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
+                {srv.baseUrl.replace("https://","").replace(".onrender.com/api","")}…
               </div>
-              <div style={{fontSize:14,fontWeight:700,color:selectedId===mc.id?"#15803d":"#111827",marginBottom:2}}>{mc.machineId}</div>
-              <div style={{fontSize:12,color:"#6b7280",lineHeight:1.3}}>{mc.name}</div>
-              {selectedId===mc.id&&<div style={{marginTop:8}}><span style={S.badge("green")}>✓ Selected</span></div>}
             </div>
           ))}
         </div>
       </div>
+
       <div style={S.card}>
-        <div style={S.ct}>{m.name} — {m.machineId}</div>
-        <div style={S.cd}>Machine registered as an IoT device in the edge computing network.</div>
-        <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:16}}>
-          {[["Machine ID",m.machineId,"blue"],["Category",m.category,"green"],["Task Type",m.taskType,"amber"]].map(([l,v,c])=>(
-            <div key={l} style={{flex:"1 1 160px",background:"#f9fafb",border:"1px solid #f3f4f6",borderRadius:10,padding:"14px 16px"}}>
-              <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{l}</div>
-              <span style={S.badge(c)}>{v}</span>
-            </div>
-          ))}
+        <div style={S.ct}>Available IoT Machines</div>
+        <div style={S.cd}>Click a machine to select it. The routed server is shown below each card.</div>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          {machines.map(mc=>{
+            const sKey = taskTypeToServer(mc.taskType);
+            const srv  = SERVERS[sKey];
+            return (
+              <div key={mc.id} style={{...S.mCard(selectedId===mc.id),position:"relative"}} onClick={()=>setSelectedId(mc.id)}>
+                <div style={{fontSize:26,marginBottom:8}}>
+                  {mc.id==="M1"?"🔩":mc.id==="M2"?"⚡":mc.id==="M3"?"🎨":mc.id==="M4"?"🔥":"✂️"}
+                </div>
+                <div style={{fontSize:14,fontWeight:700,color:selectedId===mc.id?"#15803d":"#111827",marginBottom:2}}>{mc.machineId}</div>
+                <div style={{fontSize:12,color:"#6b7280",lineHeight:1.3,marginBottom:6}}>{mc.name}</div>
+                {/* Server routing chip */}
+                <div style={{fontSize:10,fontWeight:600,color:srv.hex,background:srv.bg,border:`1px solid ${srv.border}`,borderRadius:6,padding:"2px 7px",display:"inline-block"}}>
+                  {srv.icon} {srv.label}
+                </div>
+                {selectedId===mc.id&&<div style={{marginTop:8}}><span style={S.badge("green")}>✓ Selected</span></div>}
+              </div>
+            );
+          })}
         </div>
-        <div style={{...S.infoBox("green"),marginBottom:0}}>
-          <div style={{fontSize:13,color:"#15803d"}}>✅ <strong>{m.machineId} ({m.name})</strong> selected. Click <strong>Next</strong> to collect task data.</div>
+      </div>
+
+      {m && (()=>{
+        const sKey = taskTypeToServer(m.taskType);
+        const srv  = SERVERS[sKey];
+        return (
+          <div style={S.card}>
+            <div style={S.ct}>{m.name} — {m.machineId}</div>
+            <div style={S.cd}>Registered IoT device. Will be processed by <strong>{srv.label}</strong>.</div>
+            <div style={{display:"flex",gap:14,flexWrap:"wrap",marginBottom:16}}>
+              {[["Machine ID",m.machineId,"blue"],["Category",m.category,"green"],["Task Type",m.taskType,"amber"],["Routed To",srv.label,srv.color]].map(([l,v,c])=>(
+                <div key={l} style={{flex:"1 1 160px",background:"#f9fafb",border:"1px solid #f3f4f6",borderRadius:10,padding:"14px 16px"}}>
+                  <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>{l}</div>
+                  <span style={S.badge(c)}>{v}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{...S.infoBox("green"),marginBottom:0}}>
+              <div style={{fontSize:13,color:"#15803d"}}>
+                ✅ <strong>{m.machineId} ({m.name})</strong> selected → routed to <strong>{srv.icon} {srv.label}</strong>. Click <strong>Next</strong> to collect task data.
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+    </div>
+  );
+};
+
+/* ── Step 1: Collect Data ── */
+const Step1CollectData = ({ machine:m }) => {
+  const sKey = taskTypeToServer(m.taskType);
+  const srv  = SERVERS[sKey];
+  return (
+    <div>
+      <div style={S.ph}>
+        <div style={S.pt}>Collect Task Data</div>
+        <div style={S.ps}>Parameters for <strong>{m.name} ({m.machineId})</strong> from Supabase. Will be sent to <strong>{srv.icon} {srv.label}</strong>.</div>
+      </div>
+      <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
+        {[
+          {icon:"📦",label:"Task Size",      value:`${m.taskSize} MB`,          color:"blue"},
+          {icon:"⏱️",label:"Processing Time",value:`${m.processingTime} ms`,    color:"green"},
+          {icon:"📡",label:"Bandwidth",      value:`${m.bandwidth} Mbps`,       color:"purple"},
+          {icon:"🔋",label:"Energy",         value:`${m.energyConsumption} kWh`,color:"amber"},
+        ].map(({icon,label,value,color})=>(
+          <div key={label} style={S.statCard}>
+            <div style={S.statIcon(color)}>{icon}</div>
+            <div style={S.statVal}>{value}</div>
+            <div style={S.statLbl}>{label}</div>
+          </div>
+        ))}
+      </div>
+      <div style={S.card}>
+        <div style={S.ct}>Collected Parameters — {m.machineId}</div>
+        <div style={S.cd}>Live data from Supabase database.</div>
+        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <thead><tr><th style={S.th}>Parameter</th><th style={S.th}>Value</th><th style={S.th}>Description</th></tr></thead>
+          <tbody>
+            {[
+              ["Machine ID",        m.machineId,                 "Unique device identifier"],
+              ["Task Size",         `${m.taskSize} MB`,          "Data generated per task"],
+              ["Processing Time",   `${m.processingTime} ms`,    "Time to process task locally"],
+              ["Queue Length",      m.queueLength,               "Pending task count"],
+              ["CPU Utilization",   `${m.cpuUtilization}%`,      "Edge node processing load"],
+              ["Memory Usage",      `${m.memoryUsage} GB`,       "RAM used by edge node"],
+              ["Network Bandwidth", `${m.bandwidth} Mbps`,       "Communication speed"],
+              ["Transmission Delay",`${m.transmissionDelay} ms`, "Delay to edge server"],
+              ["Energy Consumption",`${m.energyConsumption} kWh`,"Energy per operation cycle"],
+              ["Throughput",        `${m.throughput} tasks/min`, "Tasks completed per minute"],
+              ["Average Latency",   `${m.avgLatency} ms`,        "End-to-end delay"],
+            ].map(([p,v,d],i)=>(
+              <tr key={p} style={{background:i%2===0?"#fff":"#f9fafb"}}>
+                <td style={{...S.td,fontWeight:600,color:"#374151"}}>{p}</td>
+                <td style={S.td}><span style={S.badge("blue")}>{v}</span></td>
+                <td style={{...S.td,color:"#6b7280"}}>{d}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div style={{...S.infoBox("green"),marginBottom:0}}>
+        <div style={{fontSize:13,color:"#15803d"}}>
+          📋 All parameters loaded. Algorithms will POST to <strong>{srv.icon} {srv.label}</strong> ({srv.baseUrl}). Click <strong>Next</strong> to run GBFS.
         </div>
       </div>
     </div>
   );
 };
 
-/* ── Step 1: Collect Data ── */
-const Step1CollectData = ({ machine:m }) => (
-  <div>
-    <div style={S.ph}>
-      <div style={S.pt}>Collect Task Data</div>
-      <div style={S.ps}>Parameters loaded from <strong>Supabase</strong> for <strong>{m.name} ({m.machineId})</strong>.</div>
-    </div>
-    <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-      {[
-        {icon:"📦",label:"Task Size",      value:`${m.taskSize} MB`,          color:"blue"},
-        {icon:"⏱️",label:"Processing Time",value:`${m.processingTime} ms`,    color:"green"},
-        {icon:"📡",label:"Bandwidth",      value:`${m.bandwidth} Mbps`,       color:"purple"},
-        {icon:"🔋",label:"Energy",         value:`${m.energyConsumption} kWh`,color:"amber"},
-      ].map(({icon,label,value,color})=>(
-        <div key={label} style={S.statCard}>
-          <div style={S.statIcon(color)}>{icon}</div>
-          <div style={S.statVal}>{value}</div>
-          <div style={S.statLbl}>{label}</div>
-        </div>
-      ))}
-    </div>
-    <div style={S.card}>
-      <div style={S.ct}>Collected Parameters — {m.machineId}</div>
-      <div style={S.cd}>Live data from Supabase database.</div>
-      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-        <thead><tr><th style={S.th}>Parameter</th><th style={S.th}>Value</th><th style={S.th}>Description</th></tr></thead>
-        <tbody>
-          {[
-            ["Machine ID",        m.machineId,                 "Unique device identifier"],
-            ["Task Size",         `${m.taskSize} MB`,          "Data generated per task"],
-            ["Processing Time",   `${m.processingTime} ms`,    "Time to process task locally"],
-            ["Queue Length",      m.queueLength,               "Pending task count"],
-            ["CPU Utilization",   `${m.cpuUtilization}%`,      "Edge node processing load"],
-            ["Memory Usage",      `${m.memoryUsage} GB`,       "RAM used by edge node"],
-            ["Network Bandwidth", `${m.bandwidth} Mbps`,       "Communication speed"],
-            ["Transmission Delay",`${m.transmissionDelay} ms`, "Delay to edge server"],
-            ["Energy Consumption",`${m.energyConsumption} kWh`,"Energy per operation cycle"],
-            ["Throughput",        `${m.throughput} tasks/min`, "Tasks completed per minute"],
-            ["Average Latency",   `${m.avgLatency} ms`,        "End-to-end delay"],
-          ].map(([p,v,d],i)=>(
-            <tr key={p} style={{background:i%2===0?"#fff":"#f9fafb"}}>
-              <td style={{...S.td,fontWeight:600,color:"#374151"}}>{p}</td>
-              <td style={S.td}><span style={S.badge("blue")}>{v}</span></td>
-              <td style={{...S.td,color:"#6b7280"}}>{d}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-    <div style={{...S.infoBox("green"),marginBottom:0}}>
-      <div style={{fontSize:13,color:"#15803d"}}>📋 All parameters for <strong>{m.name}</strong> loaded from Supabase. Click <strong>Next</strong> to run GBFS.</div>
-    </div>
-  </div>
-);
-
 /* ── Step 2: GBFS ── */
-const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error }) => (
-  <div>
-    <div style={S.ph}>
-      <div style={S.pt}>GBFS Algorithm — Decision Making</div>
-      <div style={S.ps}>Greedy Best-First Search runs on your <strong>Render</strong> backend for <strong>{m.name}</strong>.</div>
-    </div>
-    <div style={S.card}>
-      <div style={S.ct}>How GBFS Works</div>
-      <div style={S.cd}>Executed on your cloud backend server.</div>
-      {[
-        ["1","Load task data from Supabase", `Task Size: ${m.taskSize} MB · Bandwidth: ${m.bandwidth} Mbps`],
-        ["2","Compute heuristic h(n)",        "Estimates cost using avg latency + transmission delay."],
-        ["3","Greedy node expansion",          "Expands node with lowest h(n) — fastest offload decision."],
-        ["4","Evaluate resource usage",        `CPU: ${m.cpuUtilization}% · Memory: ${m.memoryUsage} GB`],
-        ["5","Return metrics to frontend",     "Backend responds with latency, throughput, energy, utilization."],
-      ].map(([n,t,d])=>(
-        <div key={n} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"12px 0",borderBottom:"1px solid #f3f4f6"}}>
-          <div style={S.stepNum}>{n}</div>
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{t}</div>
-            <div style={{fontSize:12,color:"#6b7280",marginTop:3}}>{d}</div>
-          </div>
-        </div>
-      ))}
-      {error&&<div style={{...S.errBox,marginTop:16}}>❌ <strong>GBFS failed.</strong> {error}</div>}
-      <div style={{marginTop:20,textAlign:"center"}}>
-        <button style={running?S.btnOff:S.btn} disabled={running} onClick={onRun}>
-          {running?"⏳ Waiting for server…":"▶  Run GBFS on Server"}
-        </button>
-        {running&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {API_BASE}/gbfs</div>}
+const Step2GBFS = ({ machine:m, gbfsData, onRun, running, error, selectedServer, setSelectedServer }) => {
+  const srv = SERVERS[selectedServer];
+  return (
+    <div>
+      <div style={S.ph}>
+        <div style={S.pt}>GBFS Algorithm — Decision Making</div>
+        <div style={S.ps}>Choose which server runs Greedy Best-First Search for <strong>{m.name}</strong>.</div>
       </div>
-    </div>
-    {gbfsData&&(
+      {/* Server Picker */}
       <div style={S.card}>
-        <div style={S.ct}>GBFS Result — from Render server</div>
-        <div style={S.cd}>Response received for {m.name}.</div>
-        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-          <div style={{flex:"1 1 200px",border:"2px solid #bfdbfe",borderRadius:12,padding:"20px",background:"#eff6ff",textAlign:"center"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#1d4ed8",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
-            <div style={S.bigNum("gbfs")}>{gbfsData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
-            <span style={S.badge(gbfsData.remark==="Excellent"?"green":"amber")}>{gbfsData.remark}</span>
-          </div>
-          <div style={{flex:"2 1 280px"}}>
-            {[["Processing Speed",`${gbfsData.throughput} tasks/s`],["Energy Usage",`${gbfsData.energy} kWh`],["Resource Utilization",`${gbfsData.utilization}%`],["Response Time",`${gbfsData.time} ms`]].map(([l,v])=>(
-              <div key={l} style={S.dr}><span style={S.dl}>{l}</span><span style={S.dv}>{v}</span></div>
-            ))}
-          </div>
-        </div>
-        <div style={{...S.infoBox("blue"),marginTop:16,marginBottom:0}}>
-          <div style={{fontSize:13,color:"#1d4ed8"}}>✅ Server returned latency <strong>{gbfsData.latency} ms</strong>. Click <strong>Next</strong> to run PSO.</div>
+        <div style={S.ct}>Choose Server</div>
+        <div style={S.cd}>Select which backend runs the GBFS algorithm.</div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,s])=>{
+            const active = key === selectedServer;
+            return (
+              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
+                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
+                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
+                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <span style={{fontSize:26}}>{s.icon}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
+                  </div>
+                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
+                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
+                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
+                  {s.baseUrl}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-    )}
-  </div>
-);
+      <div style={S.card}>
+        <div style={S.ct}>How GBFS Works</div>
+        <div style={S.cd}>Executed on <strong>{srv.label}</strong> ({srv.baseUrl}/gbfs).</div>
+        {[
+          ["1","Load task data from Supabase", `Task Size: ${m.taskSize} MB · Bandwidth: ${m.bandwidth} Mbps`],
+          ["2","Compute heuristic h(n)",        "Estimates cost using avg latency + transmission delay."],
+          ["3","Greedy node expansion",          "Expands node with lowest h(n) — fastest offload decision."],
+          ["4","Evaluate resource usage",        `CPU: ${m.cpuUtilization}% · Memory: ${m.memoryUsage} GB`],
+          ["5","Return metrics to frontend",     "Backend responds with latency, throughput, energy, utilization."],
+        ].map(([n,t,d])=>(
+          <div key={n} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"12px 0",borderBottom:"1px solid #f3f4f6"}}>
+            <div style={S.stepNum}>{n}</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{t}</div>
+              <div style={{fontSize:12,color:"#6b7280",marginTop:3}}>{d}</div>
+            </div>
+          </div>
+        ))}
+        {error&&<div style={{...S.errBox,marginTop:16}}>❌ <strong>GBFS failed on {srv.label}.</strong> {error}</div>}
+        <div style={{marginTop:20,textAlign:"center"}}>
+          <button style={running?S.btnOff:S.btn} disabled={running} onClick={onRun}>
+            {running?`⏳ Waiting for ${srv.label}…`:`▶  Run GBFS on ${srv.icon} ${srv.label}`}
+          </button>
+          {running&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {srv.baseUrl}/gbfs</div>}
+        </div>
+      </div>
+      {gbfsData&&(
+        <div style={S.card}>
+          <div style={S.ct}>GBFS Result — from {srv.label}</div>
+          <div style={S.cd}>Response received for {m.name}.</div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+              <div style={S.bigNum("gbfs")}>{gbfsData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
+              <span style={S.badge(gbfsData.remark==="Excellent"?"green":"amber")}>{gbfsData.remark}</span>
+            </div>
+            <div style={{flex:"2 1 280px"}}>
+              {[["Processing Speed",`${gbfsData.throughput} tasks/s`],["Energy Usage",`${gbfsData.energy} kWh`],["Resource Utilization",`${gbfsData.utilization}%`],["Response Time",`${gbfsData.time} ms`]].map(([l,v])=>(
+                <div key={l} style={S.dr}><span style={S.dl}>{l}</span><span style={S.dv}>{v}</span></div>
+              ))}
+            </div>
+          </div>
+          <div style={{...S.infoBox("blue"),marginTop:16,marginBottom:0}}>
+            <div style={{fontSize:13,color:"#1d4ed8"}}>✅ {srv.label} returned latency <strong>{gbfsData.latency} ms</strong>. Click <strong>Next</strong> to run PSO.</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ── Step 3: PSO ── */
-const Step3PSO = ({ machine:m, psoData, onRun, running, error }) => (
-  <div>
-    <div style={S.ph}>
-      <div style={S.pt}>PSO Algorithm — Decision Making</div>
-      <div style={S.ps}>Particle Swarm Optimization runs on your <strong>Render</strong> backend for <strong>{m.name}</strong>.</div>
-    </div>
-    <div style={S.card}>
-      <div style={S.ct}>How PSO Works</div>
-      <div style={S.cd}>Executed on your cloud backend server.</div>
-      {[
-        ["1","Initialize particle swarm",  `Each particle = a candidate offloading decision for ${m.name}.`],
-        ["2","Evaluate fitness function",  `Task Size: ${m.taskSize} MB · Latency: ${m.avgLatency} ms`],
-        ["3","Update velocity & position", "Particles move toward personal best (pBest) and global best (gBest)."],
-        ["4","Iterate until convergence",  `CPU: ${m.cpuUtilization}% · Energy: ${m.energyConsumption} kWh`],
-        ["5","Return optimal decision",    "Backend responds with best offloading path metrics."],
-      ].map(([n,t,d])=>(
-        <div key={n} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"12px 0",borderBottom:"1px solid #f3f4f6"}}>
-          <div style={{...S.stepNum,background:"#faf5ff",color:"#7c3aed"}}>{n}</div>
-          <div>
-            <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{t}</div>
-            <div style={{fontSize:12,color:"#6b7280",marginTop:3}}>{d}</div>
-          </div>
-        </div>
-      ))}
-      {error&&<div style={{...S.errBox,marginTop:16}}>❌ <strong>PSO failed.</strong> {error}</div>}
-      <div style={{marginTop:20,textAlign:"center"}}>
-        <button style={running?S.btnOff:S.btnPurple} disabled={running} onClick={onRun}>
-          {running?"⏳ Waiting for server…":"▶  Run PSO on Server"}
-        </button>
-        {running&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {API_BASE}/pso</div>}
+const Step3PSO = ({ machine:m, psoData, onRun, running, error, selectedServer, setSelectedServer }) => {
+  const srv = SERVERS[selectedServer];
+  return (
+    <div>
+      <div style={S.ph}>
+        <div style={S.pt}>PSO Algorithm — Decision Making</div>
+        <div style={S.ps}>Choose which server runs Particle Swarm Optimization for <strong>{m.name}</strong>.</div>
       </div>
-    </div>
-    {psoData&&(
+      {/* Server Picker */}
       <div style={S.card}>
-        <div style={S.ct}>PSO Result — from Render server</div>
-        <div style={S.cd}>Response received for {m.name}.</div>
-        <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
-          <div style={{flex:"1 1 200px",border:"2px solid #e9d5ff",borderRadius:12,padding:"20px",background:"#faf5ff",textAlign:"center"}}>
-            <div style={{fontSize:11,fontWeight:700,color:"#7c3aed",textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
-            <div style={S.bigNum("pso")}>{psoData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
-            <span style={S.badge(psoData.remark==="Excellent"?"green":"amber")}>{psoData.remark}</span>
-          </div>
-          <div style={{flex:"2 1 280px"}}>
-            {[["Processing Speed",`${psoData.throughput} tasks/s`],["Energy Usage",`${psoData.energy} kWh`],["Resource Utilization",`${psoData.utilization}%`],["Response Time",`${psoData.time} ms`]].map(([l,v])=>(
-              <div key={l} style={S.dr}><span style={S.dl}>{l}</span><span style={S.dv}>{v}</span></div>
-            ))}
-          </div>
-        </div>
-        <div style={{...S.infoBox("purple"),marginBottom:0,marginTop:16}}>
-          <div style={{fontSize:13,color:"#7c3aed"}}>✅ Server returned latency <strong>{psoData.latency} ms</strong>. Click <strong>Next</strong> to select edge server.</div>
+        <div style={S.ct}>Choose Server</div>
+        <div style={S.cd}>Select which backend runs the PSO algorithm.</div>
+        <div style={{display:"flex",gap:12,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,s])=>{
+            const active = key === selectedServer;
+            return (
+              <div key={key} onClick={()=>!running&&setSelectedServer(key)}
+                style={{flex:"1 1 200px",border:`2px solid ${active?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",
+                  background:active?s.bg:"#f9fafb",cursor:running?"not-allowed":"pointer",
+                  boxShadow:active?`0 0 0 3px ${s.border}`:"none",transition:"all 0.15s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:8}}>
+                  <span style={{fontSize:26}}>{s.icon}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:active?"#111827":"#6b7280"}}>{s.label}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
+                  </div>
+                  {active&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Selected</span>}
+                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:active?s.hex:"#9ca3af",
+                  background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all"}}>
+                  {s.baseUrl}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
-    )}
-  </div>
-);
+      <div style={S.card}>
+        <div style={S.ct}>How PSO Works</div>
+        <div style={S.cd}>Executed on <strong>{srv.label}</strong> ({srv.baseUrl}/pso).</div>
+        {[
+          ["1","Initialize particle swarm",  `Each particle = a candidate offloading decision for ${m.name}.`],
+          ["2","Evaluate fitness function",  `Task Size: ${m.taskSize} MB · Latency: ${m.avgLatency} ms`],
+          ["3","Update velocity & position", "Particles move toward personal best (pBest) and global best (gBest)."],
+          ["4","Iterate until convergence",  `CPU: ${m.cpuUtilization}% · Energy: ${m.energyConsumption} kWh`],
+          ["5","Return optimal decision",    "Backend responds with best offloading path metrics."],
+        ].map(([n,t,d])=>(
+          <div key={n} style={{display:"flex",gap:12,alignItems:"flex-start",padding:"12px 0",borderBottom:"1px solid #f3f4f6"}}>
+            <div style={{...S.stepNum,background:"#faf5ff",color:"#7c3aed"}}>{n}</div>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:"#111827"}}>{t}</div>
+              <div style={{fontSize:12,color:"#6b7280",marginTop:3}}>{d}</div>
+            </div>
+          </div>
+        ))}
+        {error&&<div style={{...S.errBox,marginTop:16}}>❌ <strong>PSO failed on {srv.label}.</strong> {error}</div>}
+        <div style={{marginTop:20,textAlign:"center"}}>
+          <button style={running?S.btnOff:S.btnPurple} disabled={running} onClick={onRun}>
+            {running?`⏳ Waiting for ${srv.label}…`:`▶  Run PSO on ${srv.icon} ${srv.label}`}
+          </button>
+          {running&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {srv.baseUrl}/pso</div>}
+        </div>
+      </div>
+      {psoData&&(
+        <div style={S.card}>
+          <div style={S.ct}>PSO Result — from {srv.label}</div>
+          <div style={S.cd}>Response received for {m.name}.</div>
+          <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
+            <div style={{flex:"1 1 200px",border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px",background:srv.bg,textAlign:"center"}}>
+              <div style={{fontSize:11,fontWeight:700,color:srv.hex,textTransform:"uppercase",letterSpacing:"0.06em"}}>Computed Latency</div>
+              <div style={S.bigNum("pso")}>{psoData.latency}<span style={{fontSize:16,fontWeight:500}}> ms</span></div>
+              <span style={S.badge(psoData.remark==="Excellent"?"green":"amber")}>{psoData.remark}</span>
+            </div>
+            <div style={{flex:"2 1 280px"}}>
+              {[["Processing Speed",`${psoData.throughput} tasks/s`],["Energy Usage",`${psoData.energy} kWh`],["Resource Utilization",`${psoData.utilization}%`],["Response Time",`${psoData.time} ms`]].map(([l,v])=>(
+                <div key={l} style={S.dr}><span style={S.dl}>{l}</span><span style={S.dv}>{v}</span></div>
+              ))}
+            </div>
+          </div>
+          <div style={{...S.infoBox("purple"),marginBottom:0,marginTop:16}}>
+            <div style={{fontSize:13,color:"#7c3aed"}}>✅ {srv.label} returned latency <strong>{psoData.latency} ms</strong>. Click <strong>Next</strong> to select edge server.</div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* ── Step 4: Select Edge Server ── */
 const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
   if (!gbfsData||!psoData) return <div style={S.card}><div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>⚠️ Please run both GBFS and PSO first.</div></div>;
-  const gbfsWins=gbfsData.latency<=psoData.latency, bestAlgo=gbfsWins?"GBFS":"PSO";
-  const bestLat=Math.min(+gbfsData.latency,+psoData.latency);
-  const server=m.taskType==="Latency-Sensitive"?"Edge Server A (Low-Latency)":m.taskType==="Energy-Efficient"?"Edge Server B (Energy-Optimized)":"Edge Server C (High-Compute Cloud)";
-  const serverIcon=m.taskType==="Latency-Sensitive"?"⚡":m.taskType==="Energy-Efficient"?"🌿":"☁️";
+  const gbfsWins  = gbfsData.latency <= psoData.latency;
+  const bestAlgo  = gbfsWins ? "GBFS" : "PSO";
+  const bestLat   = Math.min(+gbfsData.latency, +psoData.latency);
+  const gbfsSrvKey= gbfsData.ranOnServer || "A";
+  const psoSrvKey = psoData.ranOnServer  || "A";
+  const bestSrvKey= gbfsWins ? gbfsSrvKey : psoSrvKey;
+  const sKey      = bestSrvKey;
+  const srv       = SERVERS[sKey];
+
   return (
     <div>
-      <div style={S.ph}><div style={S.pt}>Select Best Edge Server</div><div style={S.ps}>Based on <strong>{bestAlgo}</strong> result from your Render backend.</div></div>
+      <div style={S.ph}>
+        <div style={S.pt}>Select Best Edge Server</div>
+        <div style={S.ps}>Based on <strong>{bestAlgo}</strong> result. Task type <strong>{m.taskType}</strong> routes to <strong>{srv.icon} {srv.label}</strong>.</div>
+      </div>
       <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        {[{icon:"⚙️",label:"GBFS Latency",value:`${gbfsData.latency} ms`,color:"blue"},{icon:"🔬",label:"PSO Latency",value:`${psoData.latency} ms`,color:"purple"},{icon:"🏆",label:"Best Algorithm",value:bestAlgo,color:"green"},{icon:"📉",label:"Best Latency",value:`${bestLat} ms`,color:"amber"}].map(({icon,label,value,color})=>(
+        {[
+          {icon:"⚙️",label:"GBFS Latency", value:`${gbfsData.latency} ms`,color:"blue"},
+          {icon:"🔬",label:"PSO Latency",  value:`${psoData.latency} ms`, color:"purple"},
+          {icon:"🏆",label:"Best Algorithm",value:bestAlgo,               color:"green"},
+          {icon:"📉",label:"Best Latency", value:`${bestLat} ms`,         color:"amber"},
+        ].map(({icon,label,value,color})=>(
           <div key={label} style={S.statCard}><div style={S.statIcon(color)}>{icon}</div><div style={S.statVal}>{value}</div><div style={S.statLbl}>{label}</div></div>
         ))}
       </div>
+
+      {/* All three servers with active highlight */}
       <div style={S.card}>
-        <div style={S.ct}>Algorithm Comparison</div><div style={S.cd}>GBFS vs PSO from your backend.</div>
+        <div style={S.ct}>Distributed Server Network</div>
+        <div style={S.cd}>All three Render backends — the active server is highlighted.</div>
+        <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+          {Object.entries(SERVERS).map(([key,s])=>{
+            const isActive = key === sKey;
+            return (
+              <div key={key} style={{flex:"1 1 200px",border:`2px solid ${isActive?s.border:"#e5e7eb"}`,borderRadius:12,padding:"16px 18px",background:isActive?s.bg:"#f9fafb",opacity:isActive?1:0.55,transition:"all 0.2s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                  <span style={{fontSize:24}}>{s.icon}</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:isActive?"#111827":"#6b7280"}}>{s.label}</div>
+                    <div style={{fontSize:11,color:"#9ca3af"}}>{s.sub}</div>
+                  </div>
+                  {isActive&&<span style={{...S.badge(s.color),marginLeft:"auto"}}>✓ Active</span>}
+                </div>
+                <div style={{fontSize:10,fontFamily:"monospace",color:isActive?s.hex:"#9ca3af",background:"rgba(0,0,0,0.04)",padding:"4px 8px",borderRadius:4,wordBreak:"break-all",marginBottom:8}}>
+                  {s.baseUrl}
+                </div>
+                <div style={{fontSize:11,color:"#9ca3af"}}>
+                  {key==="A"?"Latency-Sensitive · Computation-Intensive":"Energy-Efficient"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div style={S.card}>
+        <div style={S.ct}>Algorithm Comparison</div>
+        <div style={S.cd}>GBFS ran on <strong>{SERVERS[gbfsSrvKey].icon} {SERVERS[gbfsSrvKey].label}</strong> · PSO ran on <strong>{SERVERS[psoSrvKey].icon} {SERVERS[psoSrvKey].label}</strong>.</div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr>{["Metric","GBFS","PSO","Better"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
@@ -458,14 +683,15 @@ const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
         </table>
       </div>
       <div style={S.card}>
-        <div style={S.ct}>Selected Edge Server</div><div style={S.cd}>Chosen based on <strong>{bestAlgo}</strong> and task type: <strong>{m.taskType}</strong>.</div>
-        <div style={{display:"flex",alignItems:"center",gap:20,background:"#f0fdf4",border:"2px solid #86efac",borderRadius:12,padding:"20px 24px"}}>
-          <div style={{fontSize:40}}>{serverIcon}</div>
+        <div style={S.ct}>Selected Edge Server</div>
+        <div style={S.cd}>Chosen based on <strong>{bestAlgo}</strong> and task type: <strong>{m.taskType}</strong>.</div>
+        <div style={{display:"flex",alignItems:"center",gap:20,background:srv.bg,border:`2px solid ${srv.border}`,borderRadius:12,padding:"20px 24px"}}>
+          <div style={{fontSize:40}}>{srv.icon}</div>
           <div style={{flex:1}}>
-            <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>{server}</div>
-            <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>Best latency: <strong style={{color:"#15803d"}}>{bestLat} ms</strong> · Algorithm: <strong>{bestAlgo}</strong></div>
+            <div style={{fontSize:18,fontWeight:800,color:"#111827"}}>{srv.label}</div>
+            <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>Best latency: <strong style={{color:srv.hex}}>{bestLat} ms</strong> · Algorithm: <strong>{bestAlgo}</strong> · URL: <code style={{fontSize:11}}>{srv.baseUrl}</code></div>
           </div>
-          <span style={S.badge("green")}>✓ Ready</span>
+          <span style={S.badge(srv.color)}>✓ Ready</span>
         </div>
       </div>
     </div>
@@ -475,22 +701,27 @@ const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
 /* ── Step 5: Offload Task ── */
 const Step5Offload = ({ machine:m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload }) => {
   if (!gbfsData||!psoData) return <div style={S.card}><div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>⚠️ Please run both algorithms first.</div></div>;
-  const bestAlgo=gbfsData.latency<=psoData.latency?"GBFS":"PSO";
-  const server=m.taskType==="Latency-Sensitive"?"Edge Server A":m.taskType==="Energy-Efficient"?"Edge Server B":"Edge Server C";
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const bestAlgo = gbfsWins ? "GBFS" : "PSO";
+  const sKey     = gbfsWins ? (gbfsData.ranOnServer||"A") : (psoData.ranOnServer||"A");
+  const srv      = SERVERS[sKey];
   return (
     <div>
-      <div style={S.ph}><div style={S.pt}>Offload Task</div><div style={S.ps}>Sending task from <strong>{m.name}</strong> to <strong>{server}</strong> — logged to <strong>Supabase</strong>.</div></div>
+      <div style={S.ph}>
+        <div style={S.pt}>Offload Task</div>
+        <div style={S.ps}>Sending task from <strong>{m.name}</strong> to <strong>{srv.icon} {srv.label}</strong> — logged to <strong>Supabase</strong>.</div>
+      </div>
       <div style={S.card}>
-        <div style={S.ct}>Task Offloading Flow</div><div style={S.cd}>IoT Device → Network → Edge Server → Supabase log.</div>
+        <div style={S.ct}>Task Offloading Flow</div><div style={S.cd}>IoT Device → Network → {srv.label} → Supabase log.</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:0,flexWrap:"wrap",padding:"16px 0"}}>
           {[
-            {icon:"🏭",label:m.machineId,sub:"IoT Device",bc:"#bfdbfe",bg:"#eff6ff"},
+            {icon:"🏭",label:m.machineId,sub:"IoT Device",            bc:"#bfdbfe",bg:"#eff6ff"},
             null,
-            {icon:"📡",label:"Network",sub:`${m.bandwidth} Mbps · ${m.transmissionDelay}ms`,bc:"#fde68a",bg:"#fffbeb"},
+            {icon:"📡",label:"Network",  sub:`${m.bandwidth} Mbps · ${m.transmissionDelay}ms`,bc:"#fde68a",bg:"#fffbeb"},
             null,
-            {icon:"🖧",label:server,sub:"Edge Node",bc:"#86efac",bg:"#f0fdf4"},
+            {icon:srv.icon,label:srv.label,sub:"Edge Node",           bc:srv.border,bg:srv.bg},
             null,
-            {icon:"🗄️",label:"Supabase",sub:"Logs saved",bc:"#e9d5ff",bg:"#faf5ff"},
+            {icon:"🗄️",label:"Supabase",sub:"Logs saved",             bc:"#e9d5ff",bg:"#faf5ff"},
           ].map((item,i)=>item===null?(
             <div key={i} style={{display:"flex",alignItems:"center",padding:"0 4px"}}>
               <div style={{width:28,height:2,background:"linear-gradient(90deg,#6b7280,#16a34a)"}}/>
@@ -506,19 +737,20 @@ const Step5Offload = ({ machine:m, gbfsData, psoData, offloadResult, offloading,
         </div>
       </div>
       <div style={S.card}>
-        <div style={S.ct}>Send Task to Cloud</div><div style={S.cd}>POSTs to your Render backend, logs result to Supabase.</div>
-        {offloadError&&<div style={{...S.errBox,marginBottom:16}}>❌ <strong>Offload failed.</strong> {offloadError}</div>}
+        <div style={S.ct}>Send Task to {srv.label}</div>
+        <div style={S.cd}>POSTs to <code style={{fontSize:11}}>{srv.baseUrl}/offload</code>, logs result to Supabase.</div>
+        {offloadError&&<div style={{...S.errBox,marginBottom:16}}>❌ <strong>Offload to {srv.label} failed.</strong> {offloadError}</div>}
         {!offloadResult?(
           <div style={{textAlign:"center",paddingTop:8}}>
             <button style={offloading?S.btnOff:S.btn} disabled={offloading} onClick={onOffload}>
-              {offloading?"⏳ Sending to server…":"📤 Offload Task to Edge Server"}
+              {offloading?`⏳ Sending to ${srv.label}…`:`📤 Offload Task to ${srv.icon} ${srv.label}`}
             </button>
-            {offloading&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {API_BASE}/offload → Supabase log</div>}
+            {offloading&&<div style={{fontSize:12,color:"#9ca3af",marginTop:8}}>POST → {srv.baseUrl}/offload → Supabase log</div>}
           </div>
         ):(
           <>
             <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
-              {[["Task Size",`${m.taskSize} MB`,"blue"],["Algorithm",bestAlgo,"blue"],["Target Server",server,"green"],["Bandwidth",`${m.bandwidth} Mbps`,"blue"],["Trans. Delay",`${m.transmissionDelay} ms`,"amber"],["Status",offloadResult.status==="success"?"✅ Success":"❌ Failed",offloadResult.status==="success"?"green":"red"]].map(([l,v,c])=>(
+              {[["Task Size",`${m.taskSize} MB`,"blue"],["Algorithm",bestAlgo,"blue"],["Target Server",srv.label,srv.color],["Bandwidth",`${m.bandwidth} Mbps`,"blue"],["Trans. Delay",`${m.transmissionDelay} ms`,"amber"],["Status",offloadResult.status==="success"?"✅ Success":"❌ Failed",offloadResult.status==="success"?"green":"red"]].map(([l,v,c])=>(
                 <div key={l} style={{flex:"1 1 150px",background:"#f9fafb",border:"1px solid #f3f4f6",borderRadius:10,padding:"12px 14px"}}>
                   <div style={{fontSize:11,color:"#9ca3af",fontWeight:700,textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:6}}>{l}</div>
                   <span style={S.badge(c)}>{v}</span>
@@ -526,7 +758,7 @@ const Step5Offload = ({ machine:m, gbfsData, psoData, offloadResult, offloading,
               ))}
             </div>
             <div style={{...S.infoBox("green"),marginTop:16,marginBottom:0}}>
-              <div style={{fontSize:13,color:"#15803d"}}>✅ Task offloaded. Measured latency: <strong>{offloadResult.measuredLatency} ms</strong>. Result saved to Supabase.</div>
+              <div style={{fontSize:13,color:"#15803d"}}>✅ Task offloaded to {srv.icon} {srv.label}. Measured latency: <strong>{offloadResult.measuredLatency} ms</strong>. Saved to Supabase.</div>
             </div>
           </>
         )}
@@ -538,28 +770,43 @@ const Step5Offload = ({ machine:m, gbfsData, psoData, offloadResult, offloading,
 /* ── Step 6: Measure Latency ── */
 const Step6Latency = ({ machine:m, gbfsData, psoData, offloadResult }) => {
   if (!gbfsData||!psoData) return <div style={S.card}><div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>⚠️ Please run both algorithms first.</div></div>;
-  const gbfsWins=gbfsData.latency<=psoData.latency, winner=gbfsWins?"GBFS":"PSO";
-  const improvement=Math.abs(((gbfsData.latency-psoData.latency)/gbfsData.latency)*100).toFixed(1);
-  const server=m.taskType==="Latency-Sensitive"?"Edge Server A":m.taskType==="Energy-Efficient"?"Edge Server B":"Edge Server C";
-  const gbfsBase=+gbfsData.latency, psoBase=+psoData.latency;
-  const measuredLat=offloadResult?.measuredLatency;
-  const lineData=[1,2,3,4,5,6].map(t=>({cycle:`T${t}`,GBFS:+(gbfsBase+Math.sin(t*1.1)*gbfsBase*0.06).toFixed(2),PSO:+(psoBase+Math.sin(t*1.3)*psoBase*0.06).toFixed(2),...(measuredLat?{Measured:+(measuredLat+Math.sin(t*0.9)*measuredLat*0.03).toFixed(2)}:{})}));
-  const barData=[{metric:"Latency (ms)",GBFS:+gbfsData.latency,PSO:+psoData.latency},{metric:"Speed (t/s)",GBFS:+gbfsData.throughput,PSO:+psoData.throughput},{metric:"Energy (kWh)",GBFS:+gbfsData.energy,PSO:+psoData.energy},{metric:"Usage (%)",GBFS:+gbfsData.utilization,PSO:+psoData.utilization}];
+  const gbfsWins   = gbfsData.latency<=psoData.latency;
+  const winner     = gbfsWins?"GBFS":"PSO";
+  const improvement= Math.abs(((gbfsData.latency-psoData.latency)/gbfsData.latency)*100).toFixed(1);
+  const gbfsSrvKey2 = gbfsData.ranOnServer || "A";
+  const psoSrvKey2  = psoData.ranOnServer  || "A";
+  const sKey        = gbfsWins ? gbfsSrvKey2 : psoSrvKey2;
+  const srv         = SERVERS[sKey];
+  const gbfsBase   = +gbfsData.latency;
+  const psoBase    = +psoData.latency;
+  const measuredLat= offloadResult?.measuredLatency;
+  const lineData   = [1,2,3,4,5,6].map(t=>({cycle:`T${t}`,GBFS:+(gbfsBase+Math.sin(t*1.1)*gbfsBase*0.06).toFixed(2),PSO:+(psoBase+Math.sin(t*1.3)*psoBase*0.06).toFixed(2),...(measuredLat?{Measured:+(measuredLat+Math.sin(t*0.9)*measuredLat*0.03).toFixed(2)}:{})}));
+  const barData    = [{metric:"Latency (ms)",GBFS:+gbfsData.latency,PSO:+psoData.latency},{metric:"Speed (t/s)",GBFS:+gbfsData.throughput,PSO:+psoData.throughput},{metric:"Energy (kWh)",GBFS:+gbfsData.energy,PSO:+psoData.energy},{metric:"Usage (%)",GBFS:+gbfsData.utilization,PSO:+psoData.utilization}];
   return (
     <div>
-      <div style={S.ph}><div style={S.pt}>Edge Server Processes Task & Measure Latency</div><div style={S.ps}><strong>{server}</strong> processed task from <strong>{m.name}</strong>. Results from Render + Supabase.</div></div>
+      <div style={S.ph}>
+        <div style={S.pt}>Edge Server Processes Task & Measure Latency</div>
+        <div style={S.ps}><strong>{srv.icon} {srv.label}</strong> processed task from <strong>{m.name}</strong>. Results via Render + Supabase.</div>
+      </div>
       <div style={{display:"flex",gap:16,marginBottom:20,flexWrap:"wrap"}}>
-        {[{icon:"🏆",label:"Best Algorithm",value:winner,color:"green"},{icon:"⚙️",label:"GBFS Latency",value:`${gbfsData.latency} ms`,color:"blue"},{icon:"🔬",label:"PSO Latency",value:`${psoData.latency} ms`,color:"purple"},{icon:"📉",label:"Improvement",value:`${improvement}%`,color:"amber"},...(measuredLat?[{icon:"📡",label:"Actual Latency",value:`${measuredLat} ms`,color:"green"}]:[])].map(({icon,label,value,color})=>(
+        {[
+          {icon:"🏆",label:"Best Algorithm", value:winner,                   color:"green"},
+          {icon:srv.icon,label:"Active Server",value:srv.label,              color:srv.color},
+          {icon:"⚙️",label:"GBFS Latency",   value:`${gbfsData.latency} ms`,color:"blue"},
+          {icon:"🔬",label:"PSO Latency",    value:`${psoData.latency} ms`, color:"purple"},
+          {icon:"📉",label:"Improvement",    value:`${improvement}%`,       color:"amber"},
+          ...(measuredLat?[{icon:"📡",label:"Actual Latency",value:`${measuredLat} ms`,color:"green"}]:[]),
+        ].map(({icon,label,value,color})=>(
           <div key={label} style={S.statCard}><div style={S.statIcon(color)}>{icon}</div><div style={S.statVal}>{value}</div><div style={S.statLbl}>{label}</div></div>
         ))}
       </div>
       <div style={{background:gbfsWins?"#eff6ff":"#faf5ff",border:`2px solid ${gbfsWins?"#bfdbfe":"#e9d5ff"}`,borderRadius:12,padding:"20px 24px",marginBottom:20}}>
         <div style={{fontSize:11,fontWeight:700,color:"#9ca3af",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:6}}>Best Algorithm</div>
         <div style={{fontSize:36,fontWeight:800,color:gbfsWins?"#1d4ed8":"#7c3aed"}}>{winner}</div>
-        <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{winner} achieved <strong>{Math.min(gbfsBase,psoBase)} ms</strong> — {improvement}% lower than {gbfsWins?"PSO":"GBFS"}</div>
+        <div style={{fontSize:13,color:"#6b7280",marginTop:4}}>{winner} achieved <strong>{Math.min(gbfsBase,psoBase)} ms</strong> on <strong>{srv.label}</strong> — {improvement}% lower than {gbfsWins?"PSO":"GBFS"}</div>
       </div>
       <div style={S.card}>
-        <div style={S.ct}>Latency Comparison — Line Graph</div><div style={S.cd}>GBFS vs PSO{measuredLat?" vs Actual":""} latency across 6 cycles.</div>
+        <div style={S.ct}>Latency Comparison — Line Graph</div><div style={S.cd}>GBFS vs PSO{measuredLat?" vs Actual":""} latency across 6 cycles on {srv.label}.</div>
         <ResponsiveContainer width="100%" height={270}>
           <LineChart data={lineData} margin={{top:16,right:24,left:0,bottom:20}}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
@@ -576,7 +823,7 @@ const Step6Latency = ({ machine:m, gbfsData, psoData, offloadResult }) => {
         </ResponsiveContainer>
       </div>
       <div style={S.card}>
-        <div style={S.ct}>Full Metrics Comparison</div><div style={S.cd}>All indicators from your Render backend.</div>
+        <div style={S.ct}>Full Metrics Comparison</div><div style={S.cd}>All indicators from {srv.label}.</div>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={barData} margin={{top:16,right:20,left:0,bottom:4}}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6"/>
@@ -590,7 +837,7 @@ const Step6Latency = ({ machine:m, gbfsData, psoData, offloadResult }) => {
         </ResponsiveContainer>
       </div>
       <div style={S.card}>
-        <div style={S.ct}>Result Summary Table</div><div style={S.cd}>Final results for {m.name} ({m.machineId}) on {server}.</div>
+        <div style={S.ct}>Result Summary Table</div><div style={S.cd}>Final results for {m.name} ({m.machineId}) on {srv.label}.</div>
         <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
           <thead><tr>{["Metric","GBFS","PSO","Better"].map(h=><th key={h} style={S.th}>{h}</th>)}</tr></thead>
           <tbody>
@@ -601,7 +848,10 @@ const Step6Latency = ({ machine:m, gbfsData, psoData, offloadResult }) => {
           </tbody>
         </table>
         <div style={{...S.infoBox("green"),marginTop:16,marginBottom:0}}>
-          <div style={{fontSize:13,color:"#15803d"}}>🎉 <strong>{m.name}</strong> offloaded to <strong>{server}</strong> using <strong>{winner}</strong>.{measuredLat&&<> Actual latency from server: <strong>{measuredLat} ms</strong>.</>} Result saved to Supabase.</div>
+          <div style={{fontSize:13,color:"#15803d"}}>
+            🎉 <strong>{m.name}</strong> offloaded to <strong>{srv.icon} {srv.label}</strong> using <strong>{winner}</strong>.
+            {measuredLat&&<> Actual latency: <strong>{measuredLat} ms</strong>.</>} Saved to Supabase.
+          </div>
         </div>
       </div>
     </div>
@@ -622,78 +872,124 @@ class ErrorBoundary extends React.Component {
    MAIN APP
 ══════════════════════════════════════════════════════ */
 export default function App() {
-  const [step,         setStep]         = useState(0);
-  const [maxReached,   setMaxReached]   = useState(0);
-  const [selectedId,   setSelectedId]   = useState(null);
-  const [serverStatus, setServerStatus] = useState("checking");
-  const [machineData,  setMachineData]  = useState({});
-  const [machinesLoading, setMachinesLoading] = useState(true);
-  const [machinesError,   setMachinesError]   = useState(null);
-  const [gbfsData,     setGbfsData]     = useState(null);
-  const [gbfsRunning,  setGbfsRunning]  = useState(false);
-  const [gbfsError,    setGbfsError]    = useState(null);
-  const [psoData,      setPsoData]      = useState(null);
-  const [psoRunning,   setPsoRunning]   = useState(false);
-  const [psoError,     setPsoError]     = useState(null);
-  const [offloadResult,setOffloadResult]= useState(null);
-  const [offloading,   setOffloading]   = useState(false);
-  const [offloadError, setOffloadError] = useState(null);
+  const [step,          setStep]          = useState(0);
+  const [maxReached,    setMaxReached]    = useState(0);
+  const [selectedId,    setSelectedId]    = useState(null);
+  const [serverStatuses,setServerStatuses]= useState({A:"checking",B:"checking"});
+  const [machineData,   setMachineData]   = useState({});
+  const [machinesLoading,setMachinesLoading]=useState(true);
+  const [machinesError,  setMachinesError]  =useState(null);
+  const [gbfsData,      setGbfsData]      = useState(null);
+  const [gbfsRunning,   setGbfsRunning]   = useState(false);
+  const [gbfsError,     setGbfsError]     = useState(null);
+  const [psoData,       setPsoData]       = useState(null);
+  const [psoRunning,    setPsoRunning]    = useState(false);
+  const [psoError,      setPsoError]      = useState(null);
+  const [offloadResult, setOffloadResult] = useState(null);
+  const [offloading,    setOffloading]    = useState(false);
+  const [offloadError,  setOffloadError]  = useState(null);
+  const [gbfsServer,    setGbfsServer]    = useState("A");
+  const [psoServer,     setPsoServer]     = useState("A");
 
-  /* Load machines from Supabase via Render backend */
+  /* Determine which server key is active based on selected machine */
+  const machine = selectedId ? machineData[selectedId] : null;
+  const activeServerKey = machine ? taskTypeToServer(machine.taskType) : null;
+  const activeSrv = activeServerKey ? SERVERS[activeServerKey] : null;
+
+  /* Ping each server to get live status */
+  const pingServers = useCallback(async () => {
+    const results = await Promise.allSettled(
+      Object.entries(SERVERS).map(async ([key, srv]) => {
+        try {
+          await apiFetch(srv.baseUrl, "/health");
+          return [key, "online"];
+        } catch {
+          return [key, "offline"];
+        }
+      })
+    );
+    const next = {};
+    results.forEach(r => {
+      if (r.status === "fulfilled") {
+        const [key, status] = r.value;
+        next[key] = status;
+      }
+    });
+    setServerStatuses(prev => ({ ...prev, ...next }));
+  }, []);
+
+  /* Load machines from Server A (primary) */
   const loadMachines = useCallback(async () => {
     setMachinesLoading(true);
     setMachinesError(null);
     try {
-      const data = await apiFetch("/machines");
+      const data = await apiFetch(PRIMARY_BASE, "/machines");
       setMachineData(data);
       const firstId = Object.keys(data)[0];
       if (firstId) setSelectedId(firstId);
-      setServerStatus("online");
+      setServerStatuses(prev => ({ ...prev, A:"online" }));
     } catch (err) {
       setMachinesError(err.message);
-      setServerStatus("error");
+      setServerStatuses(prev => ({ ...prev, A:"offline" }));
     } finally {
       setMachinesLoading(false);
     }
   }, []);
 
-  useEffect(() => { loadMachines(); }, [loadMachines]);
+  useEffect(() => {
+    loadMachines();
+    pingServers();
+  }, [loadMachines, pingServers]);
 
-  const machine = selectedId ? machineData[selectedId] : null;
-
-  /* Run GBFS on Render backend */
+  /* Run GBFS on the manually selected server */
   const runGBFS = async () => {
+    const srv = SERVERS[gbfsServer];
     setGbfsRunning(true); setGbfsError(null); setGbfsData(null);
     try {
-      const result = await apiFetch("/gbfs", { method:"POST", body:JSON.stringify({ machine }) });
-      setGbfsData(result);
+      const result = await apiFetch(srv.baseUrl, "/gbfs", {
+        method:"POST", body:JSON.stringify({ machine })
+      });
+      setGbfsData({ ...result, ranOnServer: gbfsServer });
       setMaxReached(r => Math.max(r, 2));
     } catch (err) { setGbfsError(err.message); }
     finally { setGbfsRunning(false); }
   };
 
-  /* Run PSO on Render backend */
+  /* Run PSO on the manually selected server */
   const runPSO = async () => {
+    const srv = SERVERS[psoServer];
     setPsoRunning(true); setPsoError(null); setPsoData(null);
     try {
-      const result = await apiFetch("/pso", { method:"POST", body:JSON.stringify({ machine }) });
-      setPsoData(result);
+      const result = await apiFetch(srv.baseUrl, "/pso", {
+        method:"POST", body:JSON.stringify({ machine })
+      });
+      setPsoData({ ...result, ranOnServer: psoServer });
       setMaxReached(r => Math.max(r, 6));
     } catch (err) { setPsoError(err.message); }
     finally { setPsoRunning(false); }
   };
 
-  /* Offload task — logs to Supabase via Render */
+  /* Offload task to the winner's server */
   const offloadTask = async () => {
-    const bestAlgo     = gbfsData.latency <= psoData.latency ? "GBFS" : "PSO";
-    const targetServer = machine.taskType==="Latency-Sensitive" ? "Edge Server A" : machine.taskType==="Energy-Efficient" ? "Edge Server B" : "Edge Server C";
+    const gbfsWins  = gbfsData.latency <= psoData.latency;
+    const bestAlgo  = gbfsWins ? "GBFS" : "PSO";
+    const winSrvKey = gbfsWins ? (gbfsData.ranOnServer||"A") : (psoData.ranOnServer||"A");
+    const winSrv    = SERVERS[winSrvKey];
     setOffloading(true); setOffloadError(null);
     try {
-      const result = await apiFetch("/offload", {
+      const result = await apiFetch(winSrv.baseUrl, "/offload", {
         method: "POST",
-        body: JSON.stringify({ machineId:machine.machineId, taskSize:machine.taskSize, algorithm:bestAlgo, targetServer, gbfsLatency:gbfsData.latency, psoLatency:psoData.latency })
+        body: JSON.stringify({
+          machineId:     machine.machineId,
+          taskSize:      machine.taskSize,
+          algorithm:     bestAlgo,
+          targetServer:  winSrv.label,
+          gbfsLatency:   gbfsData.latency,
+          psoLatency:    psoData.latency,
+        })
       });
       setOffloadResult(result);
+      setServerStatuses(prev => ({ ...prev, [winSrvKey]:"online" }));
     } catch (err) { setOffloadError(err.message); }
     finally { setOffloading(false); }
   };
@@ -701,6 +997,7 @@ export default function App() {
   const handleSelectMachine = id => {
     setSelectedId(id); setGbfsData(null); setPsoData(null);
     setOffloadResult(null); setMaxReached(0);
+    setGbfsServer("A"); setPsoServer("A");
   };
 
   const canNext = () => {
@@ -718,8 +1015,8 @@ export default function App() {
     switch(step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines}/>;
       case 1: return machine ? <Step1CollectData machine={machine}/> : null;
-      case 2: return machine ? <Step2GBFS machine={machine} gbfsData={gbfsData} onRun={runGBFS} running={gbfsRunning} error={gbfsError}/> : null;
-      case 3: return machine ? <Step3PSO  machine={machine} psoData={psoData}   onRun={runPSO}  running={psoRunning}  error={psoError}/> : null;
+      case 2: return machine ? <Step2GBFS machine={machine} gbfsData={gbfsData} onRun={runGBFS} running={gbfsRunning} error={gbfsError} selectedServer={gbfsServer} setSelectedServer={setGbfsServer}/> : null;
+      case 3: return machine ? <Step3PSO  machine={machine} psoData={psoData}   onRun={runPSO}  running={psoRunning}  error={psoError} selectedServer={psoServer} setSelectedServer={setPsoServer}/> : null;
       case 4: return machine ? <Step4SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData}/> : null;
       case 5: return machine ? <Step5Offload machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} offloading={offloading} offloadError={offloadError} onOffload={offloadTask}/> : null;
       case 6: return machine ? <Step6Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult}/> : null;
@@ -730,9 +1027,9 @@ export default function App() {
   return (
     <ErrorBoundary>
       <div style={S.root}>
-        <Sidebar step={step} maxReached={maxReached} onJump={i=>i<=maxReached&&setStep(i)}/>
+        <Sidebar step={step} maxReached={maxReached} onJump={i=>i<=maxReached&&setStep(i)} serverStatuses={serverStatuses}/>
         <div style={S.content}>
-          <Header step={step} maxReached={maxReached} onJump={i=>i<=maxReached&&setStep(i)} serverStatus={serverStatus}/>
+          <Header step={step} maxReached={maxReached} onJump={i=>i<=maxReached&&setStep(i)} activeServerKey={activeServerKey}/>
           <div style={S.main}>{renderStep()}</div>
           <div style={S.bottomBar}>
             <button style={S.bbBack(step===0)} disabled={step===0} onClick={()=>setStep(p=>p-1)}>← Back</button>
