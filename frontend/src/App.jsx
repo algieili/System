@@ -12,14 +12,14 @@ import {
 ══════════════════════════════════════════════════════ */
 const SERVERS = {
   A: {
-    label:   "Edge Server A",
+    label:   "Cloud Server A",
     sub:     "Latency-Sensitive · Computation-Intensive",
-    icon:    "⚡",
+    icon:    "☁️",
     color:   "blue",
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
     border:  "#bfdbfe",
-    baseUrl: "https://system-ctld.onrender.com/api",
+    baseUrl: "ttps://system-ctld.onrender.com/api",
   },
   B: {
     label:   "Edge Server B",
@@ -29,7 +29,7 @@ const SERVERS = {
     hex:     "#15803d",
     bg:      "#f0fdf4",
     border:  "#86efac",
-    baseUrl: "https://system-1-rcpl.onrender.com/api",
+    baseUrl: "ttps://system-1-rcpl.onrender.com/api",
   },
 };
 
@@ -171,7 +171,7 @@ const STEPS = [
 /* ── Server Status Panel (used in sidebar) ── */
 const ServerStatusList = ({ statuses }) => (
   <div style={{ padding:"12px 14px 0" }}>
-    <div style={S.sbLabel}>Backend Servers</div>
+    <div style={S.sbLabel}>Servers</div>
     {Object.entries(SERVERS).map(([key, srv]) => {
       const st = statuses[key];
       const online = st === "online";
