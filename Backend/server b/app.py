@@ -182,5 +182,15 @@ def get_logs():
 # ══════════════════════════════════════════════════
 # RUN
 # ══════════════════════════════════════════════════
+
+@app.route("/api/debug")
+def debug():
+    return jsonify({
+        "supabase_url_set": bool(SUPABASE_URL),
+        "supabase_key_set": bool(SUPABASE_KEY),
+        "url_preview":      SUPABASE_URL[:40] if SUPABASE_URL else "EMPTY",
+        "key_preview":      SUPABASE_KEY[:15] if SUPABASE_KEY else "EMPTY",
+    })
+
 if __name__ == "__main__":
     app.run(debug=True)
