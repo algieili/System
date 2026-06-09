@@ -9,27 +9,28 @@ import {
    DESIGN TOKENS
 ───────────────────────────────────────────── */
 const T = {
-  bg:        "#0d1117",
-  surface:   "#161b22",
-  elevated:  "#1c2128",
-  border:    "#30363d",
-  borderSub: "#21262d",
-  text:      "#e6edf3",
-  muted:     "#7d8590",
-  dim:       "#484f58",
-  blue:      "#58a6ff",
-  blueDim:   "#1f4c8b",
-  blueBg:    "#0d1f3c",
-  green:     "#3fb950",
-  greenDim:  "#1a4723",
-  greenBg:   "#0d2a14",
-  purple:    "#bc8cff",
-  purpleDim: "#4d2d8b",
-  purpleBg:  "#1a0d3c",
-  amber:     "#e3b341",
-  amberBg:   "#2a1e08",
-  red:       "#f85149",
-  redBg:     "#2a0d0b",
+  bg:        "#0a0a0a",
+  surface:   "#111111",
+  elevated:  "#1a1a1a",
+  border:    "#2e2e2e",
+  borderSub: "#1f1f1f",
+  text:      "#f0f0f0",
+  muted:     "#888888",
+  dim:       "#555555",
+  // All accent roles mapped to white/light-grey scale
+  blue:      "#e8e8e8",
+  blueDim:   "#3a3a3a",
+  blueBg:    "#161616",
+  green:     "#ffffff",
+  greenDim:  "#3a3a3a",
+  greenBg:   "#161616",
+  purple:    "#cccccc",
+  purpleDim: "#3a3a3a",
+  purpleBg:  "#161616",
+  amber:     "#aaaaaa",
+  amberBg:   "#161616",
+  red:       "#dddddd",
+  redBg:     "#1c1c1c",
   fontMono:  "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
   fontSans:  "'Inter', system-ui, -apple-system, sans-serif",
 };
@@ -223,8 +224,8 @@ const GhostBtn = ({ onClick, disabled, children }) => (
 
 const DualBtn = ({ onClick, disabled, children }) => (
   <button onClick={onClick} disabled={disabled} style={{
-    background: disabled ? T.elevated : "linear-gradient(135deg, #1a5fc8, #6b3fa0)",
-    color: disabled ? T.dim : "#fff",
+    background: disabled ? T.elevated : "#e8e8e8",
+    color: disabled ? T.dim : "#0a0a0a",
     border: disabled ? `1px solid ${T.border}` : "none",
     borderRadius: 6, padding: "12px 32px",
     fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
@@ -248,7 +249,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => (
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{
           width: 32, height: 32, borderRadius: 6,
-          background: "linear-gradient(135deg, #1a5fc8, #3fb950)",
+          background: "linear-gradient(135deg, #2a2a2a, #444444)",
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: 15, flexShrink: 0,
         }}>⚡</div>
@@ -486,7 +487,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
                     src={imgSrc}
                     alt={mc.name}
                     onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: sel ? "none" : "grayscale(30%) brightness(0.8)" }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "grayscale(100%) brightness(0.75)" }}
                   />
                   {/* Fallback if image fails */}
                   <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", fontSize: 28, background: T.elevated }}>⚙</div>
@@ -518,9 +519,9 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
               src={getMachineImg(m, "detail")}
               alt={m.name}
               onError={e => { e.target.style.display = "none"; }}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: "grayscale(100%) brightness(0.7)" }}
             />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(13,17,23,0.1) 0%, rgba(13,17,23,0.5) 100%)" }} />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(10,10,10,0.15) 0%, rgba(10,10,10,0.6) 100%)" }} />
             <div style={{ position: "absolute", bottom: 14, left: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: T.fontSans, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>{m.name}</div>
               <div style={{ fontSize: 11, color: "rgba(255,255,255,0.7)", fontFamily: T.fontMono, marginTop: 3 }}>{m.category}</div>
@@ -1028,13 +1029,13 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
 
       {/* Winner banner */}
       <div style={{
-        background: gbfsWins ? T.blueBg : T.purpleBg,
-        border: `1px solid ${gbfsWins ? T.blue : T.purple}`,
-        borderLeft: `3px solid ${gbfsWins ? T.blue : T.purple}`,
+        background: T.elevated,
+        border: `1px solid ${T.border}`,
+        borderLeft: `3px solid ${T.text}`,
         borderRadius: 8, padding: "16px 20px", marginBottom: 16,
         display: "flex", alignItems: "center", gap: 16,
       }}>
-        <div style={{ fontSize: 40, fontWeight: 800, color: gbfsWins ? T.blue : T.purple, fontFamily: T.fontMono, lineHeight: 1 }}>
+        <div style={{ fontSize: 40, fontWeight: 800, color: T.text, fontFamily: T.fontMono, lineHeight: 1 }}>
           {winner}
         </div>
         <div>
@@ -1056,11 +1057,11 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
             <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} verticalAlign="top" />
-            <ReferenceLine y={gbfsBase} stroke={T.blue}   strokeDasharray="4 4" strokeOpacity={0.3} />
-            <ReferenceLine y={psoBase}  stroke={T.purple} strokeDasharray="4 4" strokeOpacity={0.3} />
-            <Line type="monotone" dataKey="GBFS"    stroke={T.blue}   strokeWidth={2} dot={{ r: 4, fill: T.blue,   stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-            <Line type="monotone" dataKey="PSO"     stroke={T.purple} strokeWidth={2} dot={{ r: 4, fill: T.purple, stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />
-            {measuredLat && <Line type="monotone" dataKey="Measured" stroke={T.green} strokeWidth={2} strokeDasharray="5 3" dot={{ r: 4, fill: T.green, stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />}
+            <ReferenceLine y={gbfsBase} stroke="#ffffff" strokeDasharray="4 4" strokeOpacity={0.15} />
+            <ReferenceLine y={psoBase}  stroke="#888888" strokeDasharray="4 4" strokeOpacity={0.2} />
+            <Line type="monotone" dataKey="GBFS"    stroke="#ffffff" strokeWidth={2} dot={{ r: 4, fill: "#ffffff", stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+            <Line type="monotone" dataKey="PSO"     stroke="#777777" strokeWidth={2} dot={{ r: 4, fill: "#777777", stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />
+            {measuredLat && <Line type="monotone" dataKey="Measured" stroke="#aaaaaa" strokeWidth={2} strokeDasharray="5 3" dot={{ r: 4, fill: "#aaaaaa", stroke: T.bg, strokeWidth: 2 }} activeDot={{ r: 6 }} />}
           </LineChart>
         </ResponsiveContainer>
       </Card>
@@ -1074,8 +1075,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
             <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} />
-            <Bar dataKey="GBFS" fill={T.blue}   radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
-            <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
+            <Bar dataKey="GBFS" fill="#e8e8e8" radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
+            <Bar dataKey="PSO"  fill="#666666" radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
           </BarChart>
         </ResponsiveContainer>
       </Card>
