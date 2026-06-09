@@ -171,7 +171,7 @@ const STEPS = [
 /* ── Server Status Panel (used in sidebar) ── */
 const ServerStatusList = ({ statuses }) => (
   <div style={{ padding:"12px 14px 0" }}>
-    <div style={S.sbLabel}>Backend Servers</div>
+    <div style={S.sbLabel}>Servers</div>
     {Object.entries(SERVERS).map(([key, srv]) => {
       const st = statuses[key];
       const online = st === "online";
