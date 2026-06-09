@@ -14,7 +14,7 @@ const SERVERS = {
   A: {
     label:   "Cloud Server A",
     sub:     "Latency-Sensitive · Computation-Intensive",
-    icon:    "☁",
+    icon:    "☁️",
     color:   "blue",
     hex:     "#1d4ed8",
     bg:      "#eff6ff",
