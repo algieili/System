@@ -701,8 +701,9 @@ const Step4SelectEdge = ({ machine:m, gbfsData, psoData }) => {
 /* ── Step 5: Offload Task ── */
 const Step5Offload = ({ machine:m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload }) => {
   if (!gbfsData||!psoData) return <div style={S.card}><div style={{textAlign:"center",padding:40,color:"#9ca3af"}}>⚠️ Please run both algorithms first.</div></div>;
-  const bestAlgo = gbfsData.latency<=psoData.latency?"GBFS":"PSO";
-  const sKey     = taskTypeToServer(m.taskType);
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const bestAlgo = gbfsWins ? "GBFS" : "PSO";
+  const sKey     = gbfsWins ? (gbfsData.ranOnServer||"A") : (psoData.ranOnServer||"A");
   const srv      = SERVERS[sKey];
   return (
     <div>
@@ -772,8 +773,10 @@ const Step6Latency = ({ machine:m, gbfsData, psoData, offloadResult }) => {
   const gbfsWins   = gbfsData.latency<=psoData.latency;
   const winner     = gbfsWins?"GBFS":"PSO";
   const improvement= Math.abs(((gbfsData.latency-psoData.latency)/gbfsData.latency)*100).toFixed(1);
-  const sKey       = taskTypeToServer(m.taskType);
-  const srv        = SERVERS[sKey];
+  const gbfsSrvKey2 = gbfsData.ranOnServer || "A";
+  const psoSrvKey2  = psoData.ranOnServer  || "A";
+  const sKey        = gbfsWins ? gbfsSrvKey2 : psoSrvKey2;
+  const srv         = SERVERS[sKey];
   const gbfsBase   = +gbfsData.latency;
   const psoBase    = +psoData.latency;
   const measuredLat= offloadResult?.measuredLatency;
@@ -966,25 +969,27 @@ export default function App() {
     finally { setPsoRunning(false); }
   };
 
-  /* Offload task to the active server */
+  /* Offload task to the winner's server */
   const offloadTask = async () => {
-    const bestAlgo = gbfsData.latency <= psoData.latency ? "GBFS" : "PSO";
+    const gbfsWins  = gbfsData.latency <= psoData.latency;
+    const bestAlgo  = gbfsWins ? "GBFS" : "PSO";
+    const winSrvKey = gbfsWins ? (gbfsData.ranOnServer||"A") : (psoData.ranOnServer||"A");
+    const winSrv    = SERVERS[winSrvKey];
     setOffloading(true); setOffloadError(null);
     try {
-      const result = await apiFetch(activeSrv.baseUrl, "/offload", {
+      const result = await apiFetch(winSrv.baseUrl, "/offload", {
         method: "POST",
         body: JSON.stringify({
           machineId:     machine.machineId,
           taskSize:      machine.taskSize,
           algorithm:     bestAlgo,
-          targetServer:  activeSrv.label,
+          targetServer:  winSrv.label,
           gbfsLatency:   gbfsData.latency,
           psoLatency:    psoData.latency,
         })
       });
       setOffloadResult(result);
-      /* Mark that server as confirmed online */
-      setServerStatuses(prev => ({ ...prev, [activeServerKey]:"online" }));
+      setServerStatuses(prev => ({ ...prev, [winSrvKey]:"online" }));
     } catch (err) { setOffloadError(err.message); }
     finally { setOffloading(false); }
   };
