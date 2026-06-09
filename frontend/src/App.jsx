@@ -885,6 +885,8 @@ export default function App() {
   const [offloadResult, setOffloadResult] = useState(null);
   const [offloading,    setOffloading]    = useState(false);
   const [offloadError,  setOffloadError]  = useState(null);
+  const [gbfsServer,    setGbfsServer]    = useState("A");
+  const [psoServer,     setPsoServer]     = useState("A");
 
   /* Determine which server key is active based on selected machine */
   const machine = selectedId ? machineData[selectedId] : null;
