@@ -470,7 +470,6 @@ const TopBar = ({ step, maxReached, onJump, activeServerKey, dark, setDark }) =>
 const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
   const T = useT();
   const isDark = T.bg !== "#eef0f5";
-  const imgFilter = isDark ? "grayscale(100%) brightness(0.75)" : "none";
   const machines = Object.values(machineData);
   const m = machineData[selectedId];
 
