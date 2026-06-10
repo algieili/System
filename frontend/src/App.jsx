@@ -485,9 +485,6 @@ const TopBar = ({ step, maxReached, onJump, activeServerKey, dark, setDark }) =>
 ───────────────────────────────────────────── */
 const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
   const T = useT();
-  const isDark = T.bg.startsWith("#0");
-  const imgFilter = isDark ? "grayscale(100%) brightness(0.75)" : "none";
-  const imgFilterDetail = isDark ? "grayscale(100%) brightness(0.7)" : "none";
   const machines = Object.values(machineData);
   const m = machineData[selectedId];
 
@@ -564,7 +561,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
                     src={imgSrc}
                     alt={mc.name}
                     onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: imgFilter }}
+                    style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
                   />
                   {/* Fallback if image fails */}
                   <div style={{ display: "none", position: "absolute", inset: 0, alignItems: "center", justifyContent: "center", fontSize: 28, background: T.elevated }}>⚙</div>
@@ -596,7 +593,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
               src={getMachineImg(m, "detail")}
               alt={m.name}
               onError={e => { e.target.style.display = "none"; }}
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block", filter: imgFilterDetail }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
             />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(10,10,10,0.15) 0%, rgba(10,10,10,0.6) 100%)" }} />
             <div style={{ position: "absolute", bottom: 14, left: 16 }}>
