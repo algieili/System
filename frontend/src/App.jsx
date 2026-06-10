@@ -1040,7 +1040,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
         </p>
       </div>
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="Winner"       value={winner}           color={gbfsWins ? "blue" : "purple"} />
+        <Stat label="RECOMMENDED ALGORITHM"       value={winner}           color={gbfsWins ? "blue" : "purple"} />
         <Stat label="GBFS Latency" value={`${gbfsBase} ms`} color="blue" />
         <Stat label="PSO Latency"  value={`${psoBase} ms`}  color="purple" />
         <Stat label="Improvement"  value={`${improvement}%`}color="amber" />
