@@ -494,11 +494,11 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 
  const getMachineImg = (mc) => {
   const name = (mc.name || mc.machineId || "").toLowerCase();
-  if (name.includes("plasma")) return "/images/plasma.jpg";
+  if (name.includes("plasma")) return "/images/plasma.png";
   const categoryMap = {
-    "Cutting Machines":   "/images/cutting.jpg",
-    "Welding Machines":   "/images/welding.jpg",
-    "Finishing Machines": "/images/finishing.jpg",
+    "Cutting Machines":   "/images/shearing.png",
+    "Welding Machines":   "/images/welding.png",
+    "Finishing Machines": "/images/paint.png",
   };
   return categoryMap[mc.category] || "/images/default.jpg";
 };
