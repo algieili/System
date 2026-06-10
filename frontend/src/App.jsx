@@ -794,7 +794,7 @@ const Step2Algorithms = ({
                 <div key={algo} style={{ flex: "1 1 240px", border: `1px solid ${border}`, borderRadius: 8, padding: "18px 20px", background: bg }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
-                    {wins && <Badge color={badgeColor} dot>winner</Badge>}
+                    {wins && <Badge color={badgeColor} dot>RECOMMENDED ALGORITHM</Badge>}
                   </div>
                   <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>{full}</div>
                   <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: T.fontMono }}>{data.latency}<span style={{ fontSize: 13, color: T.muted }}> ms</span></div>
