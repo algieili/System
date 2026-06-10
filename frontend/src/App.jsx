@@ -494,16 +494,17 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 
  const getMachineImg = (mc) => {
   const name = (mc.name || mc.machineId || "").toLowerCase();
-  if (name.includes("plasma")) return "/images/plasma.png";
+
+  if (name.includes("cnc plasma"))   return "/images/plasma.png";
+  if (name.includes("plasma cut"))   return "/images/plasmacut.png";
+
   const categoryMap = {
-    "Cutting Machines":   "/images/plasmacut.png",
     "Cutting Machines":   "/images/shearing.png",
     "Welding Machines":   "/images/welding.png",
     "Finishing Machines": "/images/paint.png",
   };
   return categoryMap[mc.category] || "/images/default.jpg";
 };
-
   const cats = [
     { label: "Total Devices", value: machines.length, color: "green" },
     { label: "Cutting",       value: machines.filter(x => x.category === "Cutting Machines").length,   color: "blue" },
