@@ -496,6 +496,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
   const name = (mc.name || mc.machineId || "").toLowerCase();
   if (name.includes("plasma")) return "/images/plasma.png";
   const categoryMap = {
+    "Cutting Machines":   "/images/plasmacut.png",
     "Cutting Machines":   "/images/shearing.png",
     "Welding Machines":   "/images/welding.png",
     "Finishing Machines": "/images/paint.png",
