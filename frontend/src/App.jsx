@@ -300,8 +300,8 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
             fontSize: 15, flexShrink: 0,
           }}>⚡</div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.01em", fontFamily: T.fontSans }}>EdgeOffload</div>
-            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontMono, marginTop: 1 }}>IoT · v5.0</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, letterSpacing: "-0.01em", fontFamily: T.fontSans, lineHeight: 1.3 }}>Task Offloading<br/>Simulation System</div>
+            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>IoT · v5.0</div>
           </div>
         </div>
       </div>
@@ -646,7 +646,7 @@ const Step1CollectData = ({ machine: m }) => {
           </tbody>
         </table>
       </Card>
-      <InfoBox color="green">All parameters loaded. Proceed to run GBFS + PSO.</InfoBox>
+      <InfoBox color="green">All parameters loaded. Proceed to run GBFS (Greedy Best-First Search) + PSO (Particle Swarm Optimization).</InfoBox>
     </div>
   );
 };
@@ -664,13 +664,23 @@ const Step2Algorithms = ({
   const srvAccent = selectedServer === "A" ? T.blue : T.green;
   const srvAccentBg = selectedServer === "A" ? T.blueBg : T.greenBg;
   const bothDone = !!gbfsData && !!psoData;
+  const resultsRef = React.useRef(null);
+
+  // Auto-scroll to results when both algorithms complete
+  React.useEffect(() => {
+    if (bothDone && resultsRef.current) {
+      setTimeout(() => {
+        resultsRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 120);
+    }
+  }, [bothDone]);
 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm Execution</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          GBFS and PSO run sequentially on the selected backend.
+          Run <strong style={{ color: T.text }}>GBFS</strong> (Greedy Best-First Search) and <strong style={{ color: T.text }}>PSO</strong> (Particle Swarm Optimization) sequentially on the selected backend to find the optimal edge server.
         </p>
       </div>
 
@@ -711,8 +721,8 @@ const Step2Algorithms = ({
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0, paddingBottom: 16, justifyContent: "center" }}>
           {[
             { icon: "⚙", label: m.machineId, sub: "IoT Source", done: true, running: false },
-            { icon: "⚙", label: "GBFS",    sub: "Greedy", done: !!gbfsData, running: algoRunning && !gbfsData },
-            { icon: "◈", label: "PSO",     sub: "Swarm",  done: !!psoData,  running: algoRunning && !!gbfsData && !psoData },
+            { icon: "⚙", label: "GBFS",    sub: "Greedy Best-First", done: !!gbfsData, running: algoRunning && !gbfsData },
+            { icon: "◈", label: "PSO",     sub: "Particle Swarm",  done: !!psoData,  running: algoRunning && !!gbfsData && !psoData },
             { icon: "≋", label: "Compare", sub: "Pick best", done: bothDone, running: false },
           ].map((node, idx) => (
             <React.Fragment key={idx}>
@@ -736,10 +746,10 @@ const Step2Algorithms = ({
 
         {(gbfsProgress || psoProgress) && (
           <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            {[["GBFS", T.blue, gbfsData], ["PSO", T.purple, psoData]].map(([name, color, done]) => (
+            {[["GBFS", "Greedy Best-First Search", T.blue, gbfsData], ["PSO", "Particle Swarm Optimization", T.purple, psoData]].map(([name, fullName, color, done]) => (
               <div key={name}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>
-                  <span style={{ color }}>{name}</span>
+                  <span style={{ color }}><strong>{name}</strong> <span style={{ color: T.dim, fontWeight: 400 }}>— {fullName}</span></span>
                   <span>{done ? "done ✓" : algoRunning ? "running…" : ""}</span>
                 </div>
                 <div style={{ height: 4, background: T.border, borderRadius: 2, overflow: "hidden" }}>
@@ -763,17 +773,35 @@ const Step2Algorithms = ({
       {bothDone && (() => {
         const gbfsWins = gbfsData.latency <= psoData.latency;
         return (
-          <div>
+          <div ref={resultsRef}>
+            {/* Algorithm legend */}
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
+              {[
+                { abbr: "GBFS", full: "Greedy Best-First Search", color: T.blue, bg: T.blueBg, border: T.blueDim, desc: "Selects the locally optimal path at each step using a heuristic. Fast execution, deterministic output." },
+                { abbr: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: T.purpleBg, border: T.purpleDim, desc: "Bio-inspired swarm algorithm that iteratively refines candidate solutions. Finds global optima more reliably." },
+              ].map(({ abbr, full, color, bg, border, desc }) => (
+                <div key={abbr} style={{ flex: "1 1 240px", background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                  <div style={{ flexShrink: 0, minWidth: 48, textAlign: "center", background: color, borderRadius: 6, padding: "6px 4px" }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", fontFamily: T.fontMono, lineHeight: 1 }}>{abbr}</div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: color, fontFamily: T.fontSans, marginBottom: 3 }}>{full}</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
               {[
-                { algo: "GBFS", color: T.blue, bg: gbfsWins ? T.blueBg : T.elevated, border: gbfsWins ? T.blue : T.border, data: gbfsData, wins: gbfsWins, badgeColor: "blue" },
-                { algo: "PSO",  color: T.purple, bg: !gbfsWins ? T.purpleBg : T.elevated, border: !gbfsWins ? T.purple : T.border, data: psoData, wins: !gbfsWins, badgeColor: "purple" },
-              ].map(({ algo, color, bg, border, data, wins, badgeColor }) => (
+                { algo: "GBFS", full: "Greedy Best-First Search", color: T.blue, bg: gbfsWins ? T.blueBg : T.elevated, border: gbfsWins ? T.blue : T.border, data: gbfsData, wins: gbfsWins, badgeColor: "blue" },
+                { algo: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: !gbfsWins ? T.purpleBg : T.elevated, border: !gbfsWins ? T.purple : T.border, data: psoData, wins: !gbfsWins, badgeColor: "purple" },
+              ].map(({ algo, full, color, bg, border, data, wins, badgeColor }) => (
                 <div key={algo} style={{ flex: "1 1 240px", border: `1px solid ${border}`, borderRadius: 8, padding: "18px 20px", background: bg }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
                     {wins && <Badge color={badgeColor} dot>winner</Badge>}
                   </div>
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>{full}</div>
                   <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: T.fontMono }}>{data.latency}<span style={{ fontSize: 13, color: T.muted }}> ms</span></div>
                   <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>Latency</div>
                   {[["Throughput", `${data.throughput} t/s`], ["Energy", `${data.energy} kWh`], ["Utilization", `${data.utilization}%`]].map(([l, v]) => (
@@ -1123,6 +1151,7 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   const [dark,           setDark]           = useState(true);
   const T = makeTheme(dark);
+  const scrollAreaRef = React.useRef(null);
 
   const [step,           setStep]           = useState(0);
   const [maxReached,     setMaxReached]     = useState(0);
@@ -1231,7 +1260,7 @@ export default function App() {
     switch (step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} />;
       case 1: return machine ? <Step1CollectData machine={machine} /> : null;
-      case 2: return machine ? <Step2Algorithms machine={machine} gbfsData={gbfsData} psoData={psoData} algoRunning={algoRunning} algoError={algoError} selectedServer={algoServer} setSelectedServer={k => { setAlgoServer(k); setGbfsData(null); setPsoData(null); }} onRunBoth={runBothAlgorithms} gbfsProgress={gbfsProgress} psoProgress={psoProgress} /> : null;
+      case 2: return machine ? <Step2Algorithms machine={machine} gbfsData={gbfsData} psoData={psoData} algoRunning={algoRunning} algoError={algoError} selectedServer={algoServer} setSelectedServer={k => { setAlgoServer(k); setGbfsData(null); setPsoData(null); }} onRunBoth={runBothAlgorithms} gbfsProgress={gbfsProgress} psoProgress={psoProgress} scrollAreaRef={scrollAreaRef} /> : null;
       case 3: return machine ? <Step3SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData} algoServer={algoServer} /> : null;
       case 4: return machine ? <Step4Offload machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} offloading={offloading} offloadError={offloadError} onOffload={offloadTask} algoServer={algoServer} /> : null;
       case 5: return machine ? <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} algoServer={algoServer} /> : null;
