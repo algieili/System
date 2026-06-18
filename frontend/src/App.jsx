@@ -33,7 +33,6 @@ const makeTheme = (dark) => dark ? {
   fontMono:  "'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace",
   fontSans:  "'Inter', system-ui, -apple-system, sans-serif",
 } : {
-  // ── LIGHT MODE — high-contrast, fully readable ──────────────
   bg:        "#eef0f5",
   surface:   "#ffffff",
   elevated:  "#f4f6fb",
@@ -64,6 +63,9 @@ const useT = () => React.useContext(ThemeCtx);
 
 /* ─────────────────────────────────────────────
    SERVER CONFIG
+   The algorithms POST to PRIMARY_BASE and return
+   a `recommendedServer` key ("A" | "B" | "cloud")
+   that drives all downstream decisions.
 ───────────────────────────────────────────── */
 const SERVERS = {
   A: {
@@ -80,8 +82,16 @@ const SERVERS = {
     tag:     "B",
     baseUrl: "https://system-1-rcpl.onrender.com/api",
   },
+  cloud: {
+    label:   "Cloud",
+    sub:     "High-capacity · Remote",
+    icon:    "☁️",
+    tag:     "cloud",
+    baseUrl: null, // tasks routed here stay remote; no direct API call needed
+  },
 };
 
+// All algorithm requests go to this neutral gateway
 const PRIMARY_BASE = SERVERS.A.baseUrl;
 
 const apiFetch = async (baseUrl, path, options = {}) => {
@@ -96,6 +106,11 @@ const apiFetch = async (baseUrl, path, options = {}) => {
   return res.json();
 };
 
+// Resolve which SERVERS entry to display for a given recommendation key.
+// Falls back to whichever edge server has better latency if the API doesn't
+// return an explicit `recommendedServer`.
+const resolveServer = (key) => SERVERS[key] ?? SERVERS.A;
+
 const STEPS = [
   { title: "IoT Machine",        short: "Machine",    icon: "⚙" },
   { title: "Collect Data",       short: "Collect",    icon: "📊" },
@@ -104,8 +119,9 @@ const STEPS = [
   { title: "Offload Task",       short: "Offload",    icon: "📤" },
   { title: "Measure Latency",    short: "Latency",    icon: "📈" },
 ];
+
 /* ─────────────────────────────────────────────
-   SHARED PRIMITIVES  (all use useT())
+   SHARED PRIMITIVES
 ───────────────────────────────────────────── */
 const Badge = ({ color = "blue", children, dot }) => {
   const T = useT();
@@ -345,7 +361,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
         <div style={{ fontSize: 10, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10, fontFamily: T.fontSans }}>
           Servers
         </div>
-        {Object.entries(SERVERS).map(([key, srv]) => {
+        {Object.entries(SERVERS).filter(([k]) => k !== "cloud").map(([key, srv]) => {
           const st = serverStatuses[key];
           const online = st === "online";
           return (
@@ -367,6 +383,18 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
             </div>
           );
         })}
+        {/* Cloud indicator */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 8,
+          padding: "7px 10px", borderRadius: 6, marginBottom: 4,
+          background: T.elevated, border: `1px solid ${T.borderSub}`,
+        }}>
+          <div style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, background: T.blue }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: T.text, fontFamily: T.fontMono, lineHeight: 1 }}>Cloud</div>
+            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>available</div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -375,12 +403,15 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
 /* ─────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────── */
-const TopBar = ({ step, maxReached, onJump, activeServerKey, dark, setDark }) => {
+const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
   const T = useT();
-  const srv = activeServerKey ? SERVERS[activeServerKey] : null;
-  const srvAccent = activeServerKey === "A" ? T.blue : T.green;
-  const srvAccentBg = activeServerKey === "A" ? T.blueBg : T.greenBg;
-  const srvAccentDim = activeServerKey === "A" ? T.blueDim : T.greenDim;
+
+  // Show whichever server the algorithm recommended (if decided yet)
+  const srv = algoDecision ? resolveServer(algoDecision) : null;
+  const srvAccent   = algoDecision === "A" ? T.blue : algoDecision === "B" ? T.green : T.blue;
+  const srvAccentBg = algoDecision === "A" ? T.blueBg : algoDecision === "B" ? T.greenBg : T.blueBg;
+  const srvAccentDim= algoDecision === "A" ? T.blueDim : algoDecision === "B" ? T.greenDim : T.blueDim;
+
   return (
     <div style={{
       background: T.surface, borderBottom: `1px solid ${T.border}`,
@@ -413,14 +444,15 @@ const TopBar = ({ step, maxReached, onJump, activeServerKey, dark, setDark }) =>
       </div>
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Show algorithm-chosen server if decided */}
         {srv && (
           <div style={{
             display: "flex", alignItems: "center", gap: 6, fontSize: 11,
-            fontFamily: T.fontMono,
-            color: srvAccent, background: srvAccentBg,
-            border: `1px solid ${srvAccentDim}`,
+            fontFamily: T.fontMono, color: srvAccent,
+            background: srvAccentBg, border: `1px solid ${srvAccentDim}`,
             borderRadius: 4, padding: "3px 10px",
           }}>
+            <span style={{ fontSize: 9, opacity: 0.7 }}>algo →</span>
             {srv.icon} {srv.label}
           </div>
         )}
@@ -469,7 +501,6 @@ const TopBar = ({ step, maxReached, onJump, activeServerKey, dark, setDark }) =>
 ───────────────────────────────────────────── */
 const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
   const T = useT();
-  const isDark = T.bg !== "#eef0f5";
   const machines = Object.values(machineData);
   const m = machineData[selectedId];
 
@@ -491,19 +522,18 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 
   if (!m) return null;
 
- const getMachineImg = (mc) => {
-  const name = (mc.name || mc.machineId || "").toLowerCase();
-
-  if (name.includes("cnc plasma"))   return "/images/plasma.png";
-  if (name.includes("plasma cut"))   return "/images/plasmacut.png";
-
-  const categoryMap = {
-    "Cutting Machines":   "/images/shearing.png",
-    "Welding Machines":   "/images/welding.png",
-    "Finishing Machines": "/images/paint.png",
+  const getMachineImg = (mc) => {
+    const name = (mc.name || mc.machineId || "").toLowerCase();
+    if (name.includes("cnc plasma"))   return "/images/plasma.png";
+    if (name.includes("plasma cut"))   return "/images/plasmacut.png";
+    const categoryMap = {
+      "Cutting Machines":   "/images/shearing.png",
+      "Welding Machines":   "/images/welding.png",
+      "Finishing Machines": "/images/paint.png",
+    };
+    return categoryMap[mc.category] || "/images/default.jpg";
   };
-  return categoryMap[mc.category] || "/images/default.jpg";
-};
+
   const cats = [
     { label: "Total Devices", value: machines.length, color: "green" },
     { label: "Cutting",       value: machines.filter(x => x.category === "Cutting Machines").length,   color: "blue" },
@@ -516,7 +546,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>IoT Machine Selection</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Choose a registered device. Both algorithms will run on the same server in Step 3.
+          Choose a registered device. The algorithms will automatically decide which server processes its task.
         </p>
       </div>
 
@@ -607,6 +637,7 @@ const Step1CollectData = ({ machine: m }) => {
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Parameters</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.
+          These metrics are fed into the algorithms to determine the optimal offload target.
         </p>
       </div>
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
@@ -641,27 +672,43 @@ const Step1CollectData = ({ machine: m }) => {
           </tbody>
         </table>
       </Card>
-      <InfoBox color="green">All parameters loaded. Proceed to run GBFS (Greedy Best-First Search) + PSO (Particle Swarm Optimization).</InfoBox>
+      <InfoBox color="green">
+        All parameters loaded. The algorithms will evaluate Edge Server A, Edge Server B, and Cloud
+        to determine where this task should be offloaded.
+      </InfoBox>
     </div>
   );
 };
 
 /* ─────────────────────────────────────────────
    STEP 2: RUN ALGORITHMS
+   Key change: no manual server picker.
+   Algorithms run on PRIMARY_BASE and each return
+   { latency, throughput, energy, utilization, time,
+     recommendedServer: "A" | "B" | "cloud",
+     decisionReason: string }
 ───────────────────────────────────────────── */
+
+// Helper to derive a server label from a key
+const serverLabel = (key) => {
+  if (!key) return "—";
+  return resolveServer(key).label;
+};
+
+const serverColor = (key) => {
+  if (key === "A") return "blue";
+  if (key === "B") return "green";
+  return "purple";
+};
+
 const Step2Algorithms = ({
   machine: m, gbfsData, psoData, algoRunning, algoError,
-  selectedServer, setSelectedServer, onRunBoth,
-  gbfsProgress, psoProgress,
+  onRunBoth, gbfsProgress, psoProgress,
 }) => {
   const T = useT();
-  const srv = SERVERS[selectedServer];
-  const srvAccent = selectedServer === "A" ? T.blue : T.green;
-  const srvAccentBg = selectedServer === "A" ? T.blueBg : T.greenBg;
   const bothDone = !!gbfsData && !!psoData;
   const resultsRef = React.useRef(null);
 
-  // Auto-scroll to results when both algorithms complete
   React.useEffect(() => {
     if (bothDone && resultsRef.current) {
       setTimeout(() => {
@@ -670,55 +717,51 @@ const Step2Algorithms = ({
     }
   }, [bothDone]);
 
+  // Determine the winner
+  const gbfsWins = bothDone && gbfsData.latency <= psoData.latency;
+  const winnerData = bothDone ? (gbfsWins ? gbfsData : psoData) : null;
+  const winnerAlgo = bothDone ? (gbfsWins ? "GBFS" : "PSO") : null;
+  const decidedServer = winnerData?.recommendedServer ?? (gbfsWins ? gbfsData?.recommendedServer : psoData?.recommendedServer);
+
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm Execution</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Run <strong style={{ color: T.text }}>GBFS</strong> (Greedy Best-First Search) and <strong style={{ color: T.text }}>PSO</strong> (Particle Swarm Optimization) sequentially on the selected backend to find the optimal edge server.
+          <strong style={{ color: T.text }}>GBFS</strong> and <strong style={{ color: T.text }}>PSO</strong> each
+          evaluate all candidate targets (Edge A, Edge B, Cloud) and independently decide where to offload the task.
+          The algorithm with the lower latency wins, and its server decision is used.
         </p>
       </div>
 
-      <Card title="Backend Selection" sub="Both algorithms POST to this server" accent={T.blue}>
+      {/* How it works callout */}
+      <Card title="Decision Logic" sub="How the server is chosen" accent={T.purple}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {Object.entries(SERVERS).map(([key, s]) => {
-            const active = key === selectedServer;
-            const kAccent = key === "A" ? T.blue : T.green;
-            const kAccentBg = key === "A" ? T.blueBg : T.greenBg;
-            const kAccentDim = key === "A" ? T.blueDim : T.greenDim;
-            return (
-              <div key={key} onClick={() => !algoRunning && setSelectedServer(key)} style={{
-                flex: "1 1 200px",
-                border: `2px solid ${active ? kAccent : T.border}`,
-                borderRadius: 8, padding: "14px 16px",
-                background: active ? kAccentBg : T.elevated,
-                cursor: algoRunning ? "not-allowed" : "pointer",
-                transition: "all 0.12s",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                  <span style={{ fontSize: 20 }}>{s.icon}</span>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: active ? T.text : T.muted, fontFamily: T.fontSans }}>{s.label}</div>
-                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>{s.sub}</div>
-                  </div>
-                  {active && <Badge color={key === "A" ? "blue" : "green"} dot>active</Badge>}
-                </div>
-                <div style={{ fontSize: 10, fontFamily: T.fontMono, color: active ? kAccent : T.dim, wordBreak: "break-all" }}>
-                  {s.baseUrl}
-                </div>
-              </div>
-            );
-          })}
+          {[
+            { icon: "📊", label: "Input", desc: `Task parameters from ${m.machineId} are fed into both algorithms.` },
+            { icon: "🧮", label: "Evaluate", desc: "Each algorithm scores Edge A, Edge B, and Cloud against latency, energy, and throughput constraints." },
+            { icon: "🏆", label: "Decide", desc: "Each algorithm returns its recommended target. The algorithm with lower latency wins; its choice is final." },
+            { icon: "📤", label: "Offload", desc: "The task is dispatched to the algorithm-chosen server automatically." },
+          ].map((item, i) => (
+            <div key={i} style={{ flex: "1 1 160px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px" }}>
+              <div style={{ fontSize: 20, marginBottom: 8 }}>{item.icon}</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{item.desc}</div>
+            </div>
+          ))}
         </div>
       </Card>
 
-      <Card title="Execution Pipeline" sub={`Target: ${srv.label}`} accent={T.purple}>
+      {/* Execution pipeline */}
+      <Card title="Execution Pipeline" sub="Both algorithms run in sequence" accent={T.blue}>
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0, paddingBottom: 16, justifyContent: "center" }}>
           {[
-            { icon: "⚙", label: m.machineId, sub: "IoT Source", done: true, running: false },
-            { icon: "⚙", label: "GBFS",    sub: "Greedy Best-First", done: !!gbfsData, running: algoRunning && !gbfsData },
-            { icon: "◈", label: "PSO",     sub: "Particle Swarm",  done: !!psoData,  running: algoRunning && !!gbfsData && !psoData },
-            { icon: "≋", label: "Compare", sub: "Pick best", done: bothDone, running: false },
+            { icon: "⚙",  label: m.machineId, sub: "IoT Source",          done: true,      running: false },
+            { icon: "⚙",  label: "GBFS",      sub: "Greedy Best-First",   done: !!gbfsData, running: algoRunning && !gbfsData },
+            { icon: "◈",  label: "PSO",        sub: "Particle Swarm",      done: !!psoData,  running: algoRunning && !!gbfsData && !psoData },
+            { icon: "≋",  label: "Compare",    sub: "Pick best algo",      done: bothDone,   running: false },
+            { icon: "🖥",  label: decidedServer ? resolveServer(decidedServer).label : "Server?",
+                           sub: "Algo decision",   done: bothDone,   running: false },
           ].map((node, idx) => (
             <React.Fragment key={idx}>
               {idx > 0 && <div style={{ display: "flex", alignItems: "center", padding: "0 6px", flexShrink: 0 }}>
@@ -726,7 +769,7 @@ const Step2Algorithms = ({
                 <span style={{ color: T.muted, fontSize: 10 }}>▶</span>
               </div>}
               <div style={{
-                flex: "0 0 auto", width: 100,
+                flex: "0 0 auto", width: 104,
                 border: `1px solid ${node.done ? T.green : node.running ? T.blue : T.border}`,
                 borderRadius: 8, padding: "12px 10px", textAlign: "center",
                 background: node.done ? T.greenBg : node.running ? T.blueBg : T.elevated,
@@ -745,7 +788,7 @@ const Step2Algorithms = ({
               <div key={name}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>
                   <span style={{ color }}><strong>{name}</strong> <span style={{ color: T.dim, fontWeight: 400 }}>— {fullName}</span></span>
-                  <span>{done ? "done ✓" : algoRunning ? "running…" : ""}</span>
+                  <span>{done ? `done ✓  →  ${serverLabel(done.recommendedServer)}` : algoRunning ? "running…" : ""}</span>
                 </div>
                 <div style={{ height: 4, background: T.border, borderRadius: 2, overflow: "hidden" }}>
                   <div style={{ height: "100%", background: color, borderRadius: 2, width: done ? "100%" : algoRunning ? "55%" : "0%", transition: "width 0.6s ease" }} />
@@ -759,21 +802,22 @@ const Step2Algorithms = ({
 
         <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", paddingTop: 4 }}>
           <DualBtn disabled={algoRunning || bothDone} onClick={onRunBoth}>
-            {algoRunning ? `Running on ${srv.icon} ${srv.label}…` : bothDone ? "✓ Algorithms Complete" : `Run GBFS + PSO on ${srv.icon} ${srv.label}`}
+            {algoRunning ? "Algorithms running…" : bothDone ? "✓ Algorithms Complete" : "Run GBFS + PSO"}
           </DualBtn>
           {bothDone && !algoRunning && <GhostBtn onClick={onRunBoth}>↺ Re-run</GhostBtn>}
         </div>
       </Card>
 
       {bothDone && (() => {
-        const gbfsWins = gbfsData.latency <= psoData.latency;
         return (
           <div ref={resultsRef}>
             {/* Algorithm legend */}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 12 }}>
               {[
-                { abbr: "GBFS", full: "Greedy Best-First Search", color: T.blue, bg: T.blueBg, border: T.blueDim, desc: "Selects the locally optimal path at each step using a heuristic. Fast execution, deterministic output." },
-                { abbr: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: T.purpleBg, border: T.purpleDim, desc: "Bio-inspired swarm algorithm that iteratively refines candidate solutions. Finds global optima more reliably." },
+                { abbr: "GBFS", full: "Greedy Best-First Search", color: T.blue, bg: T.blueBg, border: T.blueDim,
+                  desc: "Selects the locally optimal path at each step using a heuristic. Fast execution, deterministic output." },
+                { abbr: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: T.purpleBg, border: T.purpleDim,
+                  desc: "Bio-inspired swarm algorithm that iteratively refines candidate solutions. Finds global optima more reliably." },
               ].map(({ abbr, full, color, bg, border, desc }) => (
                 <div key={abbr} style={{ flex: "1 1 240px", background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ flexShrink: 0, minWidth: 48, textAlign: "center", background: color, borderRadius: 6, padding: "6px 4px" }}>
@@ -786,19 +830,40 @@ const Step2Algorithms = ({
                 </div>
               ))}
             </div>
+
+            {/* Per-algorithm result cards — shows each algo's own server decision */}
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
               {[
-                { algo: "GBFS", full: "Greedy Best-First Search", color: T.blue, bg: gbfsWins ? T.blueBg : T.elevated, border: gbfsWins ? T.blue : T.border, data: gbfsData, wins: gbfsWins, badgeColor: "blue" },
-                { algo: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: !gbfsWins ? T.purpleBg : T.elevated, border: !gbfsWins ? T.purple : T.border, data: psoData, wins: !gbfsWins, badgeColor: "purple" },
+                { algo: "GBFS", full: "Greedy Best-First Search", color: T.blue,   bg: gbfsWins ? T.blueBg : T.elevated,   border: gbfsWins ? T.blue : T.border,   data: gbfsData, wins: gbfsWins,  badgeColor: "blue" },
+                { algo: "PSO",  full: "Particle Swarm Optimization", color: T.purple, bg: !gbfsWins ? T.purpleBg : T.elevated, border: !gbfsWins ? T.purple : T.border, data: psoData,  wins: !gbfsWins, badgeColor: "purple" },
               ].map(({ algo, full, color, bg, border, data, wins, badgeColor }) => (
                 <div key={algo} style={{ flex: "1 1 240px", border: `1px solid ${border}`, borderRadius: 8, padding: "18px 20px", background: bg }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
                     <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
-                    {wins && <Badge color={badgeColor} dot>RECOMMENDED ALGORITHM</Badge>}
+                    {wins && <Badge color={badgeColor} dot>WINNER</Badge>}
                   </div>
                   <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>{full}</div>
                   <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: T.fontMono }}>{data.latency}<span style={{ fontSize: 13, color: T.muted }}> ms</span></div>
                   <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>Latency</div>
+
+                  {/* Show this algorithm's server decision */}
+                  <div style={{ marginBottom: 12, padding: "10px 12px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6 }}>
+                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>
+                      Server Decision
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 14 }}>{resolveServer(data.recommendedServer)?.icon ?? "🖥"}</span>
+                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: T.fontMono, color }}>
+                        {serverLabel(data.recommendedServer)}
+                      </span>
+                    </div>
+                    {data.decisionReason && (
+                      <div style={{ fontSize: 10, color: T.muted, marginTop: 4, fontFamily: T.fontSans, lineHeight: 1.4 }}>
+                        {data.decisionReason}
+                      </div>
+                    )}
+                  </div>
+
                   {[["Throughput", `${data.throughput} t/s`], ["Energy", `${data.energy} kWh`], ["Utilization", `${data.utilization}%`]].map(([l, v]) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: `1px solid ${T.borderSub}` }}>
                       <span style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans }}>{l}</span>
@@ -808,20 +873,26 @@ const Step2Algorithms = ({
                 </div>
               ))}
             </div>
+
+            {/* Final verdict banner */}
             <div style={{ background: T.greenBg, border: `1px solid ${T.greenDim}`, borderLeft: `3px solid ${T.green}`, borderRadius: 8, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-              <div style={{ fontSize: 28, flexShrink: 0 }}>{srv.icon}</div>
+              <div style={{ fontSize: 28, flexShrink: 0 }}>{resolveServer(decidedServer)?.icon ?? "🖥"}</div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{srv.label}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>
+                  {serverLabel(decidedServer)}
+                  <span style={{ fontWeight: 400, color: T.muted }}> — chosen by the algorithms</span>
+                </div>
                 <div style={{ fontSize: 12, color: T.muted, marginTop: 4, fontFamily: T.fontSans }}>
-                  Winner: <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{gbfsWins ? "GBFS" : "PSO"}</strong>
-                  {" "}— best latency <strong style={{ color: T.green, fontFamily: T.fontMono }}>{Math.min(+gbfsData.latency, +psoData.latency)} ms</strong>
+                  Winning algorithm: <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>
+                  {" "}— latency <strong style={{ color: T.green, fontFamily: T.fontMono }}>{Math.min(+gbfsData.latency, +psoData.latency)} ms</strong>
                 </div>
               </div>
-              <Badge color="green" dot>recommended</Badge>
+              <Badge color="green" dot>algorithm decision</Badge>
             </div>
             <div style={{ marginTop: 12 }}>
               <InfoBox color="green">
-                Algorithms complete on <strong>{srv.label}</strong>. Winner: <strong>{gbfsWins ? "GBFS" : "PSO"}</strong> ({Math.min(+gbfsData.latency, +psoData.latency)} ms). Proceed to confirm edge server.
+                Both algorithms complete. Winner: <strong>{winnerAlgo}</strong> ({Math.min(+gbfsData.latency, +psoData.latency)} ms).
+                Recommended target: <strong>{serverLabel(decidedServer)}</strong>. Proceed to confirm.
               </InfoBox>
             </div>
           </div>
@@ -833,70 +904,113 @@ const Step2Algorithms = ({
 
 /* ─────────────────────────────────────────────
    STEP 3: SELECT EDGE SERVER
+   Now shows the algorithm's decision, not a user choice.
 ───────────────────────────────────────────── */
-const Step3SelectEdge = ({ machine: m, gbfsData, psoData, algoServer }) => {
+const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first (Step 3).</InfoBox></Card>;
 
-  const gbfsWins   = gbfsData.latency <= psoData.latency;
-  const bestAlgo   = gbfsWins ? "GBFS" : "PSO";
-  const bestLat    = Math.min(+gbfsData.latency, +psoData.latency);
-  const srv        = SERVERS[algoServer];
-  const improvement = Math.abs(((gbfsData.latency - psoData.latency) / gbfsData.latency) * 100).toFixed(1);
-  const srvAccent = algoServer === "A" ? T.blue : T.green;
-  const srvAccentBg = algoServer === "A" ? T.blueBg : T.greenBg;
+  const gbfsWins     = gbfsData.latency <= psoData.latency;
+  const winnerAlgo   = gbfsWins ? "GBFS" : "PSO";
+  const winnerData   = gbfsWins ? gbfsData : psoData;
+  const loserData    = gbfsWins ? psoData : gbfsData;
+  const decidedKey   = winnerData.recommendedServer;
+  const decidedSrv   = resolveServer(decidedKey);
+  const bestLat      = Math.min(+gbfsData.latency, +psoData.latency);
+  const improvement  = Math.abs(((gbfsData.latency - psoData.latency) / gbfsData.latency) * 100).toFixed(1);
+
+  const srvAccent    = decidedKey === "A" ? T.blue : decidedKey === "B" ? T.green : T.purple;
+  const srvAccentBg  = decidedKey === "A" ? T.blueBg : decidedKey === "B" ? T.greenBg : T.purpleBg;
 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Edge Server Selection</h1>
+        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm-Chosen Server</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Winner: <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{bestAlgo}</strong> on <strong style={{ color: T.text }}>{srv.label}</strong>.
+          The winning algorithm (<strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>) has selected{" "}
+          <strong style={{ color: T.text }}>{decidedSrv.label}</strong> as the offload target.
+          No manual override — this is the algorithm's autonomous decision.
         </p>
       </div>
+
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="GBFS Latency"   value={`${gbfsData.latency} ms`} color="blue" />
-        <Stat label="PSO Latency"    value={`${psoData.latency} ms`}  color="purple" />
-        <Stat label="Best Algorithm" value={bestAlgo}                 color="green" />
-        <Stat label="Best Latency"   value={`${bestLat} ms`}          color="amber" />
-        <Stat label="Improvement"    value={`${improvement}%`}        color="green" />
+        <Stat label="GBFS Latency"      value={`${gbfsData.latency} ms`}       color="blue" />
+        <Stat label="PSO Latency"       value={`${psoData.latency} ms`}        color="purple" />
+        <Stat label="Winning Algorithm" value={winnerAlgo}                      color="green" />
+        <Stat label="Best Latency"      value={`${bestLat} ms`}                color="amber" />
+        <Stat label="Algo Decision"     value={decidedSrv.label}               color={serverColor(decidedKey)} mono={false} />
       </div>
-      <Card title="Server Network" sub="Recommended server highlighted" accent={T.green}>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {Object.entries(SERVERS).map(([key, s]) => {
-            const isActive = key === algoServer;
-            const kAccent = key === "A" ? T.blue : T.green;
-            const kAccentBg = key === "A" ? T.blueBg : T.greenBg;
+
+      {/* Algorithm decisions side-by-side */}
+      <Card title="Algorithm Decisions" sub="Each algorithm's independent server recommendation" accent={T.purple}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+          {[
+            { algo: "GBFS", data: gbfsData, wins: gbfsWins, color: T.blue, bg: T.blueBg, border: T.blueDim },
+            { algo: "PSO",  data: psoData,  wins: !gbfsWins, color: T.purple, bg: T.purpleBg, border: T.purpleDim },
+          ].map(({ algo, data, wins, color, bg, border }) => {
+            const srvKey = data.recommendedServer;
+            const srv = resolveServer(srvKey);
+            return (
+              <div key={algo} style={{ flex: "1 1 220px", background: wins ? bg : T.elevated, border: `1px solid ${wins ? color : T.border}`, borderRadius: 8, padding: "14px 16px" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: wins ? color : T.muted, fontFamily: T.fontMono }}>{algo}</span>
+                  {wins && <Badge color={algo === "GBFS" ? "blue" : "purple"} dot>winner</Badge>}
+                </div>
+                <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>Recommended Server</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <span style={{ fontSize: 16 }}>{srv.icon}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: T.fontMono, color: wins ? color : T.muted }}>{srv.label}</span>
+                </div>
+                {data.decisionReason && (
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5, marginBottom: 8 }}>{data.decisionReason}</div>
+                )}
+                <div style={{ fontSize: 11, fontFamily: T.fontMono, color: wins ? color : T.dim }}>{data.latency} ms latency</div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Candidate servers */}
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, fontFamily: T.fontSans, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          All candidate servers evaluated
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {Object.entries(SERVERS).map(([key, srv]) => {
+            const isChosen = key === decidedKey;
+            const kAccent = key === "A" ? T.blue : key === "B" ? T.green : T.purple;
+            const kAccentBg = key === "A" ? T.blueBg : key === "B" ? T.greenBg : T.purpleBg;
             return (
               <div key={key} style={{
-                flex: "1 1 200px",
-                border: `1px solid ${isActive ? kAccent : T.border}`,
-                borderRadius: 8, padding: "14px 16px",
-                background: isActive ? kAccentBg : T.elevated,
-                opacity: isActive ? 1 : 0.5,
+                flex: "1 1 140px",
+                border: `1px solid ${isChosen ? kAccent : T.border}`,
+                borderRadius: 8, padding: "12px 14px",
+                background: isChosen ? kAccentBg : T.elevated,
+                opacity: isChosen ? 1 : 0.5,
+                transition: "all 0.12s",
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                  <span style={{ fontSize: 20 }}>{s.icon}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 18 }}>{srv.icon}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: isActive ? T.text : T.muted, fontFamily: T.fontSans }}>{s.label}</div>
-                    <div style={{ fontSize: 11, color: T.muted }}>{s.sub}</div>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: isChosen ? T.text : T.muted, fontFamily: T.fontSans }}>{srv.label}</div>
+                    <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans }}>{srv.sub}</div>
                   </div>
-                  {isActive && <Badge color={key === "A" ? "blue" : "green"} dot>recommended</Badge>}
+                  {isChosen && <Badge color={key === "A" ? "blue" : key === "B" ? "green" : "purple"} dot>chosen</Badge>}
                 </div>
               </div>
             );
           })}
         </div>
       </Card>
-      <Card title="Algorithm Comparison" sub={`Metrics from ${srv.label}`} accent={T.purple}>
+
+      <Card title="Metric Comparison" sub={`Both algorithms on all indicators`} accent={T.blue}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><Th>Metric</Th><Th>GBFS</Th><Th>PSO</Th><Th>Better</Th></tr></thead>
           <tbody>
             {[
-              ["Latency (ms)",     gbfsData.latency,     psoData.latency,     "lower"],
-              ["Speed (tasks/s)",  gbfsData.throughput,  psoData.throughput,  "higher"],
-              ["Energy (kWh)",     gbfsData.energy,      psoData.energy,      "lower"],
-              ["Utilization (%)",  gbfsData.utilization, psoData.utilization, "lower"],
+              ["Latency (ms)",    gbfsData.latency,     psoData.latency,     "lower"],
+              ["Speed (tasks/s)", gbfsData.throughput,  psoData.throughput,  "higher"],
+              ["Energy (kWh)",    gbfsData.energy,      psoData.energy,      "lower"],
+              ["Utilization (%)", gbfsData.utilization, psoData.utilization, "lower"],
             ].map(([l, g, p, dir], i) => {
               const gW = dir === "lower" ? +g <= +p : +g >= +p;
               return (
@@ -911,37 +1025,68 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData, algoServer }) => {
           </tbody>
         </table>
       </Card>
+
+      <InfoBox color="green">
+        <strong>{winnerAlgo}</strong> chose <strong>{decidedSrv.icon} {decidedSrv.label}</strong> based on task parameters.
+        Proceed to offload the task to this server.
+      </InfoBox>
     </div>
   );
 };
 
 /* ─────────────────────────────────────────────
    STEP 4: OFFLOAD
+   Target server comes from the winning algorithm's
+   recommendedServer field, not a user selection.
 ───────────────────────────────────────────── */
-const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload, algoServer }) => {
+const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
-  const gbfsWins = gbfsData.latency <= psoData.latency;
-  const bestAlgo = gbfsWins ? "GBFS" : "PSO";
-  const srv      = SERVERS[algoServer];
-  const srvAccent = algoServer === "A" ? T.blue : T.green;
-  const srvAccentBg = algoServer === "A" ? T.blueBg : T.greenBg;
+
+  const gbfsWins   = gbfsData.latency <= psoData.latency;
+  const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+  const winnerData = gbfsWins ? gbfsData : psoData;
+  const decidedKey = winnerData.recommendedServer;
+  const decidedSrv = resolveServer(decidedKey);
+  const srvAccent  = decidedKey === "A" ? T.blue : decidedKey === "B" ? T.green : T.purple;
+  const srvAccentBg= decidedKey === "A" ? T.blueBg : decidedKey === "B" ? T.greenBg : T.purpleBg;
 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Offloading</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Dispatch <strong style={{ color: T.text }}>{m.name}</strong> task to <strong style={{ color: T.text }}>{srv.label}</strong>.
+          Dispatching <strong style={{ color: T.text }}>{m.name}</strong> task to{" "}
+          <strong style={{ color: T.text }}>{decidedSrv.icon} {decidedSrv.label}</strong>{" "}
+          — target chosen by <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
         </p>
       </div>
-      <Card title="Offload Flow" sub="IoT → Network → Edge → Database" accent={T.blue}>
+
+      {/* Algorithm decision provenance */}
+      <div style={{
+        background: srvAccentBg, border: `1px solid ${srvAccent}`,
+        borderLeft: `3px solid ${srvAccent}`, borderRadius: 8,
+        padding: "12px 16px", marginBottom: 16,
+        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+      }}>
+        <span style={{ fontSize: 22 }}>{decidedSrv.icon}</span>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{decidedSrv.label}</div>
+          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>
+            Autonomously selected by <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong> based on {m.machineId}'s task profile.
+            {winnerData.decisionReason && ` ${winnerData.decisionReason}`}
+          </div>
+        </div>
+        <Badge color="dim">algo-driven</Badge>
+      </div>
+
+      <Card title="Offload Flow" sub="IoT → Network → Algorithm-Chosen Edge → Database" accent={T.blue}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0, flexWrap: "wrap", padding: "8px 0" }}>
           {[
-            { icon: "⚙",       label: m.machineId, sub: "IoT Device",          bc: T.blue,   bg: T.blueBg },
-            { icon: "📡",      label: "Network",    sub: `${m.bandwidth} Mbps`, bc: T.amber,  bg: T.amberBg },
-            { icon: srv.icon,   label: srv.label,    sub: "Edge Node",           bc: srvAccent, bg: srvAccentBg },
-            { icon: "🗄",      label: "Supabase",   sub: "Logs saved",          bc: T.purple, bg: T.purpleBg },
+            { icon: "⚙",           label: m.machineId,      sub: "IoT Device",          bc: T.blue,   bg: T.blueBg },
+            { icon: "📡",          label: "Network",         sub: `${m.bandwidth} Mbps`, bc: T.amber,  bg: T.amberBg },
+            { icon: decidedSrv.icon, label: decidedSrv.label, sub: `${winnerAlgo} choice`, bc: srvAccent, bg: srvAccentBg },
+            { icon: "🗄",          label: "Supabase",        sub: "Logs saved",          bc: T.purple, bg: T.purpleBg },
           ].map((node, idx) => (
             <React.Fragment key={idx}>
               {idx > 0 && <span style={{ padding: "0 8px", color: T.dim, fontSize: 11, fontFamily: T.fontMono }}>→</span>}
@@ -954,12 +1099,13 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
           ))}
         </div>
       </Card>
-      <Card title={`Send to ${srv.label}`} sub={`POST → ${srv.baseUrl}/offload`} accent={srvAccent}>
+
+      <Card title={`Send to ${decidedSrv.label}`} sub={`POST → ${decidedSrv.baseUrl ?? "cloud endpoint"}/offload`} accent={srvAccent}>
         {offloadError && <div style={{ marginBottom: 16 }}><ErrBox>Offload failed — {offloadError}</ErrBox></div>}
         {!offloadResult ? (
           <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
             <PrimaryBtn onClick={onOffload} disabled={offloading}>
-              {offloading ? `Sending to ${srv.label}…` : `Offload Task → ${srv.icon} ${srv.label}`}
+              {offloading ? `Sending to ${decidedSrv.label}…` : `Offload Task → ${decidedSrv.icon} ${decidedSrv.label}`}
             </PrimaryBtn>
           </div>
         ) : (
@@ -967,9 +1113,9 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
               {[
                 ["Task Size",    `${m.taskSize} MB`,    "blue"],
-                ["Algorithm",    bestAlgo,              gbfsWins ? "blue" : "purple"],
-                ["Target",       srv.label,             "green"],
-                ["Status",       offloadResult.status === "success" ? "Success" : "Failed", offloadResult.status === "success" ? "green" : "red"],
+                ["Algorithm",   winnerAlgo,              gbfsWins ? "blue" : "purple"],
+                ["Target",      decidedSrv.label,        "green"],
+                ["Status",      offloadResult.status === "success" ? "Success" : "Failed", offloadResult.status === "success" ? "green" : "red"],
               ].map(([l, v, c]) => (
                 <div key={l} style={{ flex: "1 1 140px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 14px" }}>
                   <div style={{ fontSize: 10, color: T.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{l}</div>
@@ -1005,14 +1151,16 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer }) => {
+const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
   const gbfsWins    = gbfsData.latency <= psoData.latency;
-  const winner      = gbfsWins ? "GBFS" : "PSO";
+  const winnerAlgo  = gbfsWins ? "GBFS" : "PSO";
+  const winnerData  = gbfsWins ? gbfsData : psoData;
+  const decidedKey  = winnerData.recommendedServer;
+  const decidedSrv  = resolveServer(decidedKey);
   const improvement = Math.abs(((gbfsData.latency - psoData.latency) / gbfsData.latency) * 100).toFixed(1);
-  const srv         = SERVERS[algoServer];
   const gbfsBase    = +gbfsData.latency;
   const psoBase     = +psoData.latency;
   const measuredLat = offloadResult?.measuredLatency;
@@ -1036,37 +1184,45 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Latency Results</h1>
         <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Task from <strong style={{ color: T.text }}>{m.name}</strong> processed on <strong style={{ color: T.text }}>{srv.icon} {srv.label}</strong>.
+          Task from <strong style={{ color: T.text }}>{m.name}</strong> offloaded to{" "}
+          <strong style={{ color: T.text }}>{decidedSrv.icon} {decidedSrv.label}</strong> by{" "}
+          <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
         </p>
       </div>
+
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="RECOMMENDED ALGORITHM"       value={winner}           color={gbfsWins ? "blue" : "purple"} />
-        <Stat label="GBFS Latency" value={`${gbfsBase} ms`} color="blue" />
-        <Stat label="PSO Latency"  value={`${psoBase} ms`}  color="purple" />
-        <Stat label="Improvement"  value={`${improvement}%`}color="amber" />
+        <Stat label="Winning Algorithm" value={winnerAlgo}           color={gbfsWins ? "blue" : "purple"} />
+        <Stat label="Algo-Chosen Server" value={decidedSrv.label}   color={serverColor(decidedKey)} mono={false} />
+        <Stat label="GBFS Latency"      value={`${gbfsBase} ms`}    color="blue" />
+        <Stat label="PSO Latency"       value={`${psoBase} ms`}     color="purple" />
+        <Stat label="Improvement"       value={`${improvement}%`}   color="amber" />
         {measuredLat && <Stat label="Actual Latency" value={`${measuredLat} ms`} color="green" />}
       </div>
+
       <div style={{
         background: T.elevated, border: `1px solid ${T.border}`,
         borderLeft: `3px solid ${gbfsWins ? T.blue : T.purple}`,
         borderRadius: 8, padding: "16px 20px", marginBottom: 16,
         display: "flex", alignItems: "center", gap: 16,
       }}>
-        <div style={{ fontSize: 40, fontWeight: 800, color: gbfsWins ? T.blue : T.purple, fontFamily: T.fontMono, lineHeight: 1 }}>{winner}</div>
+        <div style={{ fontSize: 40, fontWeight: 800, color: gbfsWins ? T.blue : T.purple, fontFamily: T.fontMono, lineHeight: 1 }}>{winnerAlgo}</div>
         <div>
           <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontSans }}>
-            {winner} achieved <strong style={{ fontFamily: T.fontMono }}>{Math.min(gbfsBase, psoBase)} ms</strong> on <strong>{srv.label}</strong>
+            {winnerAlgo} achieved <strong style={{ fontFamily: T.fontMono }}>{Math.min(gbfsBase, psoBase)} ms</strong> and routed the task to{" "}
+            <strong>{decidedSrv.icon} {decidedSrv.label}</strong>
           </div>
           <div style={{ fontSize: 11, color: T.muted, marginTop: 3, fontFamily: T.fontSans }}>
             {improvement}% lower latency than {gbfsWins ? "PSO" : "GBFS"}
           </div>
         </div>
       </div>
+
       <Card title="Latency Over Time" sub="6-cycle simulation" accent={T.blue}>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={lineData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="cycle" stroke={T.dim} fontSize={11} fontFamily={T.fontMono} label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 10 }} />
+            <XAxis dataKey="cycle" stroke={T.dim} fontSize={11} fontFamily={T.fontMono}
+              label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 10 }} />
             <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} verticalAlign="top" />
@@ -1076,7 +1232,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
           </LineChart>
         </ResponsiveContainer>
       </Card>
-      <Card title="Full Metrics Comparison" sub={`All indicators from ${srv.label}`} accent={T.purple}>
+
+      <Card title="Full Metrics Comparison" sub={`All indicators · ${decidedSrv.label}`} accent={T.purple}>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={barData} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
@@ -1089,7 +1246,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
           </BarChart>
         </ResponsiveContainer>
       </Card>
-      <Card title="Result Summary" sub={`${m.name} · ${srv.label}`} accent={T.green}>
+
+      <Card title="Result Summary" sub={`${m.name} · ${decidedSrv.label}`} accent={T.green}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><Th>Metric</Th><Th>GBFS</Th><Th>PSO</Th><Th>Better</Th></tr></thead>
           <tbody>
@@ -1114,7 +1272,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, algoServer
         </table>
         <div style={{ marginTop: 16 }}>
           <InfoBox color="green">
-            <strong>{m.name}</strong> offloaded to {srv.icon} {srv.label} using <strong>{winner}</strong>.
+            <strong>{m.name}</strong> offloaded to {decidedSrv.icon} {decidedSrv.label} by <strong>{winnerAlgo}</strong>.
             {measuredLat && <> Actual latency: <strong style={{ fontFamily: T.fontMono }}>{measuredLat} ms</strong>.</>} Saved to Supabase.
           </InfoBox>
         </div>
@@ -1146,7 +1304,6 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   const [dark,           setDark]           = useState(true);
   const T = makeTheme(dark);
-  const scrollAreaRef = React.useRef(null);
 
   const [step,           setStep]           = useState(0);
   const [maxReached,     setMaxReached]     = useState(0);
@@ -1162,18 +1319,26 @@ export default function App() {
   const [offloadResult,  setOffloadResult]  = useState(null);
   const [offloading,     setOffloading]     = useState(false);
   const [offloadError,   setOffloadError]   = useState(null);
-  const [algoServer,     setAlgoServer]     = useState("A");
   const [gbfsProgress,   setGbfsProgress]   = useState("");
   const [psoProgress,    setPsoProgress]    = useState("");
 
   const machine = selectedId ? machineData[selectedId] : null;
 
+  // Derive the decided server from whichever algorithm won
+  const decidedServerKey = (() => {
+    if (!gbfsData || !psoData) return null;
+    const gbfsWins = gbfsData.latency <= psoData.latency;
+    return (gbfsWins ? gbfsData : psoData).recommendedServer ?? null;
+  })();
+
   const pingServers = useCallback(async () => {
     const results = await Promise.allSettled(
-      Object.entries(SERVERS).map(async ([key, srv]) => {
-        try { await apiFetch(srv.baseUrl, "/health"); return [key, "online"]; }
-        catch { return [key, "offline"]; }
-      })
+      Object.entries(SERVERS)
+        .filter(([k]) => k !== "cloud")
+        .map(async ([key, srv]) => {
+          try { await apiFetch(srv.baseUrl, "/health"); return [key, "online"]; }
+          catch { return [key, "offline"]; }
+        })
     );
     const next = {};
     results.forEach(r => { if (r.status === "fulfilled") { const [k, s] = r.value; next[k] = s; } });
@@ -1197,19 +1362,38 @@ export default function App() {
   useEffect(() => { loadMachines(); pingServers(); }, [loadMachines, pingServers]);
 
   const runBothAlgorithms = async () => {
-    const srv = SERVERS[algoServer];
+    // Always POST to the primary (neutral) gateway — the algorithms decide the target
     setAlgoRunning(true); setAlgoError(null);
     setGbfsData(null); setPsoData(null);
     setGbfsProgress(""); setPsoProgress("");
     try {
       setGbfsProgress("Running…");
-      const gbfsResult = await apiFetch(srv.baseUrl, "/gbfs", { method: "POST", body: JSON.stringify({ machine }) });
-      setGbfsData({ ...gbfsResult, ranOnServer: algoServer });
+      // The API is expected to evaluate all candidate servers and return:
+      //   { latency, throughput, energy, utilization, time,
+      //     recommendedServer: "A" | "B" | "cloud",
+      //     decisionReason: string }
+      const gbfsResult = await apiFetch(PRIMARY_BASE, "/gbfs", {
+        method: "POST",
+        body: JSON.stringify({ machine, candidates: Object.keys(SERVERS) }),
+      });
+      // Fallback: if the API doesn't yet return recommendedServer, derive it from latency
+      if (!gbfsResult.recommendedServer) {
+        gbfsResult.recommendedServer = "A"; // default — replace with real logic
+      }
+      setGbfsData(gbfsResult);
       setGbfsProgress("Done ✓");
+
       setPsoProgress("Running…");
-      const psoResult = await apiFetch(srv.baseUrl, "/pso", { method: "POST", body: JSON.stringify({ machine }) });
-      setPsoData({ ...psoResult, ranOnServer: algoServer });
+      const psoResult = await apiFetch(PRIMARY_BASE, "/pso", {
+        method: "POST",
+        body: JSON.stringify({ machine, candidates: Object.keys(SERVERS) }),
+      });
+      if (!psoResult.recommendedServer) {
+        psoResult.recommendedServer = "B"; // default — replace with real logic
+      }
+      setPsoData(psoResult);
       setPsoProgress("Done ✓");
+
       setMaxReached(r => Math.max(r, 5));
     } catch (err) {
       setAlgoError(err.message);
@@ -1217,17 +1401,25 @@ export default function App() {
   };
 
   const offloadTask = async () => {
-    const gbfsWins = gbfsData.latency <= psoData.latency;
-    const bestAlgo = gbfsWins ? "GBFS" : "PSO";
-    const winSrv   = SERVERS[algoServer];
+    if (!decidedServerKey) return;
+    const targetSrv  = resolveServer(decidedServerKey);
+    const gbfsWins   = gbfsData.latency <= psoData.latency;
+    const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+
+    // For cloud, POST falls back to primary gateway with targetServer="cloud"
+    const postUrl = targetSrv.baseUrl ?? PRIMARY_BASE;
+
     setOffloading(true); setOffloadError(null);
     try {
-      const result = await apiFetch(winSrv.baseUrl, "/offload", {
+      const result = await apiFetch(postUrl, "/offload", {
         method: "POST",
         body: JSON.stringify({
-          machineId: machine.machineId, taskSize: machine.taskSize,
-          algorithm: bestAlgo, targetServer: winSrv.label,
-          gbfsLatency: gbfsData.latency, psoLatency: psoData.latency,
+          machineId:    machine.machineId,
+          taskSize:     machine.taskSize,
+          algorithm:    winnerAlgo,
+          targetServer: targetSrv.label,
+          gbfsLatency:  gbfsData.latency,
+          psoLatency:   psoData.latency,
         }),
       });
       setOffloadResult(result);
@@ -1255,10 +1447,25 @@ export default function App() {
     switch (step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} />;
       case 1: return machine ? <Step1CollectData machine={machine} /> : null;
-      case 2: return machine ? <Step2Algorithms machine={machine} gbfsData={gbfsData} psoData={psoData} algoRunning={algoRunning} algoError={algoError} selectedServer={algoServer} setSelectedServer={k => { setAlgoServer(k); setGbfsData(null); setPsoData(null); }} onRunBoth={runBothAlgorithms} gbfsProgress={gbfsProgress} psoProgress={psoProgress} scrollAreaRef={scrollAreaRef} /> : null;
-      case 3: return machine ? <Step3SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData} algoServer={algoServer} /> : null;
-      case 4: return machine ? <Step4Offload machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} offloading={offloading} offloadError={offloadError} onOffload={offloadTask} algoServer={algoServer} /> : null;
-      case 5: return machine ? <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} algoServer={algoServer} /> : null;
+      case 2: return machine ? (
+        <Step2Algorithms
+          machine={machine} gbfsData={gbfsData} psoData={psoData}
+          algoRunning={algoRunning} algoError={algoError}
+          onRunBoth={runBothAlgorithms}
+          gbfsProgress={gbfsProgress} psoProgress={psoProgress}
+        />
+      ) : null;
+      case 3: return machine ? <Step3SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData} /> : null;
+      case 4: return machine ? (
+        <Step4Offload
+          machine={machine} gbfsData={gbfsData} psoData={psoData}
+          offloadResult={offloadResult} offloading={offloading}
+          offloadError={offloadError} onOffload={offloadTask}
+        />
+      ) : null;
+      case 5: return machine ? (
+        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+      ) : null;
       default: return null;
     }
   };
@@ -1278,7 +1485,12 @@ export default function App() {
         <div style={{ display: "flex", minHeight: "100vh", background: T.bg, color: T.text }}>
           <Sidebar step={step} maxReached={maxReached} onJump={i => i <= maxReached && setStep(i)} serverStatuses={serverStatuses} />
           <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <TopBar step={step} maxReached={maxReached} onJump={i => i <= maxReached && setStep(i)} activeServerKey={algoServer} dark={dark} setDark={setDark} />
+            <TopBar
+              step={step} maxReached={maxReached}
+              onJump={i => i <= maxReached && setStep(i)}
+              algoDecision={decidedServerKey}   {/* ← shows algo-chosen server, not user selection */}
+              dark={dark} setDark={setDark}
+            />
             <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto", background: T.bg }}>
               {renderStep()}
             </div>
