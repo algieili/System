@@ -1488,7 +1488,7 @@ export default function App() {
             <TopBar
               step={step} maxReached={maxReached}
               onJump={i => i <= maxReached && setStep(i)}
-              algoDecision={decidedServerKey}   {/* ← shows algo-chosen server, not user selection */}
+              algoDecision={decidedServerKey}
               dark={dark} setDark={setDark}
             />
             <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto", background: T.bg }}>
