@@ -825,7 +825,7 @@ const Step2Algorithms = ({
                     )}
                   </div>
 
-                  {[["Throughput", `${data.throughput} t/s`], ["Energy", `${data.energy} kWh`], ["Utilization", `${data.utilization}%`]].map(([l, v]) => (
+                  {[["Avg Processing Latency", `${data.latency} ms`], ["Avg Completion Time", `${data.time} ms`], ["Avg Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
                     <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: `1px solid ${T.borderSub}` }}>
                       <span style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans }}>{l}</span>
                       <span style={{ fontSize: 11, fontFamily: T.fontMono, color: T.text }}>{v}</span>
