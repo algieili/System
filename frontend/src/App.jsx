@@ -1150,7 +1150,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const winnerData  = gbfsWins ? gbfsData : psoData;
   const decidedKey  = winnerData.recommendedServer;
   const decidedSrv  = resolveServer(decidedKey);
-  const improvement = Math.abs(((gbfsData.latency - psoData.latency) / gbfsData.latency) * 100).toFixed(1);
+  const improvement = (Math.abs(gbfsData.latency - psoData.latency) / Math.max(gbfsData.latency, psoData.latency) * 100).toFixed(1);
   const gbfsBase    = +gbfsData.latency;
   const psoBase     = +psoData.latency;
   const measuredLat = offloadResult?.measuredLatency;
