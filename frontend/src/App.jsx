@@ -893,7 +893,7 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <Stat label="GBFS Latency"      value={`${gbfsData.latency} ms`}  color="blue" />
         <Stat label="PSO Latency"       value={`${psoData.latency} ms`}   color="purple" />
-        <Stat label="Winning Algorithm" value={winnerAlgo}                 color="green" />
+        <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color="green" />
         <Stat label="Best Latency"      value={`${bestLat} ms`}           color="amber" />
         <Stat label="Algo Decision"     value={decidedSrv.label}          color={serverColor(decidedKey)} mono={false} />
       </div>
@@ -1160,7 +1160,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       </div>
 
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="Winning Algorithm"  value={winnerAlgo}          color={gbfsWins ? "blue" : "purple"} />
+        <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color={gbfsWins ? "blue" : "purple"} />
         <Stat label="Algo-Chosen Server" value={decidedSrv.label}   color={serverColor(decidedKey)} mono={false} />
         <Stat label="GBFS Latency"       value={`${gbfsBase} ms`}   color="blue" />
         <Stat label="PSO Latency"        value={`${psoBase} ms`}    color="purple" />
