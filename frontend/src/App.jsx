@@ -804,9 +804,7 @@ const Step2Algorithms = ({
                     <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
                     {wins && <Badge color={badgeColor} dot>WINNER</Badge>}
                   </div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>{full}</div>
-                  <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: T.fontMono }}>{data.latency}<span style={{ fontSize: 13, color: T.muted }}> ms</span></div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>Latency</div>
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 14 }}>{full}</div>
 
                   <div style={{ marginBottom: 12, padding: "10px 12px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6 }}>
                     <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>
@@ -824,6 +822,8 @@ const Step2Algorithms = ({
                       </div>
                     )}
                   </div>
+
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontMono, marginBottom: 4 }}>{algo} Performance Summary</div>
 
                   {[["Average Processing Latency", `${data.latency} ms`], ["Average Completion Time", `${data.time} ms`], ["Average Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
                     <div key={l} style={{ padding: "10px 0", borderTop: `1px solid ${T.borderSub}` }}>
@@ -893,7 +893,7 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <Stat label="GBFS Latency"      value={`${gbfsData.latency} ms`}  color="blue" />
         <Stat label="PSO Latency"       value={`${psoData.latency} ms`}   color="purple" />
-        <Stat label="Winning Algorithm" value={winnerAlgo}                 color="green" />
+        <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color="green" />
         <Stat label="Best Latency"      value={`${bestLat} ms`}           color="amber" />
         <Stat label="Algo Decision"     value={decidedSrv.label}          color={serverColor(decidedKey)} mono={false} />
       </div>
@@ -1103,6 +1103,44 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+const MetricBarRow = ({ label, value, unit, max, color }) => {
+  const T = useT();
+  const pct = Math.max(4, Math.min(100, (value / max) * 100));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0" }}>
+      <span style={{ width: 42, flexShrink: 0, fontSize: 12, fontWeight: 700, fontFamily: T.fontMono, color }}>{label}</span>
+      <div style={{ flex: 1, height: 16, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{
+          width: `${pct}%`, height: "100%", background: color,
+          backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 6px)",
+          transition: "width 0.5s ease",
+        }} />
+      </div>
+      <span style={{ width: 66, flexShrink: 0, textAlign: "right", fontSize: 12, fontFamily: T.fontMono, color: T.text }}>{value} {unit}</span>
+    </div>
+  );
+};
+
+const MetricGraphCard = ({ index, sopTitle, gbfsValue, psoValue, unit }) => {
+  const T = useT();
+  const max = Math.max(gbfsValue, psoValue) * 1.25;
+  return (
+    <Card title={`Graph ${index}`} sub={sopTitle} accent={T.blue}>
+      <div style={{ background: T.elevated, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "12px 16px" }}>
+        <MetricBarRow label="GBFS" value={gbfsValue} unit={unit} max={max} color={T.blue} />
+        <MetricBarRow label="PSO"  value={psoValue}  unit={unit} max={max} color={T.purple} />
+      </div>
+    </Card>
+  );
+};
+
+const compareMetric = (gbfsVal, psoVal, lowerIsBetter = true) => {
+  const gWins = lowerIsBetter ? gbfsVal <= psoVal : gbfsVal >= psoVal;
+  const better = Math.max(gbfsVal, psoVal, 0.0001);
+  const pct = (Math.abs(gbfsVal - psoVal) / better * 100).toFixed(1);
+  return { winner: gWins ? "GBFS" : "PSO", pct };
+};
+
 const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
@@ -1116,6 +1154,10 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const gbfsBase    = +gbfsData.latency;
   const psoBase     = +psoData.latency;
   const measuredLat = offloadResult?.measuredLatency;
+
+  const latencyCmp     = compareMetric(+gbfsData.latency, +psoData.latency, true);
+  const completionCmp  = compareMetric(+gbfsData.time, +psoData.time, true);
+  const utilizationCmp = compareMetric(+gbfsData.utilization, +psoData.utilization, true);
 
   const lineData = [1, 2, 3, 4, 5, 6].map(t => ({
     cycle: `T${t}`,
@@ -1143,7 +1185,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       </div>
 
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="Winning Algorithm"  value={winnerAlgo}          color={gbfsWins ? "blue" : "purple"} />
+        <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color={gbfsWins ? "blue" : "purple"} />
         <Stat label="Algo-Chosen Server" value={decidedSrv.label}   color={serverColor(decidedKey)} mono={false} />
         <Stat label="GBFS Latency"       value={`${gbfsBase} ms`}   color="blue" />
         <Stat label="PSO Latency"        value={`${psoBase} ms`}    color="purple" />
@@ -1168,6 +1210,10 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
           </div>
         </div>
       </div>
+
+      <MetricGraphCard index={1} sopTitle="Average Latency" gbfsValue={+gbfsData.latency} psoValue={+psoData.latency} unit="ms" />
+      <MetricGraphCard index={2} sopTitle="Completion Time" gbfsValue={+gbfsData.time} psoValue={+psoData.time} unit="ms" />
+      <MetricGraphCard index={3} sopTitle="Resource Utilization" gbfsValue={+gbfsData.utilization} psoValue={+psoData.utilization} unit="%" />
 
       <Card title="Latency Over Time" sub="6-cycle simulation" accent={T.blue}>
         <ResponsiveContainer width="100%" height={240}>
@@ -1227,6 +1273,40 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
             <strong>{m.name}</strong> offloaded to {decidedSrv.icon} {decidedSrv.label} by <strong>{winnerAlgo}</strong>.
             {measuredLat && <> Actual latency: <strong style={{ fontFamily: T.fontMono }}>{measuredLat} ms</strong>.</>} Saved to Supabase.
           </InfoBox>
+        </div>
+      </Card>
+
+      <Card title="Simulation Report" sub={`${m.name} · ${m.machineId}`} accent={T.green}>
+        {[
+          { algo: "GBFS", color: T.blue, data: gbfsData },
+          { algo: "PSO",  color: T.purple, data: psoData },
+        ].map(({ algo, color, data }) => (
+          <div key={algo} style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: T.fontMono, marginBottom: 10 }}>{algo}</div>
+            {[
+              ["Average Latency",              `${data.latency} ms`],
+              ["Average Completion Time",      `${data.time} ms`],
+              ["Average Resource Utilization", `${data.utilization}%`],
+            ].map(([l, v]) => (
+              <div key={l} style={{ padding: "8px 0", borderTop: `1px solid ${T.borderSub}` }}>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>{l}</div>
+                <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontMono, fontWeight: 600 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        ))}
+
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 10 }}>Conclusion</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+            <strong style={{ color: latencyCmp.winner === "GBFS" ? T.blue : T.purple }}>{latencyCmp.winner}</strong> reduced latency by <strong>{latencyCmp.pct}%</strong>.
+          </div>
+          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+            <strong style={{ color: completionCmp.winner === "GBFS" ? T.blue : T.purple }}>{completionCmp.winner}</strong> completed tasks <strong>{completionCmp.pct}%</strong> faster.
+          </div>
+          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+            <strong style={{ color: utilizationCmp.winner === "GBFS" ? T.blue : T.purple }}>{utilizationCmp.winner}</strong> utilized resources <strong>{utilizationCmp.pct}%</strong> better.
+          </div>
         </div>
       </Card>
     </div>
