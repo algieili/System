@@ -825,10 +825,10 @@ const Step2Algorithms = ({
                     )}
                   </div>
 
-                  {[["Avg Processing Latency", `${data.latency} ms`], ["Avg Completion Time", `${data.time} ms`], ["Avg Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
-                    <div key={l} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderTop: `1px solid ${T.borderSub}` }}>
-                      <span style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans }}>{l}</span>
-                      <span style={{ fontSize: 11, fontFamily: T.fontMono, color: T.text }}>{v}</span>
+                  {[["Average Processing Latency", `${data.latency} ms`], ["Average Completion Time", `${data.time} ms`], ["Average Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
+                    <div key={l} style={{ padding: "10px 0", borderTop: `1px solid ${T.borderSub}` }}>
+                      <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 5 }}>{l}</div>
+                      <div style={{ fontSize: 14, fontFamily: T.fontMono, color: T.text, fontWeight: 600 }}>{v}</div>
                     </div>
                   ))}
                 </div>
