@@ -804,9 +804,7 @@ const Step2Algorithms = ({
                     <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
                     {wins && <Badge color={badgeColor} dot>WINNER</Badge>}
                   </div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>{full}</div>
-                  <div style={{ fontSize: 34, fontWeight: 800, color, fontFamily: T.fontMono }}>{data.latency}<span style={{ fontSize: 13, color: T.muted }}> ms</span></div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>Latency</div>
+                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 14 }}>{full}</div>
 
                   <div style={{ marginBottom: 12, padding: "10px 12px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6 }}>
                     <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>
@@ -824,6 +822,8 @@ const Step2Algorithms = ({
                       </div>
                     )}
                   </div>
+
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontMono, marginBottom: 4 }}>{algo} Performance Summary</div>
 
                   {[["Average Processing Latency", `${data.latency} ms`], ["Average Completion Time", `${data.time} ms`], ["Average Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
                     <div key={l} style={{ padding: "10px 0", borderTop: `1px solid ${T.borderSub}` }}>
@@ -1103,6 +1103,37 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
+const MetricBarRow = ({ label, value, unit, max, color }) => {
+  const T = useT();
+  const pct = Math.max(4, Math.min(100, (value / max) * 100));
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0" }}>
+      <span style={{ width: 42, flexShrink: 0, fontSize: 12, fontWeight: 700, fontFamily: T.fontMono, color }}>{label}</span>
+      <div style={{ flex: 1, height: 16, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 3, overflow: "hidden" }}>
+        <div style={{
+          width: `${pct}%`, height: "100%", background: color,
+          backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 6px)",
+          transition: "width 0.5s ease",
+        }} />
+      </div>
+      <span style={{ width: 66, flexShrink: 0, textAlign: "right", fontSize: 12, fontFamily: T.fontMono, color: T.text }}>{value} {unit}</span>
+    </div>
+  );
+};
+
+const MetricGraphCard = ({ index, sopTitle, gbfsValue, psoValue, unit }) => {
+  const T = useT();
+  const max = Math.max(gbfsValue, psoValue) * 1.25;
+  return (
+    <Card title={`Graph ${index}`} sub={sopTitle} accent={T.blue}>
+      <div style={{ background: T.elevated, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "12px 16px" }}>
+        <MetricBarRow label="GBFS" value={gbfsValue} unit={unit} max={max} color={T.blue} />
+        <MetricBarRow label="PSO"  value={psoValue}  unit={unit} max={max} color={T.purple} />
+      </div>
+    </Card>
+  );
+};
+
 const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
@@ -1116,20 +1147,6 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const gbfsBase    = +gbfsData.latency;
   const psoBase     = +psoData.latency;
   const measuredLat = offloadResult?.measuredLatency;
-
-  const lineData = [1, 2, 3, 4, 5, 6].map(t => ({
-    cycle: `T${t}`,
-    GBFS: +(gbfsBase + Math.sin(t * 1.1) * gbfsBase * 0.06).toFixed(2),
-    PSO:  +(psoBase  + Math.sin(t * 1.3) * psoBase  * 0.06).toFixed(2),
-    ...(measuredLat ? { Measured: +(measuredLat + Math.sin(t * 0.9) * measuredLat * 0.03).toFixed(2) } : {}),
-  }));
-
-  const barData = [
-    { metric: "Latency",     GBFS: +gbfsData.latency,     PSO: +psoData.latency },
-    { metric: "Throughput",  GBFS: +gbfsData.throughput,  PSO: +psoData.throughput },
-    { metric: "Energy",      GBFS: +gbfsData.energy,      PSO: +psoData.energy },
-    { metric: "Utilization", GBFS: +gbfsData.utilization, PSO: +psoData.utilization },
-  ];
 
   return (
     <div>
@@ -1169,35 +1186,9 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         </div>
       </div>
 
-      <Card title="Latency Over Time" sub="6-cycle simulation" accent={T.blue}>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={lineData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="cycle" stroke={T.dim} fontSize={11} fontFamily={T.fontMono}
-              label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 10 }} />
-            <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} verticalAlign="top" />
-            <Line type="monotone" dataKey="GBFS"    stroke={T.blue}   strokeWidth={2.5} dot={{ r: 4, fill: T.blue,   stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
-            <Line type="monotone" dataKey="PSO"     stroke={T.purple} strokeWidth={2.5} dot={{ r: 4, fill: T.purple, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
-            {measuredLat && <Line type="monotone" dataKey="Measured" stroke={T.green} strokeWidth={2.5} strokeDasharray="5 3" dot={{ r: 4, fill: T.green, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />}
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
-
-      <Card title="Full Metrics Comparison" sub={`All indicators · ${decidedSrv.label}`} accent={T.purple}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={barData} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="metric" stroke={T.dim} fontSize={11} fontFamily={T.fontMono} />
-            <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} />
-            <Bar dataKey="GBFS" fill={T.blue}   radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
-            <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </Card>
+      <MetricGraphCard index={1} sopTitle="Average Latency" gbfsValue={+gbfsData.latency} psoValue={+psoData.latency} unit="ms" />
+      <MetricGraphCard index={2} sopTitle="Completion Time" gbfsValue={+gbfsData.time} psoValue={+psoData.time} unit="ms" />
+      <MetricGraphCard index={3} sopTitle="Resource Utilization" gbfsValue={+gbfsData.utilization} psoValue={+psoData.utilization} unit="%" />
 
       <Card title="Result Summary" sub={`${m.name} · ${decidedSrv.label}`} accent={T.green}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
