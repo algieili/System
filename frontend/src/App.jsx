@@ -127,7 +127,7 @@ const Badge = ({ color = "blue", children, dot }) => {
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5,
       padding: "2px 9px", borderRadius: 4,
-      fontSize: 11, fontWeight: 600, letterSpacing: "0.02em",
+      fontSize: 12, fontWeight: 600, letterSpacing: "0.02em",
       fontFamily: T.fontMono,
       background: c.bg, border: `1px solid ${c.border}`, color: c.text,
     }}>
@@ -145,8 +145,8 @@ const Stat = ({ label, value, color = "blue", mono = true }) => {
       flex: "1 1 140px", background: T.surface,
       border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 18px",
     }}>
-      <div style={{ fontSize: 11, color: T.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: map[color] || T.text, fontFamily: mono ? T.fontMono : T.fontSans, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 12, color: T.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{label}</div>
+      <div style={{ fontSize: 23, fontWeight: 700, color: map[color] || T.text, fontFamily: mono ? T.fontMono : T.fontSans, lineHeight: 1.2 }}>{value}</div>
     </div>
   );
 };
@@ -166,8 +166,8 @@ const Card = ({ title, sub, children, accent }) => {
         }}>
           {accent && <div style={{ width: 3, height: 16, borderRadius: 2, background: accent, flexShrink: 0 }} />}
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: T.fontSans }}>{title}</div>
-            {sub && <div style={{ fontSize: 11, color: T.muted, marginTop: 2, fontFamily: T.fontSans }}>{sub}</div>}
+            <div style={{ fontSize: 13, fontWeight: 600, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: T.fontSans }}>{title}</div>
+            {sub && <div style={{ fontSize: 12, color: T.muted, marginTop: 2, fontFamily: T.fontSans }}>{sub}</div>}
           </div>
         </div>
       )}
@@ -190,7 +190,7 @@ const InfoBox = ({ color = "blue", children }) => {
       background: c.bg, border: `1px solid ${c.border}`,
       borderLeft: `3px solid ${c.text}`,
       borderRadius: 6, padding: "12px 16px",
-      fontSize: 12, color: c.text, lineHeight: 1.6,
+      fontSize: 13, color: c.text, lineHeight: 1.6,
       fontFamily: T.fontSans,
     }}>
       {children}
@@ -207,7 +207,7 @@ const TableRow = ({ cells, isOdd }) => {
       {cells.map((cell, i) => (
         <td key={i} style={{
           padding: "10px 16px", borderBottom: `1px solid ${T.borderSub}`,
-          fontSize: 12, color: T.text, fontFamily: i === 0 ? T.fontSans : T.fontMono,
+          fontSize: 13, color: T.text, fontFamily: i === 0 ? T.fontSans : T.fontMono,
           fontWeight: i === 0 ? 500 : 400, verticalAlign: "middle",
         }}>
           {cell}
@@ -222,7 +222,7 @@ const Th = ({ children }) => {
   return (
     <th style={{
       padding: "10px 16px", textAlign: "left",
-      fontSize: 10, fontWeight: 700, color: T.muted,
+      fontSize: 11, fontWeight: 700, color: T.muted,
       textTransform: "uppercase", letterSpacing: "0.08em",
       borderBottom: `1px solid ${T.border}`,
       background: T.elevated, fontFamily: T.fontSans, whiteSpace: "nowrap",
@@ -240,7 +240,7 @@ const PrimaryBtn = ({ onClick, disabled, children }) => {
       color: disabled ? T.dim : T.bg === "#eef0f5" ? "#ffffff" : "#0d1117",
       border: disabled ? `1px solid ${T.border}` : "none",
       borderRadius: 6, padding: "10px 24px",
-      fontSize: 13, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
+      fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: T.fontSans, transition: "all 0.15s", letterSpacing: "0.01em",
     }}>
       {children}
@@ -255,7 +255,7 @@ const GhostBtn = ({ onClick, disabled, children }) => {
       background: "transparent", color: disabled ? T.dim : T.muted,
       border: `1px solid ${disabled ? T.borderSub : T.border}`,
       borderRadius: 6, padding: "10px 24px",
-      fontSize: 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+      fontSize: 14, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: T.fontSans, transition: "all 0.15s",
     }}>
       {children}
@@ -271,7 +271,7 @@ const DualBtn = ({ onClick, disabled, children }) => {
       color: disabled ? T.dim : "#ffffff",
       border: disabled ? `1px solid ${T.border}` : "none",
       borderRadius: 6, padding: "12px 32px",
-      fontSize: 14, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
+      fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: T.fontSans, letterSpacing: "0.01em",
     }}>
       {children}
@@ -299,14 +299,14 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
             fontSize: 15, flexShrink: 0,
           }}>⚡</div>
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: T.text, letterSpacing: "-0.01em", fontFamily: T.fontSans, lineHeight: 1.3 }}>Task Offloading<br/>Simulation System</div>
-            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>IoT · v5.0</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.text, letterSpacing: "-0.01em", fontFamily: T.fontSans, lineHeight: 1.3 }}>Task Offloading<br/>Simulation System</div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>IoT · v5.0</div>
           </div>
         </div>
       </div>
 
       <div style={{ padding: "16px 12px", flex: 1 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", padding: "0 8px", marginBottom: 8, fontFamily: T.fontSans }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", padding: "0 8px", marginBottom: 8, fontFamily: T.fontSans }}>
           Pipeline
         </div>
         {STEPS.map((s, i) => {
@@ -324,7 +324,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
               <div style={{
                 width: 22, height: 22, borderRadius: 4, flexShrink: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontSize: done ? 10 : 11, fontWeight: 700, fontFamily: T.fontMono,
+                fontSize: done ? 11 : 12, fontWeight: 700, fontFamily: T.fontMono,
                 background: active ? T.green : done ? T.greenDim : T.elevated,
                 color: active ? (T.bg === "#eef0f5" ? "#fff" : "#0d1117") : done ? T.green : T.dim,
                 border: `1px solid ${active ? T.green : done ? T.greenDim : T.border}`,
@@ -333,7 +333,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{
-                  fontSize: 12, fontWeight: active ? 600 : 400,
+                  fontSize: 13, fontWeight: active ? 600 : 400,
                   color: active ? T.text : done ? T.muted : T.dim,
                   fontFamily: T.fontSans, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 }}>
@@ -347,7 +347,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
       </div>
 
       <div style={{ padding: "12px 16px 20px", borderTop: `1px solid ${T.border}` }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10, fontFamily: T.fontSans }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: T.dim, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 10, fontFamily: T.fontSans }}>
           Servers
         </div>
         {Object.entries(SERVERS).map(([key, srv]) => {
@@ -364,8 +364,8 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
                 background: online ? T.green : st === "checking" ? T.amber : T.red,
               }} />
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: T.text, fontFamily: T.fontMono, lineHeight: 1 }}>{srv.label}</div>
-                <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>
+                <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono, lineHeight: 1 }}>{srv.label}</div>
+                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginTop: 2 }}>
                   {online ? "online" : st === "checking" ? "pinging…" : "offline"}
                 </div>
               </div>
@@ -393,9 +393,9 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
       background: T.surface, borderBottom: `1px solid ${T.border}`,
       padding: "0 24px", minHeight: 52, display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
     }}>
-      <span style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans }}>Simulation</span>
-      <span style={{ color: T.border, fontSize: 12 }}>›</span>
-      <span style={{ fontSize: 12, color: T.text, fontWeight: 600, fontFamily: T.fontSans }}>{STEPS[step].title}</span>
+      <span style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>Simulation</span>
+      <span style={{ color: T.border, fontSize: 13 }}>›</span>
+      <span style={{ fontSize: 13, color: T.text, fontWeight: 600, fontFamily: T.fontSans }}>{STEPS[step].title}</span>
 
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 16, overflow: "hidden" }}>
         {STEPS.map((s, i) => {
@@ -403,7 +403,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
           return (
             <React.Fragment key={i}>
               <button onClick={() => i <= maxReached && onJump(i)} style={{
-                padding: "3px 10px", borderRadius: 4, fontSize: 11, fontWeight: active ? 700 : 400,
+                padding: "3px 10px", borderRadius: 4, fontSize: 12, fontWeight: active ? 700 : 400,
                 fontFamily: T.fontMono,
                 background: active ? T.greenBg : done ? T.elevated : "transparent",
                 color: active ? T.green : done ? T.muted : T.dim,
@@ -413,7 +413,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
               }}>
                 {done ? "✓ " : ""}{s.short}
               </button>
-              {i < STEPS.length - 1 && <span style={{ color: T.border, fontSize: 10 }}>—</span>}
+              {i < STEPS.length - 1 && <span style={{ color: T.border, fontSize: 11 }}>—</span>}
             </React.Fragment>
           );
         })}
@@ -422,17 +422,17 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
         {srv && (
           <div style={{
-            display: "flex", alignItems: "center", gap: 6, fontSize: 11,
+            display: "flex", alignItems: "center", gap: 6, fontSize: 12,
             fontFamily: T.fontMono, color: srvAccent,
             background: srvAccentBg, border: `1px solid ${srvAccentDim}`,
             borderRadius: 4, padding: "3px 10px",
           }}>
-            <span style={{ fontSize: 9, opacity: 0.7 }}>algo →</span>
+            <span style={{ fontSize: 10, opacity: 0.7 }}>algo →</span>
             {srv.icon} {srv.label}
           </div>
         )}
         <div style={{
-          fontSize: 11, fontFamily: T.fontMono, color: T.muted,
+          fontSize: 12, fontFamily: T.fontMono, color: T.muted,
           background: T.elevated, border: `1px solid ${T.border}`,
           borderRadius: 4, padding: "3px 10px",
         }}>
@@ -448,7 +448,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
             cursor: "pointer",
           }}
         >
-          <span style={{ fontSize: 13, lineHeight: 1 }}>{dark ? "🌙" : "☀️"}</span>
+          <span style={{ fontSize: 14, lineHeight: 1 }}>{dark ? "🌙" : "☀️"}</span>
           <div style={{
             position: "relative", width: 34, height: 19, borderRadius: 10,
             background: dark ? T.green : T.blue,
@@ -462,7 +462,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
               boxShadow: "0 1px 4px rgba(0,0,0,0.35)",
             }} />
           </div>
-          <span style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, userSelect: "none", minWidth: 28 }}>
+          <span style={{ fontSize: 12, color: T.muted, fontFamily: T.fontMono, userSelect: "none", minWidth: 28 }}>
             {dark ? "Dark" : "Light"}
           </span>
         </button>
@@ -481,7 +481,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 
   if (loading) return (
     <Card title="Loading Machines" sub="Fetching from Supabase via Server A">
-      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 0", color: T.muted, fontFamily: T.fontSans, fontSize: 13 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "24px 0", color: T.muted, fontFamily: T.fontSans, fontSize: 14 }}>
         <div style={{ width: 16, height: 16, border: `2px solid ${T.blue}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
         Connecting to edge…
       </div>
@@ -519,8 +519,8 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>IoT Machine Selection</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>IoT Machine Selection</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Choose a registered device. The algorithms will automatically decide which server processes its task.
         </p>
       </div>
@@ -556,9 +556,9 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
                   )}
                 </div>
                 <div style={{ padding: "10px 12px 12px" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: sel ? T.green : T.text, marginBottom: 2, fontFamily: T.fontMono }}>{mc.machineId}</div>
-                  <div style={{ fontSize: 11, color: T.muted, marginBottom: 6, fontFamily: T.fontSans, lineHeight: 1.4 }}>{mc.name}</div>
-                  <div style={{ fontSize: 10, color: T.dim, fontFamily: T.fontMono }}>{mc.taskType}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: sel ? T.green : T.text, marginBottom: 2, fontFamily: T.fontMono }}>{mc.machineId}</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginBottom: 6, fontFamily: T.fontSans, lineHeight: 1.4 }}>{mc.name}</div>
+                  <div style={{ fontSize: 11, color: T.dim, fontFamily: T.fontMono }}>{mc.taskType}</div>
                 </div>
               </div>
             );
@@ -578,7 +578,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0.55) 100%)" }} />
             <div style={{ position: "absolute", bottom: 14, left: 16 }}>
               <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", fontFamily: T.fontSans, textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>{m.name}</div>
-              <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)", fontFamily: T.fontMono, marginTop: 3 }}>{m.category}</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", fontFamily: T.fontMono, marginTop: 3 }}>{m.category}</div>
             </div>
             <div style={{ position: "absolute", top: 12, right: 12 }}>
               <Badge color="green" dot>{m.machineId}</Badge>
@@ -587,7 +587,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
             {[["Machine ID", m.machineId, "blue"], ["Category", m.category, "dim"], ["Task Type", m.taskType, "amber"]].map(([l, v, c]) => (
               <div key={l} style={{ flex: "1 1 160px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 14px" }}>
-                <div style={{ fontSize: 10, color: T.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{l}</div>
+                <div style={{ fontSize: 11, color: T.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{l}</div>
                 <Badge color={c}>{v}</Badge>
               </div>
             ))}
@@ -609,17 +609,17 @@ const Step1CollectData = ({ machine: m }) => {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Parameters</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Parameters</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.
           These metrics are fed into the algorithms to determine the optimal offload target.
         </p>
       </div>
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
-        <Stat label="Task Size"       value={`${m.taskSize} MB`}          color="blue" />
-        <Stat label="Processing Time" value={`${m.processingTime} ms`}    color="green" />
-        <Stat label="Bandwidth"       value={`${m.bandwidth} Mbps`}       color="purple" />
-        <Stat label="Energy"          value={`${m.energyConsumption} kWh`}color="amber" />
+        <Stat label="Task Size"          value={`${m.taskSize} MB`}          color="blue" />
+        <Stat label="Processing Time"    value={`${m.processingTime} ms`}    color="green" />
+        <Stat label="Bandwidth"          value={`${m.bandwidth} Mbps`}       color="purple" />
+        <Stat label="Energy Utilization" value={`${m.energyConsumption} kWh`}color="amber" />
       </div>
       <Card title="Parameter Table" sub={`${m.machineId} · Supabase`} accent={T.blue}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -634,7 +634,7 @@ const Step1CollectData = ({ machine: m }) => {
               ["Memory Usage",       `${m.memoryUsage} GB`,          "RAM consumed"],
               ["Bandwidth",          `${m.bandwidth} Mbps`,          "Communication speed"],
               ["Transmission Delay", `${m.transmissionDelay} ms`,    "Network delay"],
-              ["Energy Consumption", `${m.energyConsumption} kWh`,   "Energy per cycle"],
+              ["Energy Utilization", `${m.energyConsumption} kWh`,   "Energy per cycle"],
               ["Throughput",         `${m.throughput} tasks/min`,    "Task completion rate"],
               ["Avg Latency",        `${m.avgLatency} ms`,           "End-to-end delay"],
             ].map(([p, v, d], i) => (
@@ -692,8 +692,8 @@ const Step2Algorithms = ({
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm Execution</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm Execution</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           <strong style={{ color: T.text }}>GBFS</strong> and <strong style={{ color: T.text }}>PSO</strong> each
           evaluate both candidate targets (Edge Server A, Cloud Server B) and independently decide where to offload the task.
           The algorithm with the lower latency wins, and its server decision is used.
@@ -710,8 +710,8 @@ const Step2Algorithms = ({
           ].map((item, i) => (
             <div key={i} style={{ flex: "1 1 160px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px" }}>
               <div style={{ fontSize: 20, marginBottom: 8 }}>{item.icon}</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 4 }}>{item.label}</div>
-              <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{item.desc}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 4 }}>{item.label}</div>
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{item.desc}</div>
             </div>
           ))}
         </div>
@@ -730,7 +730,7 @@ const Step2Algorithms = ({
             <React.Fragment key={idx}>
               {idx > 0 && <div style={{ display: "flex", alignItems: "center", padding: "0 6px", flexShrink: 0 }}>
                 <div style={{ width: 20, height: 1, background: T.border }} />
-                <span style={{ color: T.muted, fontSize: 10 }}>▶</span>
+                <span style={{ color: T.muted, fontSize: 11 }}>▶</span>
               </div>}
               <div style={{
                 flex: "0 0 auto", width: 104,
@@ -739,8 +739,8 @@ const Step2Algorithms = ({
                 background: node.done ? T.greenBg : node.running ? T.blueBg : T.elevated,
               }}>
                 <div style={{ fontSize: 18, marginBottom: 4 }}>{node.running ? "⟳" : node.done ? "✓" : node.icon}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: node.done ? T.green : node.running ? T.blue : T.text, fontFamily: T.fontMono }}>{node.label}</div>
-                <div style={{ fontSize: 10, color: T.muted, marginTop: 3, fontFamily: T.fontSans }}>{node.running ? "running…" : node.sub}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: node.done ? T.green : node.running ? T.blue : T.text, fontFamily: T.fontMono }}>{node.label}</div>
+                <div style={{ fontSize: 11, color: T.muted, marginTop: 3, fontFamily: T.fontSans }}>{node.running ? "running…" : node.sub}</div>
               </div>
             </React.Fragment>
           ))}
@@ -750,7 +750,7 @@ const Step2Algorithms = ({
           <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
             {[["GBFS", "Greedy Best-First Search", T.blue, gbfsData], ["PSO", "Particle Swarm Optimization", T.purple, psoData]].map(([name, fullName, color, done]) => (
               <div key={name}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>
                   <span style={{ color }}><strong>{name}</strong> <span style={{ color: T.dim, fontWeight: 400 }}>— {fullName}</span></span>
                   <span>{done ? `done ✓  →  ${serverLabel(done.recommendedServer)}` : algoRunning ? "running…" : ""}</span>
                 </div>
@@ -784,11 +784,11 @@ const Step2Algorithms = ({
               ].map(({ abbr, full, color, bg, border, desc }) => (
                 <div key={abbr} style={{ flex: "1 1 240px", background: bg, border: `1px solid ${border}`, borderRadius: 8, padding: "14px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                   <div style={{ flexShrink: 0, minWidth: 48, textAlign: "center", background: color, borderRadius: 6, padding: "6px 4px" }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: "#fff", fontFamily: T.fontMono, lineHeight: 1 }}>{abbr}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "#fff", fontFamily: T.fontMono, lineHeight: 1 }}>{abbr}</div>
                   </div>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: color, fontFamily: T.fontSans, marginBottom: 3 }}>{full}</div>
-                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{desc}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: color, fontFamily: T.fontSans, marginBottom: 3 }}>{full}</div>
+                    <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5 }}>{desc}</div>
                   </div>
                 </div>
               ))}
@@ -801,34 +801,34 @@ const Step2Algorithms = ({
               ].map(({ algo, full, color, bg, border, data, wins, badgeColor }) => (
                 <div key={algo} style={{ flex: "1 1 240px", border: `1px solid ${border}`, borderRadius: 8, padding: "18px 20px", background: bg }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{algo}</span>
                     {wins && <Badge color={badgeColor} dot>WINNER</Badge>}
                   </div>
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, marginBottom: 14 }}>{full}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, marginBottom: 14 }}>{full}</div>
 
                   <div style={{ marginBottom: 12, padding: "10px 12px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6 }}>
-                    <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>
+                    <div style={{ fontSize: 11, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>
                       Server Decision
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 14 }}>{resolveServer(data.recommendedServer)?.icon ?? "🖥"}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, fontFamily: T.fontMono, color }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, fontFamily: T.fontMono, color }}>
                         {serverLabel(data.recommendedServer)}
                       </span>
                     </div>
                     {data.decisionReason && (
-                      <div style={{ fontSize: 10, color: T.muted, marginTop: 4, fontFamily: T.fontSans, lineHeight: 1.4 }}>
+                      <div style={{ fontSize: 11, color: T.muted, marginTop: 4, fontFamily: T.fontSans, lineHeight: 1.4 }}>
                         {data.decisionReason}
                       </div>
                     )}
                   </div>
 
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontMono, marginBottom: 4 }}>{algo} Performance Summary</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontMono, marginBottom: 4 }}>{algo} Performance Summary</div>
 
-                  {[["Average Processing Latency", `${data.latency} ms`], ["Average Completion Time", `${data.time} ms`], ["Average Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
+                  {[["Latency", `${data.latency} ms`], ["Processing Time", `${data.time} ms`], ["Resource Utilization", `${data.utilization}%`]].map(([l, v]) => (
                     <div key={l} style={{ padding: "10px 0", borderTop: `1px solid ${T.borderSub}` }}>
-                      <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 5 }}>{l}</div>
-                      <div style={{ fontSize: 14, fontFamily: T.fontMono, color: T.text, fontWeight: 600 }}>{v}</div>
+                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontMono, marginBottom: 5 }}>{l}</div>
+                      <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text, fontWeight: 600 }}>{v}</div>
                     </div>
                   ))}
                 </div>
@@ -838,11 +838,11 @@ const Step2Algorithms = ({
             <div style={{ background: T.greenBg, border: `1px solid ${T.greenDim}`, borderLeft: `3px solid ${T.green}`, borderRadius: 8, padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
               <div style={{ fontSize: 28, flexShrink: 0 }}>{resolveServer(decidedServer)?.icon ?? "🖥"}</div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>
                   {serverLabel(decidedServer)}
                   <span style={{ fontWeight: 400, color: T.muted }}> — chosen by the algorithms</span>
                 </div>
-                <div style={{ fontSize: 12, color: T.muted, marginTop: 4, fontFamily: T.fontSans }}>
+                <div style={{ fontSize: 13, color: T.muted, marginTop: 4, fontFamily: T.fontSans }}>
                   Winning algorithm: <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>
                   {" "}— latency <strong style={{ color: T.green, fontFamily: T.fontMono }}>{Math.min(+gbfsData.latency, +psoData.latency)} ms</strong>
                 </div>
@@ -882,8 +882,8 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm-Chosen Server</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Algorithm-Chosen Server</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           The winning algorithm (<strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>) has selected{" "}
           <strong style={{ color: T.text }}>{decidedSrv.label}</strong> as the offload target.
           No manual override — this is the algorithm's autonomous decision.
@@ -909,24 +909,24 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
             return (
               <div key={algo} style={{ flex: "1 1 220px", background: wins ? bg : T.elevated, border: `1px solid ${wins ? color : T.border}`, borderRadius: 8, padding: "14px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: wins ? color : T.muted, fontFamily: T.fontMono }}>{algo}</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: wins ? color : T.muted, fontFamily: T.fontMono }}>{algo}</span>
                   {wins && <Badge color={algo === "GBFS" ? "blue" : "purple"} dot>winner</Badge>}
                 </div>
-                <div style={{ fontSize: 10, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>Recommended Server</div>
+                <div style={{ fontSize: 11, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>Recommended Server</div>
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <span style={{ fontSize: 16 }}>{srv.icon}</span>
-                  <span style={{ fontSize: 13, fontWeight: 700, fontFamily: T.fontMono, color: wins ? color : T.muted }}>{srv.label}</span>
+                  <span style={{ fontSize: 14, fontWeight: 700, fontFamily: T.fontMono, color: wins ? color : T.muted }}>{srv.label}</span>
                 </div>
                 {data.decisionReason && (
-                  <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5, marginBottom: 8 }}>{data.decisionReason}</div>
+                  <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.5, marginBottom: 8 }}>{data.decisionReason}</div>
                 )}
-                <div style={{ fontSize: 11, fontFamily: T.fontMono, color: wins ? color : T.dim }}>{data.latency} ms latency</div>
+                <div style={{ fontSize: 12, fontFamily: T.fontMono, color: wins ? color : T.dim }}>{data.latency} ms latency</div>
               </div>
             );
           })}
         </div>
 
-        <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, fontFamily: T.fontSans, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+        <div style={{ fontSize: 12, color: T.muted, marginBottom: 10, fontFamily: T.fontSans, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em" }}>
           All candidate servers evaluated
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -946,8 +946,8 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
                   <span style={{ fontSize: 18 }}>{srv.icon}</span>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: isChosen ? T.text : T.muted, fontFamily: T.fontSans }}>{srv.label}</div>
-                    <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans }}>{srv.sub}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: isChosen ? T.text : T.muted, fontFamily: T.fontSans }}>{srv.label}</div>
+                    <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans }}>{srv.sub}</div>
                   </div>
                   {isChosen && <Badge color={key === "A" ? "blue" : "green"} dot>chosen</Badge>}
                 </div>
@@ -962,10 +962,10 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
           <thead><tr><Th>Metric</Th><Th>GBFS</Th><Th>PSO</Th><Th>Better</Th></tr></thead>
           <tbody>
             {[
-              ["Latency (ms)",    gbfsData.latency,     psoData.latency,     "lower"],
-              ["Speed (tasks/s)", gbfsData.throughput,  psoData.throughput,  "higher"],
-              ["Energy (kWh)",    gbfsData.energy,      psoData.energy,      "lower"],
-              ["Utilization (%)", gbfsData.utilization, psoData.utilization, "lower"],
+              ["Latency (ms)",            gbfsData.latency,     psoData.latency,     "lower"],
+              ["Throughput (tasks/s)",    gbfsData.throughput,  psoData.throughput,  "higher"],
+              ["Energy Utilization (kWh)",gbfsData.energy,      psoData.energy,      "lower"],
+              ["Resource Utilization (%)",gbfsData.utilization, psoData.utilization, "lower"],
             ].map(([l, g, p, dir], i) => {
               const gW = dir === "lower" ? +g <= +p : +g >= +p;
               return (
@@ -1007,8 +1007,8 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Offloading</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Offloading</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Dispatching <strong style={{ color: T.text }}>{m.name}</strong> task to{" "}
           <strong style={{ color: T.text }}>{decidedSrv.icon} {decidedSrv.label}</strong>{" "}
           — target chosen by <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
@@ -1023,8 +1023,8 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
       }}>
         <span style={{ fontSize: 22 }}>{decidedSrv.icon}</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{decidedSrv.label}</div>
-          <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{decidedSrv.label}</div>
+          <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>
             Autonomously selected by <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong> based on {m.machineId}'s task profile.
             {winnerData.decisionReason && ` ${winnerData.decisionReason}`}
           </div>
@@ -1041,11 +1041,11 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
             { icon: "🗄",            label: "Supabase",        sub: "Logs saved",           bc: T.purple,    bg: T.purpleBg },
           ].map((node, idx) => (
             <React.Fragment key={idx}>
-              {idx > 0 && <span style={{ padding: "0 8px", color: T.dim, fontSize: 11, fontFamily: T.fontMono }}>→</span>}
+              {idx > 0 && <span style={{ padding: "0 8px", color: T.dim, fontSize: 12, fontFamily: T.fontMono }}>→</span>}
               <div style={{ flex: "1 1 100px", maxWidth: 130, border: `1px solid ${node.bc}`, borderRadius: 8, padding: "12px 10px", background: node.bg, textAlign: "center" }}>
                 <div style={{ fontSize: 20, marginBottom: 6 }}>{node.icon}</div>
-                <div style={{ fontSize: 11, fontWeight: 600, color: T.text, fontFamily: T.fontMono }}>{node.label}</div>
-                <div style={{ fontSize: 10, color: T.muted, marginTop: 3, fontFamily: T.fontSans, lineHeight: 1.4 }}>{node.sub}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: T.text, fontFamily: T.fontMono }}>{node.label}</div>
+                <div style={{ fontSize: 11, color: T.muted, marginTop: 3, fontFamily: T.fontSans, lineHeight: 1.4 }}>{node.sub}</div>
               </div>
             </React.Fragment>
           ))}
@@ -1070,7 +1070,7 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
                 ["Status",    offloadResult.status === "success" ? "Success" : "Failed", offloadResult.status === "success" ? "green" : "red"],
               ].map(([l, v, c]) => (
                 <div key={l} style={{ flex: "1 1 140px", background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "12px 14px" }}>
-                  <div style={{ fontSize: 10, color: T.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{l}</div>
+                  <div style={{ fontSize: 11, color: T.muted, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{l}</div>
                   <Badge color={c}>{v}</Badge>
                 </div>
               ))}
@@ -1093,9 +1093,9 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
-      <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 12, color: T.muted, marginBottom: 6 }}>{label}</div>
       {payload.map(p => (
-        <div key={p.dataKey} style={{ fontSize: 12, color: p.color, marginBottom: 3 }}>
+        <div key={p.dataKey} style={{ fontSize: 13, color: p.color, marginBottom: 3 }}>
           {p.dataKey}: <strong>{p.value}</strong>
         </div>
       ))}
@@ -1108,7 +1108,7 @@ const MetricBarRow = ({ label, value, unit, max, color }) => {
   const pct = Math.max(4, Math.min(100, (value / max) * 100));
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0" }}>
-      <span style={{ width: 42, flexShrink: 0, fontSize: 12, fontWeight: 700, fontFamily: T.fontMono, color }}>{label}</span>
+      <span style={{ width: 42, flexShrink: 0, fontSize: 13, fontWeight: 700, fontFamily: T.fontMono, color }}>{label}</span>
       <div style={{ flex: 1, height: 16, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 3, overflow: "hidden" }}>
         <div style={{
           width: `${pct}%`, height: "100%", background: color,
@@ -1116,7 +1116,7 @@ const MetricBarRow = ({ label, value, unit, max, color }) => {
           transition: "width 0.5s ease",
         }} />
       </div>
-      <span style={{ width: 66, flexShrink: 0, textAlign: "right", fontSize: 12, fontFamily: T.fontMono, color: T.text }}>{value} {unit}</span>
+      <span style={{ width: 66, flexShrink: 0, textAlign: "right", fontSize: 13, fontFamily: T.fontMono, color: T.text }}>{value} {unit}</span>
     </div>
   );
 };
@@ -1167,17 +1167,17 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   }));
 
   const barData = [
-    { metric: "Latency",     GBFS: +gbfsData.latency,     PSO: +psoData.latency },
-    { metric: "Throughput",  GBFS: +gbfsData.throughput,  PSO: +psoData.throughput },
-    { metric: "Energy",      GBFS: +gbfsData.energy,      PSO: +psoData.energy },
-    { metric: "Utilization", GBFS: +gbfsData.utilization, PSO: +psoData.utilization },
+    { metric: "Latency",             GBFS: +gbfsData.latency,     PSO: +psoData.latency },
+    { metric: "Throughput",          GBFS: +gbfsData.throughput,  PSO: +psoData.throughput },
+    { metric: "Energy Utilization",  GBFS: +gbfsData.energy,      PSO: +psoData.energy },
+    { metric: "Resource Utilization",GBFS: +gbfsData.utilization, PSO: +psoData.utilization },
   ];
 
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 20, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Latency Results</h1>
-        <p style={{ fontSize: 13, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Latency Results</h1>
+        <p style={{ fontSize: 14, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Task from <strong style={{ color: T.text }}>{m.name}</strong> offloaded to{" "}
           <strong style={{ color: T.text }}>{decidedSrv.icon} {decidedSrv.label}</strong> by{" "}
           <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
@@ -1201,29 +1201,30 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       }}>
         <div style={{ fontSize: 40, fontWeight: 800, color: gbfsWins ? T.blue : T.purple, fontFamily: T.fontMono, lineHeight: 1 }}>{winnerAlgo}</div>
         <div>
-          <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontSans }}>
+          <div style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans }}>
             {winnerAlgo} achieved <strong style={{ fontFamily: T.fontMono }}>{Math.min(gbfsBase, psoBase)} ms</strong> and routed the task to{" "}
             <strong>{decidedSrv.icon} {decidedSrv.label}</strong>
           </div>
-          <div style={{ fontSize: 11, color: T.muted, marginTop: 3, fontFamily: T.fontSans }}>
+          <div style={{ fontSize: 12, color: T.muted, marginTop: 3, fontFamily: T.fontSans }}>
             {improvement}% lower latency than {gbfsWins ? "PSO" : "GBFS"}
           </div>
         </div>
       </div>
 
-      <MetricGraphCard index={1} sopTitle="Average Latency" gbfsValue={+gbfsData.latency} psoValue={+psoData.latency} unit="ms" />
-      <MetricGraphCard index={2} sopTitle="Completion Time" gbfsValue={+gbfsData.time} psoValue={+psoData.time} unit="ms" />
-      <MetricGraphCard index={3} sopTitle="Resource Utilization" gbfsValue={+gbfsData.utilization} psoValue={+psoData.utilization} unit="%" />
+      <MetricGraphCard index={1} sopTitle="Latency" gbfsValue={+gbfsData.latency} psoValue={+psoData.latency} unit="ms" />
+      <MetricGraphCard index={2} sopTitle="Processing Time" gbfsValue={+gbfsData.time} psoValue={+psoData.time} unit="ms" />
+      <MetricGraphCard index={3} sopTitle="Throughput" gbfsValue={+gbfsData.throughput} psoValue={+psoData.throughput} unit="tasks/s" />
+      <MetricGraphCard index={4} sopTitle="Energy Utilization" gbfsValue={+gbfsData.energy} psoValue={+psoData.energy} unit="kWh" />
 
       <Card title="Latency Over Time" sub="6-cycle simulation" accent={T.blue}>
         <ResponsiveContainer width="100%" height={240}>
           <LineChart data={lineData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="cycle" stroke={T.dim} fontSize={11} fontFamily={T.fontMono}
-              label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 10 }} />
-            <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
+            <XAxis dataKey="cycle" stroke={T.dim} fontSize={12} fontFamily={T.fontMono}
+              label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 11 }} />
+            <YAxis stroke={T.dim} fontSize={12} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} verticalAlign="top" />
+            <Legend wrapperStyle={{ fontSize: 12, fontFamily: T.fontMono }} verticalAlign="top" />
             <Line type="monotone" dataKey="GBFS"    stroke={T.blue}   strokeWidth={2.5} dot={{ r: 4, fill: T.blue,   stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
             <Line type="monotone" dataKey="PSO"     stroke={T.purple} strokeWidth={2.5} dot={{ r: 4, fill: T.purple, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
             {measuredLat && <Line type="monotone" dataKey="Measured" stroke={T.green} strokeWidth={2.5} strokeDasharray="5 3" dot={{ r: 4, fill: T.green, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />}
@@ -1235,12 +1236,12 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={barData} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="metric" stroke={T.dim} fontSize={11} fontFamily={T.fontMono} />
-            <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} />
+            <XAxis dataKey="metric" stroke={T.dim} fontSize={12} fontFamily={T.fontMono} />
+            <YAxis stroke={T.dim} fontSize={12} fontFamily={T.fontMono} />
             <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 11, fontFamily: T.fontMono }} />
-            <Bar dataKey="GBFS" fill={T.blue}   radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
-            <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.muted} fontSize={10} fontFamily={T.fontMono} /></Bar>
+            <Legend wrapperStyle={{ fontSize: 12, fontFamily: T.fontMono }} />
+            <Bar dataKey="GBFS" fill={T.blue}   radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.muted} fontSize={11} fontFamily={T.fontMono} /></Bar>
+            <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.muted} fontSize={11} fontFamily={T.fontMono} /></Bar>
           </BarChart>
         </ResponsiveContainer>
       </Card>
@@ -1250,11 +1251,11 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
           <thead><tr><Th>Metric</Th><Th>GBFS</Th><Th>PSO</Th><Th>Better</Th></tr></thead>
           <tbody>
             {[
-              ["Latency (ms)",       gbfsData.latency,     psoData.latency,     "lower"],
-              ["Speed (tasks/s)",    gbfsData.throughput,  psoData.throughput,  "higher"],
-              ["Energy (kWh)",       gbfsData.energy,      psoData.energy,      "lower"],
-              ["Utilization (%)",    gbfsData.utilization, psoData.utilization, "lower"],
-              ["Response Time (ms)", gbfsData.time,        psoData.time,        "lower"],
+              ["Latency (ms)",             gbfsData.latency,     psoData.latency,     "lower"],
+              ["Throughput (tasks/s)",     gbfsData.throughput,  psoData.throughput,  "higher"],
+              ["Energy Utilization (kWh)", gbfsData.energy,      psoData.energy,      "lower"],
+              ["Resource Utilization (%)", gbfsData.utilization, psoData.utilization, "lower"],
+              ["Processing Time (ms)",     gbfsData.time,        psoData.time,        "lower"],
             ].map(([l, g, p, dir], i) => {
               const gW = dir === "lower" ? +g <= +p : +g >= +p;
               return (
@@ -1282,29 +1283,29 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
           { algo: "PSO",  color: T.purple, data: psoData },
         ].map(({ algo, color, data }) => (
           <div key={algo} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color, fontFamily: T.fontMono, marginBottom: 10 }}>{algo}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.fontMono, marginBottom: 10 }}>{algo}</div>
             {[
-              ["Average Latency",              `${data.latency} ms`],
-              ["Average Completion Time",      `${data.time} ms`],
-              ["Average Resource Utilization", `${data.utilization}%`],
+              ["Latency",             `${data.latency} ms`],
+              ["Processing Time",     `${data.time} ms`],
+              ["Resource Utilization",`${data.utilization}%`],
             ].map(([l, v]) => (
               <div key={l} style={{ padding: "8px 0", borderTop: `1px solid ${T.borderSub}` }}>
-                <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>{l}</div>
-                <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontMono, fontWeight: 600 }}>{v}</div>
+                <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>{l}</div>
+                <div style={{ fontSize: 14, color: T.text, fontFamily: T.fontMono, fontWeight: 600 }}>{v}</div>
               </div>
             ))}
           </div>
         ))}
 
-        <div style={{ fontSize: 13, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 10 }}>Conclusion</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 10 }}>Conclusion</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+          <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontMono }}>
             <strong style={{ color: latencyCmp.winner === "GBFS" ? T.blue : T.purple }}>{latencyCmp.winner}</strong> reduced latency by <strong>{latencyCmp.pct}%</strong>.
           </div>
-          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+          <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontMono }}>
             <strong style={{ color: completionCmp.winner === "GBFS" ? T.blue : T.purple }}>{completionCmp.winner}</strong> completed tasks <strong>{completionCmp.pct}%</strong> faster.
           </div>
-          <div style={{ fontSize: 12, color: T.text, fontFamily: T.fontMono }}>
+          <div style={{ fontSize: 13, color: T.text, fontFamily: T.fontMono }}>
             <strong style={{ color: utilizationCmp.winner === "GBFS" ? T.blue : T.purple }}>{utilizationCmp.winner}</strong> utilized resources <strong>{utilizationCmp.pct}%</strong> better.
           </div>
         </div>
@@ -1323,7 +1324,7 @@ class ErrorBoundary extends React.Component {
     if (this.state.hasError) return (
       <div style={{ padding: 32, fontFamily: "monospace" }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: "#dc2626" }}>Runtime Error</div>
-        <pre style={{ fontSize: 11, color: "#6b7280" }}>{this.state.error?.toString()}</pre>
+        <pre style={{ fontSize: 12, color: "#6b7280" }}>{this.state.error?.toString()}</pre>
       </div>
     );
     return this.props.children;
@@ -1520,7 +1521,7 @@ export default function App() {
               flexShrink: 0,
             }}>
               <GhostBtn disabled={step === 0} onClick={() => setStep(p => p - 1)}>← Back</GhostBtn>
-              <span style={{ fontSize: 11, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
+              <span style={{ fontSize: 12, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
               <PrimaryBtn disabled={!canNext() || step >= 5} onClick={goNext}>
                 {step >= 5 ? "Complete" : "Next →"}
               </PrimaryBtn>
