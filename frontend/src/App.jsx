@@ -1107,16 +1107,23 @@ const CustomTooltip = ({ active, payload, label }) => {
    Each metric is a swimlane; GBFS/PSO bars are normalized to the row's
    own max so every lane fills the same width scale, but the label shown
    on each bar is always the real measured value + unit. */
+const GANTT_SERIES = {
+  GBFS: { key: "GBFS", rawKey: "GBFSraw", label: "GBFS" },
+  PSO:  { key: "PSO",  rawKey: "PSOraw",  label: "PSO" },
+  BASE: { key: "BASE", rawKey: "BASEraw", label: "Current System" },
+};
+
 const GanttLabel = ({ x, y, width, height, rows, rowIndex, barKey }) => {
   const T = useT();
   const row = rows[rowIndex];
   if (!row) return null;
-  const raw = barKey === "GBFS" ? row.GBFSraw : row.PSOraw;
-  const color = barKey === "GBFS" ? T.blue : T.purple;
+  const raw = row[GANTT_SERIES[barKey].rawKey];
+  if (raw === null || raw === undefined) return null;
+  const color = barKey === "GBFS" ? T.blue : barKey === "PSO" ? T.purple : T.amber;
   return (
     <text
       x={x + width + 8} y={y + height / 2} dy={4}
-      fontSize={12} fontFamily={T.fontMono} fontWeight={700} fill={color}
+      fontSize={11} fontFamily={T.fontMono} fontWeight={700} fill={color}
     >
       {raw} {row.unit}
     </text>
@@ -1130,28 +1137,44 @@ const GanttTooltip = ({ active, payload, label, rows }) => {
   return (
     <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
       <div style={{ fontSize: 12, color: T.muted, marginBottom: 6 }}>{label}</div>
+      {row?.BASEraw != null && <div style={{ fontSize: 13, color: T.amber, marginBottom: 3 }}>Current System: <strong>{row.BASEraw} {row?.unit}</strong></div>}
       <div style={{ fontSize: 13, color: T.blue, marginBottom: 3 }}>GBFS: <strong>{row?.GBFSraw} {row?.unit}</strong></div>
       <div style={{ fontSize: 13, color: T.purple }}>PSO: <strong>{row?.PSOraw} {row?.unit}</strong></div>
     </div>
   );
 };
 
-const GanttComparisonChart = ({ gbfsData, psoData }) => {
+/* Combines the original four algorithm metrics (Latency, Processing Time,
+   Throughput, Energy Utilization) with the newer ones — Resource
+   Utilization, plus a third "Current System" baseline lane wherever the
+   machine's own telemetry provides an equivalent figure to compare against. */
+const GanttComparisonChart = ({ machine: m, gbfsData, psoData }) => {
   const T = useT();
 
+  const baseThroughput = m?.throughput != null ? +(m.throughput / 60).toFixed(2) : null;
+
   const rows = [
-    { metric: "Latency",            unit: "ms",       GBFSraw: +gbfsData.latency,    PSOraw: +psoData.latency },
-    { metric: "Processing Time",    unit: "ms",       GBFSraw: +gbfsData.time,       PSOraw: +psoData.time },
-    { metric: "Throughput",         unit: "tasks/s",  GBFSraw: +gbfsData.throughput, PSOraw: +psoData.throughput },
-    { metric: "Energy Utilization", unit: "kWh",      GBFSraw: +gbfsData.energy,     PSOraw: +psoData.energy },
+    { metric: "Latency",             unit: "ms",      GBFSraw: +gbfsData.latency,     PSOraw: +psoData.latency,     BASEraw: m?.avgLatency != null ? +m.avgLatency : null },
+    { metric: "Processing Time",     unit: "ms",      GBFSraw: +gbfsData.time,        PSOraw: +psoData.time,        BASEraw: m?.processingTime != null ? +m.processingTime : null },
+    { metric: "Throughput",          unit: "tasks/s", GBFSraw: +gbfsData.throughput,  PSOraw: +psoData.throughput,  BASEraw: baseThroughput },
+    { metric: "Energy Utilization",  unit: "kWh",     GBFSraw: +gbfsData.energy,      PSOraw: +psoData.energy,      BASEraw: m?.energyConsumption != null ? +m.energyConsumption : null },
+    { metric: "Resource Utilization",unit: "%",       GBFSraw: +gbfsData.utilization, PSOraw: +psoData.utilization, BASEraw: m?.cpuUtilization != null ? +m.cpuUtilization : null },
   ].map(r => {
-    const rowMax = Math.max(r.GBFSraw, r.PSOraw, 0.0001);
-    return { ...r, GBFS: +(r.GBFSraw / rowMax * 100).toFixed(1), PSO: +(r.PSOraw / rowMax * 100).toFixed(1) };
+    const rowMax = Math.max(r.GBFSraw, r.PSOraw, r.BASEraw ?? 0, 0.0001);
+    return {
+      ...r,
+      GBFS: +(r.GBFSraw / rowMax * 100).toFixed(1),
+      PSO:  +(r.PSOraw  / rowMax * 100).toFixed(1),
+      BASE: r.BASEraw != null ? +(r.BASEraw / rowMax * 100).toFixed(1) : 0,
+    };
   });
 
   return (
-    <Card title="Algorithm Timeline — Gantt Comparison" sub="GBFS vs PSO across all four metrics, one lane per metric" accent={T.blue}>
-      <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+    <Card title="Algorithm Timeline — Gantt Comparison" sub="Current System vs GBFS vs PSO, across latency, processing time, throughput, energy, and resource utilization" accent={T.blue}>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: T.amber, display: "inline-block" }} /> Current System (baseline)
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.blue, display: "inline-block" }} /> GBFS
         </div>
@@ -1159,28 +1182,35 @@ const GanttComparisonChart = ({ gbfsData, psoData }) => {
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={rows.length * 78}>
+      <ResponsiveContainer width="100%" height={rows.length * 104}>
         <BarChart
           data={rows} layout="vertical"
-          margin={{ top: 4, right: 70, left: 8, bottom: 4 }}
+          margin={{ top: 4, right: 76, left: 8, bottom: 4 }}
           barCategoryGap={22} barGap={4}
         >
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
           <XAxis type="number" domain={[0, 100]} hide />
           <YAxis
-            type="category" dataKey="metric" width={140}
+            type="category" dataKey="metric" width={150}
             stroke={T.dim} fontSize={12} fontFamily={T.fontSans}
             tickLine={false} axisLine={{ stroke: T.border }}
           />
           <Tooltip content={<GanttTooltip rows={rows} />} cursor={{ fill: T.elevated }} />
-          <Bar dataKey="GBFS" fill={T.blue} radius={[4, 4, 4, 4]} barSize={16}>
+          <Bar dataKey="BASE" fill={T.amber} radius={[4, 4, 4, 4]} barSize={13}>
+            <LabelList content={(p) => <GanttLabel {...p} rows={rows} rowIndex={p.index} barKey="BASE" />} />
+          </Bar>
+          <Bar dataKey="GBFS" fill={T.blue} radius={[4, 4, 4, 4]} barSize={13}>
             <LabelList content={(p) => <GanttLabel {...p} rows={rows} rowIndex={p.index} barKey="GBFS" />} />
           </Bar>
-          <Bar dataKey="PSO" fill={T.purple} radius={[4, 4, 4, 4]} barSize={16}>
+          <Bar dataKey="PSO" fill={T.purple} radius={[4, 4, 4, 4]} barSize={13}>
             <LabelList content={(p) => <GanttLabel {...p} rows={rows} rowIndex={p.index} barKey="PSO" />} />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
+      <div style={{ fontSize: 11, color: T.dim, marginTop: 10, fontFamily: T.fontSans, lineHeight: 1.5 }}>
+        "Current System" rows use {m?.machineId ?? "the device"}'s own reported baseline (no algorithmic offloading).
+        Bars in each lane are scaled to that lane's own maximum, so lengths compare within a metric, not across metrics.
+      </div>
     </Card>
   );
 };
@@ -1258,7 +1288,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         </div>
       </div>
 
-      <GanttComparisonChart gbfsData={gbfsData} psoData={psoData} />
+      <GanttComparisonChart machine={m} gbfsData={gbfsData} psoData={psoData} />
 
       {/* ── CURRENT SYSTEM vs. ALGORITHM-OPTIMIZED PERFORMANCE ── */}
       {(() => {
