@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   Legend, ResponsiveContainer, LabelList,
-  LineChart, Line, ReferenceLine
+  LineChart, Line, ReferenceLine,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
 } from "recharts";
 
 /* ─────────────────────────────────────────────
@@ -1222,6 +1223,84 @@ const compareMetric = (gbfsVal, psoVal, lowerIsBetter = true) => {
   return { winner: gWins ? "GBFS" : "PSO", pct };
 };
 
+/* Normalizes a GBFS/PSO metric pair to a 0–100 "performance score" for the
+   radar chart, where 100 always means "the better result of the two" and
+   the other point is scaled proportionally — so the shape of the radar
+   directly shows which algorithm dominates on which axis. */
+const radarScore = (gbfsVal, psoVal, lowerIsBetter) => {
+  const g = +gbfsVal, p = +psoVal;
+  if (lowerIsBetter) {
+    const best = Math.min(g, p) || 0.0001;
+    return { GBFS: +(100 * (best / (g || 0.0001))).toFixed(1), PSO: +(100 * (best / (p || 0.0001))).toFixed(1) };
+  }
+  const best = Math.max(g, p) || 0.0001;
+  return { GBFS: +(100 * (g / best)).toFixed(1), PSO: +(100 * (p / best)).toFixed(1) };
+};
+
+const RadarTooltip = ({ active, payload, label, rows }) => {
+  const T = useT();
+  if (!active || !payload?.length) return null;
+  const row = rows.find(r => r.metric === label);
+  return (
+    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
+      <div style={{ fontSize: 12, color: T.muted, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 13, color: T.blue, marginBottom: 3 }}>GBFS: <strong>{row?.GBFSraw} {row?.unit}</strong></div>
+      <div style={{ fontSize: 13, color: T.purple }}>PSO: <strong>{row?.PSOraw} {row?.unit}</strong></div>
+    </div>
+  );
+};
+
+/* Radar / spider chart summarizing all five algorithm metrics at a glance —
+   every axis is oriented so that "further out" always means "better
+   performance", regardless of whether the underlying metric is naturally
+   lower-is-better (latency, energy, utilization, time) or
+   higher-is-better (throughput). */
+const SummaryRadarChart = ({ gbfsData, psoData }) => {
+  const T = useT();
+
+  const defs = [
+    { metric: "Latency",       unit: "ms",      g: gbfsData.latency,     p: psoData.latency,     lower: true },
+    { metric: "Processing",    unit: "ms",      g: gbfsData.time,        p: psoData.time,        lower: true },
+    { metric: "Throughput",    unit: "tasks/s", g: gbfsData.throughput,  p: psoData.throughput,  lower: false },
+    { metric: "Energy",        unit: "kWh",     g: gbfsData.energy,      p: psoData.energy,      lower: true },
+    { metric: "Resource Util", unit: "%",       g: gbfsData.utilization, p: psoData.utilization, lower: true },
+  ];
+
+  const rows = defs.map(d => {
+    const scores = radarScore(d.g, d.p, d.lower);
+    return { metric: d.metric, unit: d.unit, GBFSraw: d.g, PSOraw: d.p, GBFS: scores.GBFS, PSO: scores.PSO };
+  });
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 2 }}>
+        Performance Radar
+      </div>
+      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, marginBottom: 10 }}>
+        Every axis points outward toward "better" — a bigger shape means stronger overall performance.
+      </div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: T.blue, display: "inline-block" }} /> GBFS (Edge Server A)
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO (Cloud Server B)
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={280}>
+        <RadarChart data={rows} outerRadius="72%">
+          <PolarGrid stroke={T.border} />
+          <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: T.muted, fontFamily: T.fontSans }} />
+          <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 9, fill: T.dim, fontFamily: T.fontMono }} tickCount={5} axisLine={false} />
+          <Radar name="GBFS" dataKey="GBFS" stroke={T.blue} fill={T.blue} fillOpacity={0.28} strokeWidth={2} />
+          <Radar name="PSO" dataKey="PSO" stroke={T.purple} fill={T.purple} fillOpacity={0.28} strokeWidth={2} />
+          <Tooltip content={<RadarTooltip rows={rows} />} />
+        </RadarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
@@ -1487,6 +1566,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
             ))}
           </div>
         ))}
+
+        <SummaryRadarChart gbfsData={gbfsData} psoData={psoData} />
 
         <div style={{ fontSize: 14, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 10 }}>Conclusion</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
