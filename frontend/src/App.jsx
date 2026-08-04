@@ -1260,6 +1260,92 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
       <GanttComparisonChart gbfsData={gbfsData} psoData={psoData} />
 
+      {/* ── CURRENT SYSTEM vs. ALGORITHM-OPTIMIZED PERFORMANCE ── */}
+      {(() => {
+        const baseLatency  = +m.avgLatency;
+        const baseTime     = +m.processingTime;
+        const baseThroughput = +(m.throughput / 60).toFixed(2); // tasks/min → tasks/s, to match algo units
+        const winThroughput  = +winnerData.throughput;
+        const winTime         = +winnerData.time;
+
+        const pct = (base, win, lowerIsBetter = true) => {
+          if (!base) return null;
+          const diff = lowerIsBetter ? base - win : win - base;
+          return (diff / base * 100).toFixed(1);
+        };
+        const latPct  = pct(baseLatency, gbfsBase < psoBase ? gbfsBase : psoBase, true);
+        const timePct = pct(baseTime, winTime, true);
+        const thrPct  = pct(baseThroughput, winThroughput, false);
+
+        const rows2 = [
+          { metric: "Latency (ms)",           base: baseLatency,    algo: Math.min(gbfsBase, psoBase), pct: latPct,  dir: "lower" },
+          { metric: "Processing Time (ms)",   base: baseTime,       algo: winTime,                     pct: timePct, dir: "lower" },
+          { metric: "Throughput (tasks/s)",   base: baseThroughput, algo: winThroughput,                pct: thrPct,  dir: "higher" },
+        ];
+
+        return (
+          <Card title="Current System vs. Algorithm-Optimized" sub={`Baseline (no offloading) vs. ${winnerAlgo} on ${decidedSrv.label}`} accent={T.amber}>
+            <p style={{ fontSize: 12, color: T.muted, marginTop: 0, marginBottom: 16, fontFamily: T.fontSans, lineHeight: 1.6 }}>
+              "Current System" reflects {m.machineId}'s baseline performance if the task were processed without algorithmic
+              offloading, using its own reported latency, processing time, and throughput. This is compared against the
+              algorithm-optimized outcome to evaluate the efficiency gained from offloading.
+            </p>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><Th>Metric</Th><Th>Current System</Th><Th>{winnerAlgo} (Optimized)</Th><Th>Change</Th></tr></thead>
+              <tbody>
+                {rows2.map((r, i) => {
+                  const improved = r.pct !== null && +r.pct > 0;
+                  return (
+                    <TableRow key={r.metric} isOdd={i % 2 === 1} cells={[
+                      <span style={{ fontFamily: T.fontSans, color: T.text }}>{r.metric}</span>,
+                      <span style={{ fontFamily: T.fontMono, color: T.muted }}>{r.base}</span>,
+                      <span style={{ fontFamily: T.fontMono, color: gbfsWins ? T.blue : T.purple, fontWeight: 700 }}>{r.algo}</span>,
+                      <Badge color={r.pct === null ? "dim" : improved ? "green" : "red"}>
+                        {r.pct === null ? "n/a" : `${improved ? "▼" : "▲"} ${Math.abs(r.pct)}%`}
+                      </Badge>,
+                    ]} />
+                  );
+                })}
+              </tbody>
+            </table>
+            <div style={{ marginTop: 16 }}>
+              <InfoBox color="amber">
+                Relative to {m.machineId}'s current (non-offloaded) baseline, <strong>{winnerAlgo}</strong> changed latency by{" "}
+                <strong>{latPct === null ? "n/a" : `${latPct}%`}</strong> and throughput by{" "}
+                <strong>{thrPct === null ? "n/a" : `${thrPct}%`}</strong> when routing to <strong>{decidedSrv.label}</strong>.
+              </InfoBox>
+            </div>
+          </Card>
+        );
+      })()}
+
+      {/* ── MACHINE RESOURCE UTILIZATION ── */}
+      <Card title="Machine Resource Utilization" sub={`CPU, memory, and storage load · ${m.machineId}`} accent={T.purple}>
+        <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+          <Stat label="CPU Utilization"    value={m.cpuUtilization != null ? `${m.cpuUtilization}%` : "—"} color="blue" />
+          <Stat label="Memory Usage"       value={m.memoryUsage != null ? `${m.memoryUsage} GB` : "—"}     color="purple" />
+          <Stat label="Storage Footprint"  value={m.storageUsage != null ? `${m.storageUsage} GB` : `${m.taskSize} MB / task`} color="amber" />
+          <Stat label="Queue Length"       value={m.queueLength ?? "—"}                                    color="green" />
+        </div>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Resource</Th><Th>Reading</Th><Th>Notes</Th></tr></thead>
+          <tbody>
+            {[
+              ["CPU", m.cpuUtilization != null ? `${m.cpuUtilization}%` : "not reported", "Edge-side processor load while handling the task"],
+              ["Memory", m.memoryUsage != null ? `${m.memoryUsage} GB` : "not reported", "RAM consumed on the source device"],
+              ["Storage", m.storageUsage != null ? `${m.storageUsage} GB` : `${m.taskSize} MB per task (proxy)`, m.storageUsage != null ? "Disk footprint at time of capture" : "Telemetry does not report disk usage directly — task size is shown as the closest proxy"],
+              ["Queue", `${m.queueLength ?? "—"} pending`, "Tasks waiting ahead of this one on the device"],
+            ].map(([r, v, n], i) => (
+              <TableRow key={r} isOdd={i % 2 === 1} cells={[
+                <span style={{ fontFamily: T.fontSans, color: T.text }}>{r}</span>,
+                <Badge color="dim">{v}</Badge>,
+                <span style={{ color: T.muted, fontFamily: T.fontSans }}>{n}</span>,
+              ]} />
+            ))}
+          </tbody>
+        </table>
+      </Card>
+
       <Card title="Full Metrics Comparison" sub={`All indicators · ${decidedSrv.label}`} accent={T.purple}>
         <ResponsiveContainer width="100%" height={220}>
           <BarChart data={barData} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
