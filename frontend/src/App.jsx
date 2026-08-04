@@ -1103,33 +1103,84 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-const MetricBarRow = ({ label, value, unit, max, color }) => {
+/* Gantt-style horizontal comparison chart.
+   Each metric is a swimlane; GBFS/PSO bars are normalized to the row's
+   own max so every lane fills the same width scale, but the label shown
+   on each bar is always the real measured value + unit. */
+const GanttLabel = ({ x, y, width, height, rows, rowIndex, barKey }) => {
   const T = useT();
-  const pct = Math.max(4, Math.min(100, (value / max) * 100));
+  const row = rows[rowIndex];
+  if (!row) return null;
+  const raw = barKey === "GBFS" ? row.GBFSraw : row.PSOraw;
+  const color = barKey === "GBFS" ? T.blue : T.purple;
   return (
-    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "7px 0" }}>
-      <span style={{ width: 42, flexShrink: 0, fontSize: 13, fontWeight: 700, fontFamily: T.fontMono, color }}>{label}</span>
-      <div style={{ flex: 1, height: 16, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 3, overflow: "hidden" }}>
-        <div style={{
-          width: `${pct}%`, height: "100%", background: color,
-          backgroundImage: "repeating-linear-gradient(90deg, rgba(255,255,255,0.22) 0px, rgba(255,255,255,0.22) 2px, transparent 2px, transparent 6px)",
-          transition: "width 0.5s ease",
-        }} />
-      </div>
-      <span style={{ width: 66, flexShrink: 0, textAlign: "right", fontSize: 13, fontFamily: T.fontMono, color: T.text }}>{value} {unit}</span>
+    <text
+      x={x + width + 8} y={y + height / 2} dy={4}
+      fontSize={12} fontFamily={T.fontMono} fontWeight={700} fill={color}
+    >
+      {raw} {row.unit}
+    </text>
+  );
+};
+
+const GanttTooltip = ({ active, payload, label, rows }) => {
+  const T = useT();
+  if (!active || !payload?.length) return null;
+  const row = rows.find(r => r.metric === label);
+  return (
+    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
+      <div style={{ fontSize: 12, color: T.muted, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 13, color: T.blue, marginBottom: 3 }}>GBFS: <strong>{row?.GBFSraw} {row?.unit}</strong></div>
+      <div style={{ fontSize: 13, color: T.purple }}>PSO: <strong>{row?.PSOraw} {row?.unit}</strong></div>
     </div>
   );
 };
 
-const MetricGraphCard = ({ index, sopTitle, gbfsValue, psoValue, unit }) => {
+const GanttComparisonChart = ({ gbfsData, psoData }) => {
   const T = useT();
-  const max = Math.max(gbfsValue, psoValue) * 1.25;
+
+  const rows = [
+    { metric: "Latency",            unit: "ms",       GBFSraw: +gbfsData.latency,    PSOraw: +psoData.latency },
+    { metric: "Processing Time",    unit: "ms",       GBFSraw: +gbfsData.time,       PSOraw: +psoData.time },
+    { metric: "Throughput",         unit: "tasks/s",  GBFSraw: +gbfsData.throughput, PSOraw: +psoData.throughput },
+    { metric: "Energy Utilization", unit: "kWh",      GBFSraw: +gbfsData.energy,     PSOraw: +psoData.energy },
+  ].map(r => {
+    const rowMax = Math.max(r.GBFSraw, r.PSOraw, 0.0001);
+    return { ...r, GBFS: +(r.GBFSraw / rowMax * 100).toFixed(1), PSO: +(r.PSOraw / rowMax * 100).toFixed(1) };
+  });
+
   return (
-    <Card title={`Graph ${index}`} sub={sopTitle} accent={T.blue}>
-      <div style={{ background: T.elevated, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "12px 16px" }}>
-        <MetricBarRow label="GBFS" value={gbfsValue} unit={unit} max={max} color={T.blue} />
-        <MetricBarRow label="PSO"  value={psoValue}  unit={unit} max={max} color={T.purple} />
+    <Card title="Algorithm Timeline — Gantt Comparison" sub="GBFS vs PSO across all four metrics, one lane per metric" accent={T.blue}>
+      <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: T.blue, display: "inline-block" }} /> GBFS
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontFamily: T.fontSans, color: T.muted }}>
+          <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO
+        </div>
       </div>
+      <ResponsiveContainer width="100%" height={rows.length * 78}>
+        <BarChart
+          data={rows} layout="vertical"
+          margin={{ top: 4, right: 70, left: 8, bottom: 4 }}
+          barCategoryGap={22} barGap={4}
+        >
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
+          <XAxis type="number" domain={[0, 100]} hide />
+          <YAxis
+            type="category" dataKey="metric" width={140}
+            stroke={T.dim} fontSize={12} fontFamily={T.fontSans}
+            tickLine={false} axisLine={{ stroke: T.border }}
+          />
+          <Tooltip content={<GanttTooltip rows={rows} />} cursor={{ fill: T.elevated }} />
+          <Bar dataKey="GBFS" fill={T.blue} radius={[4, 4, 4, 4]} barSize={16}>
+            <LabelList content={(p) => <GanttLabel {...p} rows={rows} rowIndex={p.index} barKey="GBFS" />} />
+          </Bar>
+          <Bar dataKey="PSO" fill={T.purple} radius={[4, 4, 4, 4]} barSize={16}>
+            <LabelList content={(p) => <GanttLabel {...p} rows={rows} rowIndex={p.index} barKey="PSO" />} />
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
     </Card>
   );
 };
@@ -1154,17 +1205,13 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const gbfsBase    = +gbfsData.latency;
   const psoBase     = +psoData.latency;
   const measuredLat = offloadResult?.measuredLatency;
+  const predictedLat = Math.min(gbfsBase, psoBase);
+  const deviationPct = measuredLat ? (Math.abs(measuredLat - predictedLat) / predictedLat * 100).toFixed(1) : null;
+  const deviationOk  = measuredLat ? +deviationPct <= 20 : null;
 
   const latencyCmp     = compareMetric(+gbfsData.latency, +psoData.latency, true);
   const completionCmp  = compareMetric(+gbfsData.time, +psoData.time, true);
   const utilizationCmp = compareMetric(+gbfsData.utilization, +psoData.utilization, true);
-
-  const lineData = [1, 2, 3, 4, 5, 6].map(t => ({
-    cycle: `T${t}`,
-    GBFS: +(gbfsBase + Math.sin(t * 1.1) * gbfsBase * 0.06).toFixed(2),
-    PSO:  +(psoBase  + Math.sin(t * 1.3) * psoBase  * 0.06).toFixed(2),
-    ...(measuredLat ? { Measured: +(measuredLat + Math.sin(t * 0.9) * measuredLat * 0.03).toFixed(2) } : {}),
-  }));
 
   const barData = [
     { metric: "Latency",             GBFS: +gbfsData.latency,     PSO: +psoData.latency },
@@ -1211,26 +1258,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         </div>
       </div>
 
-      <MetricGraphCard index={1} sopTitle="Latency" gbfsValue={+gbfsData.latency} psoValue={+psoData.latency} unit="ms" />
-      <MetricGraphCard index={2} sopTitle="Processing Time" gbfsValue={+gbfsData.time} psoValue={+psoData.time} unit="ms" />
-      <MetricGraphCard index={3} sopTitle="Throughput" gbfsValue={+gbfsData.throughput} psoValue={+psoData.throughput} unit="tasks/s" />
-      <MetricGraphCard index={4} sopTitle="Energy Utilization" gbfsValue={+gbfsData.energy} psoValue={+psoData.energy} unit="kWh" />
-
-      <Card title="Latency Over Time" sub="6-cycle simulation" accent={T.blue}>
-        <ResponsiveContainer width="100%" height={240}>
-          <LineChart data={lineData} margin={{ top: 10, right: 20, left: 0, bottom: 20 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-            <XAxis dataKey="cycle" stroke={T.dim} fontSize={12} fontFamily={T.fontMono}
-              label={{ value: "Cycle", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 11 }} />
-            <YAxis stroke={T.dim} fontSize={12} fontFamily={T.fontMono} unit=" ms" domain={["auto", "auto"]} />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend wrapperStyle={{ fontSize: 12, fontFamily: T.fontMono }} verticalAlign="top" />
-            <Line type="monotone" dataKey="GBFS"    stroke={T.blue}   strokeWidth={2.5} dot={{ r: 4, fill: T.blue,   stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
-            <Line type="monotone" dataKey="PSO"     stroke={T.purple} strokeWidth={2.5} dot={{ r: 4, fill: T.purple, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />
-            {measuredLat && <Line type="monotone" dataKey="Measured" stroke={T.green} strokeWidth={2.5} strokeDasharray="5 3" dot={{ r: 4, fill: T.green, stroke: T.surface, strokeWidth: 2 }} activeDot={{ r: 7 }} />}
-          </LineChart>
-        </ResponsiveContainer>
-      </Card>
+      <GanttComparisonChart gbfsData={gbfsData} psoData={psoData} />
 
       <Card title="Full Metrics Comparison" sub={`All indicators · ${decidedSrv.label}`} accent={T.purple}>
         <ResponsiveContainer width="100%" height={220}>
@@ -1277,17 +1305,64 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         </div>
       </Card>
 
-      <Card title="Simulation Report" sub={`${m.name} · ${m.machineId}`} accent={T.green}>
+      {/* ── 1. PROCESS: how the results were obtained ── */}
+      <Card title="Simulation Process" sub="How this result was obtained, stage by stage" accent={T.blue}>
+        {[
+          {
+            n: 1, title: "Device & Parameter Setup",
+            desc: `${m.machineId} (${m.name}) was selected and its live task profile was pulled from Supabase — task size ${m.taskSize} MB, bandwidth ${m.bandwidth} Mbps, and ${9} other runtime parameters.`,
+          },
+          {
+            n: 2, title: "Independent Algorithm Evaluation",
+            desc: `GBFS and PSO each received the identical task profile and independently scored both candidate targets (Edge Server A, Cloud Server B) against latency, energy, and throughput constraints — neither algorithm sees the other's output.`,
+          },
+          {
+            n: 3, title: "Result Capture",
+            desc: `GBFS returned ${gbfsData.latency} ms latency, recommending ${serverLabel(gbfsData.recommendedServer)}. PSO returned ${psoData.latency} ms latency, recommending ${serverLabel(psoData.recommendedServer)}.`,
+          },
+          {
+            n: 4, title: "Winner Selection",
+            desc: `The algorithm with the lower latency is used as the final decision. ${winnerAlgo} (${Math.min(gbfsBase, psoBase)} ms) beat ${gbfsWins ? "PSO" : "GBFS"} by ${improvement}%, so its target — ${decidedSrv.label} — was selected automatically, with no manual override.`,
+          },
+          {
+            n: 5, title: "Offload & Measurement",
+            desc: measuredLat
+              ? `The task was dispatched to ${decidedSrv.label} and the round-trip was timed directly, producing an actual measured latency of ${measuredLat} ms — this is the ground-truth figure used to validate the algorithm's ${winnerAlgo} ${Math.min(gbfsBase, psoBase)} ms prediction below.`
+              : `The task has not been offloaded yet, so no measured latency exists to compare against the algorithm's prediction. Complete Step 5 (Offload) to generate ground-truth timing.`,
+          },
+        ].map(s => (
+          <div key={s.n} style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: s.n > 1 ? `1px solid ${T.borderSub}` : "none" }}>
+            <div style={{
+              flexShrink: 0, width: 26, height: 26, borderRadius: "50%",
+              background: T.blueBg, border: `1px solid ${T.blueDim}`, color: T.blue,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 12, fontWeight: 700, fontFamily: T.fontMono,
+            }}>{s.n}</div>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 3 }}>{s.title}</div>
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.6 }}>{s.desc}</div>
+            </div>
+          </div>
+        ))}
+      </Card>
+
+      {/* ── 2. COMPREHENSIVE REPORT & SUMMARY ── */}
+      <Card title="Simulation Summary" sub={`${m.name} · ${m.machineId}`} accent={T.green}>
         {[
           { algo: "GBFS", color: T.blue, data: gbfsData },
           { algo: "PSO",  color: T.purple, data: psoData },
         ].map(({ algo, color, data }) => (
           <div key={algo} style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.fontMono, marginBottom: 10 }}>{algo}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.fontMono }}>{algo}</span>
+              <Badge color="dim">{resolveServer(data.recommendedServer).icon} {serverLabel(data.recommendedServer)}</Badge>
+            </div>
             {[
-              ["Latency",             `${data.latency} ms`],
-              ["Processing Time",     `${data.time} ms`],
-              ["Resource Utilization",`${data.utilization}%`],
+              ["Latency",              `${data.latency} ms`],
+              ["Processing Time",      `${data.time} ms`],
+              ["Throughput",           `${data.throughput} tasks/s`],
+              ["Energy Utilization",   `${data.energy} kWh`],
+              ["Resource Utilization", `${data.utilization}%`],
             ].map(([l, v]) => (
               <div key={l} style={{ padding: "8px 0", borderTop: `1px solid ${T.borderSub}` }}>
                 <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>{l}</div>
@@ -1309,6 +1384,62 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
             <strong style={{ color: utilizationCmp.winner === "GBFS" ? T.blue : T.purple }}>{utilizationCmp.winner}</strong> utilized resources <strong>{utilizationCmp.pct}%</strong> better.
           </div>
         </div>
+      </Card>
+
+      {/* ── 3. VALIDATION & ACCURACY ── */}
+      <Card title="Validation & Accuracy Check" sub="Algorithm-predicted latency vs. actual measured latency" accent={measuredLat ? (deviationOk ? T.green : T.amber) : T.dim}>
+        {measuredLat ? (
+          <>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+              <Stat label="Predicted Latency" value={`${Math.min(gbfsBase, psoBase)} ms`} color={gbfsWins ? "blue" : "purple"} />
+              <Stat label="Measured Latency"  value={`${measuredLat} ms`}                  color="green" />
+              <Stat label="Deviation"         value={`${deviationPct}%`}                   color={deviationOk ? "green" : "amber"} />
+            </div>
+            <InfoBox color={deviationOk ? "green" : "amber"}>
+              {deviationOk ? (
+                <>
+                  <strong>Validated.</strong> The measured latency ({measuredLat} ms) is within {deviationPct}% of {winnerAlgo}'s
+                  predicted value ({Math.min(gbfsBase, psoBase)} ms), which is inside the accepted 20% simulation tolerance.
+                  The algorithm's decision to route to <strong>{decidedSrv.label}</strong> is consistent with real-world behavior.
+                </>
+              ) : (
+                <>
+                  <strong>Deviation flagged.</strong> The measured latency ({measuredLat} ms) differs from {winnerAlgo}'s
+                  predicted value ({Math.min(gbfsBase, psoBase)} ms) by {deviationPct}%, above the 20% tolerance band.
+                  This can happen from network jitter or {decidedSrv.label} load at offload time — re-run the simulation to confirm before trusting this result.
+                </>
+              )}
+            </InfoBox>
+          </>
+        ) : (
+          <InfoBox color="amber">
+            No measured latency yet. Validation compares the algorithm's predicted latency against the real round-trip
+            time captured during offload — complete Step 5 (Offload Task) to unlock this check.
+          </InfoBox>
+        )}
+      </Card>
+
+      {/* ── 4. WORKFLOW DOCUMENTATION ── */}
+      <Card title="Workflow Documentation" sub="Full audit trail — setup through interpretation" accent={T.purple}>
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Stage</Th><Th>Action</Th><Th>Status</Th></tr></thead>
+          <tbody>
+            {[
+              ["1 · Setup",         `Selected ${m.machineId} (${m.name}) and loaded its task profile`,              "Complete"],
+              ["2 · Collection",    `Captured ${m.taskSize} MB task at ${m.bandwidth} Mbps bandwidth`,               "Complete"],
+              ["3 · Execution",     `Ran GBFS (${gbfsData.latency} ms) and PSO (${psoData.latency} ms)`,             "Complete"],
+              ["4 · Selection",     `${winnerAlgo} chosen → target ${decidedSrv.label}`,                             "Complete"],
+              ["5 · Offload",       measuredLat ? `Dispatched to ${decidedSrv.label}, measured ${measuredLat} ms` : "Not yet offloaded", measuredLat ? "Complete" : "Pending"],
+              ["6 · Interpretation",measuredLat ? `Validated against prediction — ${deviationOk ? "within tolerance" : "deviation flagged"}` : "Awaiting offload for validation", measuredLat ? "Complete" : "Pending"],
+            ].map(([stage, action, status], i) => (
+              <TableRow key={stage} isOdd={i % 2 === 1} cells={[
+                <span style={{ fontFamily: T.fontSans, color: T.text, fontWeight: 600 }}>{stage}</span>,
+                <span style={{ color: T.muted, fontFamily: T.fontSans }}>{action}</span>,
+                <Badge color={status === "Complete" ? "green" : "dim"} dot>{status}</Badge>,
+              ]} />
+            ))}
+          </tbody>
+        </table>
       </Card>
     </div>
   );
