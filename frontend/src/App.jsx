@@ -4,6 +4,10 @@ import {
   Legend, ResponsiveContainer, LabelList,
   LineChart, Line, ReferenceLine,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
+  PieChart, Pie, Cell,
+  RadialBarChart, RadialBar,
+  ScatterChart, Scatter, ZAxis,
+  ComposedChart,
 } from "recharts";
 
 /* ─────────────────────────────────────────────
@@ -1390,6 +1394,243 @@ const WinTallyChart = ({ gbfsData, psoData }) => {
   );
 };
 
+/* ── VISUAL 1: Trade-off Bubble Chart ──
+   Plots Latency (x) vs Resource Utilization (y) for GBFS, PSO, and the
+   Current System baseline, with bubble size encoding Energy Utilization —
+   the ideal point sits toward the bottom-left with a small bubble. */
+const BubbleTooltip = ({ active, payload }) => {
+  const T = useT();
+  if (!active || !payload?.length) return null;
+  const d = payload[0]?.payload;
+  if (!d) return null;
+  return (
+    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
+      <div style={{ fontSize: 13, color: d.color, marginBottom: 4, fontWeight: 700 }}>{d.name}</div>
+      <div style={{ fontSize: 13, color: T.muted }}>Latency: <strong style={{ color: T.text }}>{d.x} ms</strong></div>
+      <div style={{ fontSize: 13, color: T.muted }}>Utilization: <strong style={{ color: T.text }}>{d.y}%</strong></div>
+      <div style={{ fontSize: 13, color: T.muted }}>Energy: <strong style={{ color: T.text }}>{d.z} kWh</strong></div>
+    </div>
+  );
+};
+
+const TradeoffBubbleChart = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const data = [
+    { name: "GBFS", x: +gbfsData.latency, y: +gbfsData.utilization, z: +gbfsData.energy, color: T.blue, fill: T.blue },
+    { name: "PSO",  x: +psoData.latency,  y: +psoData.utilization,  z: +psoData.energy,  color: T.purple, fill: T.purple },
+    ...(m?.avgLatency != null && m?.cpuUtilization != null
+      ? [{ name: "Current System", x: +m.avgLatency, y: +m.cpuUtilization, z: +(m.energyConsumption ?? 1), color: T.amber, fill: T.amber }]
+      : []),
+  ];
+  return (
+    <Card title="Latency vs. Utilization Trade-off" sub="Bubble size = energy utilization · closer to bottom-left is better" accent={T.blue}>
+      <ResponsiveContainer width="100%" height={280}>
+        <ScatterChart margin={{ top: 10, right: 24, left: 4, bottom: 10 }}>
+          <CartesianGrid stroke={T.border} strokeDasharray="3 3" />
+          <XAxis type="number" dataKey="x" name="Latency" unit=" ms" stroke={T.dim} fontSize={13} fontFamily={T.fontMono}
+            label={{ value: "Latency (ms)", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 13, fontFamily: T.fontSans }} />
+          <YAxis type="number" dataKey="y" name="Utilization" unit="%" stroke={T.dim} fontSize={13} fontFamily={T.fontMono}
+            label={{ value: "Resource Utilization (%)", angle: -90, position: "insideLeft", fill: T.muted, fontSize: 13, fontFamily: T.fontSans }} />
+          <ZAxis type="number" dataKey="z" range={[300, 1400]} />
+          <Tooltip content={<BubbleTooltip />} cursor={{ strokeDasharray: "3 3" }} />
+          <Scatter data={data} fillOpacity={0.75}>
+            {data.map((d, i) => <Cell key={i} fill={d.fill} stroke={d.fill} strokeWidth={2} />)}
+          </Scatter>
+        </ScatterChart>
+      </ResponsiveContainer>
+      <div style={{ display: "flex", gap: 16, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
+        {data.map(d => (
+          <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: T.fontSans, color: T.muted }}>
+            <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.fill, display: "inline-block" }} /> {d.name}
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+/* ── VISUAL 2: Efficiency Score Donut ──
+   Converts the same 5-metric radar scores into a single composite
+   efficiency number per algorithm, then shows the split as a donut. */
+const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
+  const T = useT();
+  const defs = [
+    { g: gbfsData.latency,     p: psoData.latency,     lower: true },
+    { g: gbfsData.time,        p: psoData.time,        lower: true },
+    { g: gbfsData.throughput,  p: psoData.throughput,  lower: false },
+    { g: gbfsData.energy,      p: psoData.energy,      lower: true },
+    { g: gbfsData.utilization, p: psoData.utilization, lower: true },
+  ];
+  const scores = defs.map(d => radarScore(d.g, d.p, d.lower));
+  const avgG = +(scores.reduce((a, s) => a + s.GBFS, 0) / scores.length).toFixed(1);
+  const avgP = +(scores.reduce((a, s) => a + s.PSO, 0) / scores.length).toFixed(1);
+  const total = avgG + avgP;
+  const data = [
+    { name: "GBFS", value: avgG, fill: T.blue },
+    { name: "PSO",  value: avgP, fill: T.purple },
+  ];
+  const leader = avgG >= avgP ? "GBFS" : "PSO";
+  return (
+    <Card title="Composite Efficiency Score" sub="Average performance score across all 5 metrics" accent={T.purple}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 auto", position: "relative", width: 200, height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270}>
+                {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              </Pie>
+              <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+            </PieChart>
+          </ResponsiveContainer>
+          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+            <div style={{ fontSize: 22, fontWeight: 800, color: leader === "GBFS" ? T.blue : T.purple, fontFamily: T.fontMono }}>{leader}</div>
+            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>leads</div>
+          </div>
+        </div>
+        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {data.map(d => (
+            <div key={d.name} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
+                <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
+              </div>
+              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>{d.value.toFixed(1)} <span style={{ fontSize: 13, color: T.muted, fontWeight: 400 }}>/ {(total).toFixed(0)}</span></span>
+            </div>
+          ))}
+          <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, lineHeight: 1.5 }}>
+            Each metric contributes up to 100 pts, awarded proportionally to how close an algorithm got to the better result on that axis. Higher combined score wins.
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+/* ── VISUAL 3: Energy Consumption Split ── */
+const EnergyDonutChart = ({ gbfsData, psoData }) => {
+  const T = useT();
+  const g = +gbfsData.energy, p = +psoData.energy;
+  const total = g + p || 0.0001;
+  const data = [
+    { name: "GBFS", value: g, fill: T.blue,   pct: +(g / total * 100).toFixed(1) },
+    { name: "PSO",  value: p, fill: T.purple, pct: +(p / total * 100).toFixed(1) },
+  ];
+  const saver = g <= p ? "GBFS" : "PSO";
+  return (
+    <Card title="Energy Consumption Split" sub="Share of combined energy utilization, by algorithm" accent={T.amber}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 auto", width: 200, height: 200 }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={data} dataKey="value" nameKey="name" innerRadius={0} outerRadius={92} label={({ pct }) => `${pct}%`}
+                labelLine={false} style={{ fontSize: 13, fontFamily: T.fontMono, fill: T.text }}>
+                {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              </Pie>
+              <Tooltip formatter={(v, n) => [`${v} kWh`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {data.map(d => (
+            <div key={d.name} style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
+                <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
+              </div>
+              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>{d.value} kWh</span>
+            </div>
+          ))}
+          <InfoBox color="amber"><strong>{saver}</strong> is the more energy-efficient choice for this task.</InfoBox>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+/* ── VISUAL 4: Resource Utilization Gauge Pair ── */
+const MiniGauge = ({ label, value, color, sub }) => {
+  const T = useT();
+  const data = [{ name: label, value: Math.min(value, 100), fill: color }];
+  return (
+    <div style={{ flex: "1 1 200px", textAlign: "center" }}>
+      <div style={{ position: "relative", width: "100%", height: 150 }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <RadialBarChart innerRadius="70%" outerRadius="100%" data={data} startAngle={210} endAngle={-30} barSize={16}>
+            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
+            <RadialBar dataKey="value" cornerRadius={8} background={{ fill: T.elevated }} />
+          </RadialBarChart>
+        </ResponsiveContainer>
+        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ fontSize: 24, fontWeight: 800, color, fontFamily: T.fontMono }}>{value}%</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginTop: -6 }}>{label}</div>
+      {sub && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>{sub}</div>}
+    </div>
+  );
+};
+
+const UtilizationGaugePair = ({ gbfsData, psoData }) => {
+  const T = useT();
+  return (
+    <Card title="Resource Utilization Gauges" sub="Edge/compute load required by each algorithm's chosen path" accent={T.green}>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+        <MiniGauge label="GBFS" value={+gbfsData.utilization} color={T.blue} sub={`${resolveServer(gbfsData.recommendedServer)?.label ?? ""}`} />
+        <MiniGauge label="PSO" value={+psoData.utilization} color={T.purple} sub={`${resolveServer(psoData.recommendedServer)?.label ?? ""}`} />
+      </div>
+      <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, marginTop: 8, textAlign: "center" }}>
+        Lower utilization leaves more headroom for other tasks queued on the same server.
+      </div>
+    </Card>
+  );
+};
+
+/* ── VISUAL 5: Baseline vs. Optimized Improvement Chart ──
+   Grouped bars (Current System vs Winning Algorithm) with a line
+   overlay showing % improvement per metric. */
+const ImprovementComposedChart = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+  const winnerData = gbfsWins ? gbfsData : psoData;
+
+  const baseThroughput = m?.throughput != null ? +(m.throughput / 60).toFixed(2) : null;
+  const defs = [
+    { metric: "Latency",     unit: "ms",      base: m?.avgLatency != null ? +m.avgLatency : null,      algo: +winnerData.latency,    lower: true },
+    { metric: "Processing",  unit: "ms",      base: m?.processingTime != null ? +m.processingTime : null, algo: +winnerData.time,    lower: true },
+    { metric: "Throughput",  unit: "t/s",     base: baseThroughput,                                     algo: +winnerData.throughput, lower: false },
+  ].filter(d => d.base != null);
+
+  const rows = defs.map(d => {
+    const pct = d.lower ? +(((d.base - d.algo) / d.base) * 100).toFixed(1) : +(((d.algo - d.base) / d.base) * 100).toFixed(1);
+    return { ...d, pct };
+  });
+
+  return (
+    <Card title="Improvement vs. Current System" sub={`Baseline vs ${winnerAlgo}-optimized, with % change`} accent={T.blue}>
+      <ResponsiveContainer width="100%" height={260}>
+        <ComposedChart data={rows} margin={{ top: 20, right: 40, left: 0, bottom: 4 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          <XAxis dataKey="metric" stroke={T.dim} fontSize={13} fontFamily={T.fontSans} />
+          <YAxis yAxisId="left" stroke={T.dim} fontSize={13} fontFamily={T.fontMono} />
+          <YAxis yAxisId="right" orientation="right" stroke={T.amber} fontSize={13} fontFamily={T.fontMono} unit="%" />
+          <Tooltip contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+          <Legend wrapperStyle={{ fontSize: 13, fontFamily: T.fontMono }} />
+          <Bar yAxisId="left" dataKey="base" name="Current System" fill={T.dim} radius={[4, 4, 0, 0]} barSize={26} />
+          <Bar yAxisId="left" dataKey="algo" name={`${winnerAlgo} (Optimized)`} fill={gbfsWins ? T.blue : T.purple} radius={[4, 4, 0, 0]} barSize={26} />
+          <Line yAxisId="right" type="monotone" dataKey="pct" name="% Change" stroke={T.amber} strokeWidth={2} dot={{ r: 4, fill: T.amber }} />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+};
+
 const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
@@ -1557,6 +1798,12 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
           </BarChart>
         </ResponsiveContainer>
       </Card>
+
+      <TradeoffBubbleChart machine={m} gbfsData={gbfsData} psoData={psoData} />
+      <EfficiencyDonutChart gbfsData={gbfsData} psoData={psoData} />
+      <EnergyDonutChart gbfsData={gbfsData} psoData={psoData} />
+      <UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} />
+      <ImprovementComposedChart machine={m} gbfsData={gbfsData} psoData={psoData} />
 
       <Card title="Result Summary" sub={`${m.name} · ${decidedSrv.label}`} accent={T.green}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
