@@ -130,12 +130,13 @@ const Badge = ({ color = "blue", children, dot }) => {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 5,
-      padding: "2px 9px", borderRadius: 4,
+      padding: "3px 10px", borderRadius: 5,
       fontSize: 14, fontWeight: 600, letterSpacing: "0.02em",
-      fontFamily: T.fontMono,
+      fontFamily: T.fontMono, lineHeight: 1.3,
       background: c.bg, border: `1px solid ${c.border}`, color: c.text,
+      whiteSpace: "nowrap",
     }}>
-      {dot && <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.text, display: "inline-block" }} />}
+      {dot && <span style={{ width: 6, height: 6, borderRadius: "50%", background: c.text, display: "inline-block", flexShrink: 0 }} />}
       {children}
     </span>
   );
@@ -145,12 +146,14 @@ const Stat = ({ label, value, color = "blue", mono = true }) => {
   const T = useT();
   const map = { blue: T.blue, green: T.green, purple: T.purple, amber: T.amber };
   return (
-    <div style={{
+    <div className="app-surface" style={{
       flex: "1 1 140px", background: T.surface,
-      border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 18px",
+      border: `1px solid ${T.border}`, borderRadius: 10, padding: "16px 18px",
+      boxShadow: T.bg === "#eef0f5" ? "0 1px 2px rgba(15,17,23,0.05)" : "0 1px 2px rgba(0,0,0,0.18)",
+      transition: "border-color 0.15s ease, transform 0.15s ease",
     }}>
-      <div style={{ fontSize: 14, color: T.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 700, color: map[color] || T.text, fontFamily: mono ? T.fontMono : T.fontSans, lineHeight: 1.2 }}>{value}</div>
+      <div style={{ fontSize: 13, color: T.muted, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: T.fontSans, fontWeight: 600 }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 700, color: map[color] || T.text, fontFamily: mono ? T.fontMono : T.fontSans, lineHeight: 1.2, letterSpacing: "-0.01em" }}>{value}</div>
     </div>
   );
 };
@@ -158,9 +161,10 @@ const Stat = ({ label, value, color = "blue", mono = true }) => {
 const Card = ({ title, sub, children, accent }) => {
   const T = useT();
   return (
-    <div style={{
+    <div className="app-surface" style={{
       background: T.surface, border: `1px solid ${T.border}`,
-      borderRadius: 8, marginBottom: 16, overflow: "hidden",
+      borderRadius: 10, marginBottom: 16, overflow: "hidden",
+      boxShadow: T.bg === "#eef0f5" ? "0 1px 3px rgba(15,17,23,0.06)" : "0 1px 3px rgba(0,0,0,0.22)",
     }}>
       {(title || sub) && (
         <div style={{
@@ -169,9 +173,9 @@ const Card = ({ title, sub, children, accent }) => {
           background: T.elevated,
         }}>
           {accent && <div style={{ width: 3, height: 16, borderRadius: 2, background: accent, flexShrink: 0 }} />}
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 600, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: T.fontSans }}>{title}</div>
-            {sub && <div style={{ fontSize: 14, color: T.muted, marginTop: 2, fontFamily: T.fontSans }}>{sub}</div>}
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, letterSpacing: "0.04em", textTransform: "uppercase", fontFamily: T.fontSans }}>{title}</div>
+            {sub && <div style={{ fontSize: 13, color: T.muted, marginTop: 2, fontFamily: T.fontSans, fontWeight: 400 }}>{sub}</div>}
           </div>
         </div>
       )}
@@ -193,8 +197,8 @@ const InfoBox = ({ color = "blue", children }) => {
     <div style={{
       background: c.bg, border: `1px solid ${c.border}`,
       borderLeft: `3px solid ${c.text}`,
-      borderRadius: 6, padding: "12px 16px",
-      fontSize: 15, color: c.text, lineHeight: 1.6,
+      borderRadius: 7, padding: "12px 16px",
+      fontSize: 14, color: c.text, lineHeight: 1.6,
       fontFamily: T.fontSans,
     }}>
       {children}
@@ -207,11 +211,11 @@ const ErrBox = ({ children }) => <InfoBox color="red">{children}</InfoBox>;
 const TableRow = ({ cells, isOdd }) => {
   const T = useT();
   return (
-    <tr style={{ background: isOdd ? T.elevated : T.surface }}>
+    <tr className="app-row" style={{ background: isOdd ? T.elevated : T.surface, transition: "background 0.12s ease" }}>
       {cells.map((cell, i) => (
         <td key={i} style={{
-          padding: "10px 16px", borderBottom: `1px solid ${T.borderSub}`,
-          fontSize: 15, color: T.text, fontFamily: i === 0 ? T.fontSans : T.fontMono,
+          padding: "11px 16px", borderBottom: `1px solid ${T.borderSub}`,
+          fontSize: 14, color: T.text, fontFamily: i === 0 ? T.fontSans : T.fontMono,
           fontWeight: i === 0 ? 500 : 400, verticalAlign: "middle",
         }}>
           {cell}
@@ -225,8 +229,8 @@ const Th = ({ children }) => {
   const T = useT();
   return (
     <th style={{
-      padding: "10px 16px", textAlign: "left",
-      fontSize: 13, fontWeight: 700, color: T.muted,
+      padding: "11px 16px", textAlign: "left",
+      fontSize: 12, fontWeight: 700, color: T.muted,
       textTransform: "uppercase", letterSpacing: "0.08em",
       borderBottom: `1px solid ${T.border}`,
       background: T.elevated, fontFamily: T.fontSans, whiteSpace: "nowrap",
@@ -239,13 +243,15 @@ const Th = ({ children }) => {
 const PrimaryBtn = ({ onClick, disabled, children }) => {
   const T = useT();
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button className="app-btn" onClick={onClick} disabled={disabled} style={{
       background: disabled ? T.elevated : T.green,
       color: disabled ? T.dim : T.bg === "#eef0f5" ? "#ffffff" : "#0d1117",
       border: disabled ? `1px solid ${T.border}` : "none",
-      borderRadius: 6, padding: "10px 24px",
-      fontSize: 16, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
-      fontFamily: T.fontSans, transition: "all 0.15s", letterSpacing: "0.01em",
+      borderRadius: 7, padding: "10px 24px",
+      fontSize: 15, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
+      fontFamily: T.fontSans, transition: "transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease",
+      letterSpacing: "0.01em",
+      boxShadow: disabled ? "none" : "0 1px 2px rgba(0,0,0,0.2)",
     }}>
       {children}
     </button>
@@ -255,12 +261,12 @@ const PrimaryBtn = ({ onClick, disabled, children }) => {
 const GhostBtn = ({ onClick, disabled, children }) => {
   const T = useT();
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button className="app-btn" onClick={onClick} disabled={disabled} style={{
       background: "transparent", color: disabled ? T.dim : T.muted,
       border: `1px solid ${disabled ? T.borderSub : T.border}`,
-      borderRadius: 6, padding: "10px 24px",
-      fontSize: 16, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
-      fontFamily: T.fontSans, transition: "all 0.15s",
+      borderRadius: 7, padding: "10px 24px",
+      fontSize: 15, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer",
+      fontFamily: T.fontSans, transition: "transform 0.12s ease, background 0.12s ease, color 0.12s ease",
     }}>
       {children}
     </button>
@@ -270,18 +276,21 @@ const GhostBtn = ({ onClick, disabled, children }) => {
 const DualBtn = ({ onClick, disabled, children }) => {
   const T = useT();
   return (
-    <button onClick={onClick} disabled={disabled} style={{
+    <button className="app-btn" onClick={onClick} disabled={disabled} style={{
       background: disabled ? T.elevated : "linear-gradient(135deg, #2563eb, #7c3aed)",
       color: disabled ? T.dim : "#ffffff",
       border: disabled ? `1px solid ${T.border}` : "none",
-      borderRadius: 6, padding: "12px 32px",
-      fontSize: 17, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
+      borderRadius: 7, padding: "12px 32px",
+      fontSize: 16, fontWeight: 700, cursor: disabled ? "not-allowed" : "pointer",
       fontFamily: T.fontSans, letterSpacing: "0.01em",
+      transition: "transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease",
+      boxShadow: disabled ? "none" : "0 2px 8px rgba(37,99,235,0.35)",
     }}>
       {children}
     </button>
   );
 };
+
 
 /* ─────────────────────────────────────────────
    SIDEBAR
@@ -315,16 +324,20 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
         </div>
         {STEPS.map((s, i) => {
           const active = i === step, done = i < step;
+          const clickable = i <= maxReached;
           return (
-            <button key={i} onClick={() => i <= maxReached && onJump(i)} style={{
+            <button key={i} onClick={() => clickable && onJump(i)} className={clickable ? "app-btn" : ""} style={{
               display: "flex", alignItems: "center", gap: 10, width: "100%",
               padding: "9px 10px", borderRadius: 6, border: "none",
-              cursor: i <= maxReached ? "pointer" : "default",
+              cursor: clickable ? "pointer" : "default",
               textAlign: "left", marginBottom: 2,
               background: active ? T.elevated : "transparent",
               outline: active ? `1px solid ${T.border}` : "none",
-              transition: "all 0.12s",
-            }}>
+              transition: "background 0.12s ease, transform 0.12s ease",
+            }}
+            onMouseEnter={e => { if (clickable && !active) e.currentTarget.style.background = T.elevated; }}
+            onMouseLeave={e => { if (clickable && !active) e.currentTarget.style.background = "transparent"; }}
+            >
               <div style={{
                 width: 22, height: 22, borderRadius: 4, flexShrink: 0,
                 display: "flex", alignItems: "center", justifyContent: "center",
@@ -396,6 +409,8 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
     <div style={{
       background: T.surface, borderBottom: `1px solid ${T.border}`,
       padding: "0 24px", minHeight: 52, display: "flex", alignItems: "center", gap: 8, flexShrink: 0,
+      boxShadow: T.bg === "#eef0f5" ? "0 1px 3px rgba(15,17,23,0.05)" : "0 1px 3px rgba(0,0,0,0.25)",
+      position: "relative", zIndex: 5,
     }}>
       <span style={{ fontSize: 15, color: T.muted, fontFamily: T.fontSans }}>Simulation</span>
       <span style={{ color: T.border, fontSize: 15 }}>›</span>
@@ -404,15 +419,16 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
       <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 16, overflow: "hidden" }}>
         {STEPS.map((s, i) => {
           const active = i === step, done = i < step;
+          const clickable = i <= maxReached;
           return (
             <React.Fragment key={i}>
-              <button onClick={() => i <= maxReached && onJump(i)} style={{
+              <button onClick={() => clickable && onJump(i)} className={clickable ? "app-btn" : ""} style={{
                 padding: "3px 10px", borderRadius: 4, fontSize: 14, fontWeight: active ? 700 : 400,
                 fontFamily: T.fontMono,
                 background: active ? T.greenBg : done ? T.elevated : "transparent",
                 color: active ? T.green : done ? T.muted : T.dim,
                 border: `1px solid ${active ? T.greenDim : done ? T.border : "transparent"}`,
-                cursor: i <= maxReached ? "pointer" : "default",
+                cursor: clickable ? "pointer" : "default",
                 whiteSpace: "nowrap",
               }}>
                 {done ? "✓ " : ""}{s.short}
@@ -443,6 +459,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
           {step + 1} / {STEPS.length}
         </div>
         <button
+          className="app-btn"
           onClick={() => setDark(d => !d)}
           title={dark ? "Switch to Light Mode" : "Switch to Dark Mode"}
           style={{
@@ -538,13 +555,18 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
           {machines.map(mc => {
             const sel = selectedId === mc.id;
             return (
-              <div key={mc.id} onClick={() => setSelectedId(mc.id)} style={{
-                flex: "1 1 160px", maxWidth: 200,
-                border: `2px solid ${sel ? T.green : T.border}`,
-                borderRadius: 10, overflow: "hidden", cursor: "pointer",
-                background: sel ? T.greenBg : T.elevated,
-                transition: "all 0.15s",
-              }}>
+              <div
+                key={mc.id} onClick={() => setSelectedId(mc.id)}
+                role="button" tabIndex={0}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedId(mc.id); } }}
+                className="app-clickable"
+                style={{
+                  flex: "1 1 160px", maxWidth: 200,
+                  border: `2px solid ${sel ? T.green : T.border}`,
+                  borderRadius: 10, overflow: "hidden",
+                  background: sel ? T.greenBg : T.elevated,
+                  boxShadow: sel ? `0 0 0 1px ${T.green}` : "none",
+                }}>
                 <div style={{ position: "relative", width: "100%", height: 110, overflow: "hidden", background: T.bg }}>
                   <img
                     src={getMachineImg(mc)}
@@ -2597,7 +2619,30 @@ export default function App() {
           ::-webkit-scrollbar { width: 6px; height: 6px; }
           ::-webkit-scrollbar-track { background: ${T.bg}; }
           ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 3px; }
+          ::-webkit-scrollbar-thumb:hover { background: ${T.dim}; }
           @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+          /* Buttons: crisp, tactile feedback instead of static flat states */
+          .app-btn { will-change: transform; }
+          .app-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.08); }
+          .app-btn:active:not(:disabled) { transform: translateY(0); filter: brightness(0.96); }
+          .app-btn:focus-visible { outline: 2px solid ${T.blue}; outline-offset: 2px; }
+          .app-btn:disabled { opacity: 0.7; }
+
+          /* Table rows: subtle highlight so dense tables are easier to scan */
+          .app-row:hover { background: ${T.blueBg} !important; }
+
+          /* Clickable cards (machine picker, pipeline nav, server rows) get a
+             gentle lift on hover instead of an abrupt color snap */
+          .app-clickable { transition: transform 0.14s ease, border-color 0.14s ease, box-shadow 0.14s ease; cursor: pointer; }
+          .app-clickable:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.28); }
+          .app-clickable:active { transform: translateY(0); }
+          .app-clickable:focus-visible { outline: 2px solid ${T.blue}; outline-offset: 2px; }
+
+          a, button { font-family: inherit; }
+          button { outline: none; }
+          .app-fade-in { animation: fadeIn 0.25s ease both; }
         `}</style>
         <div style={{ display: "flex", minHeight: "100vh", background: T.bg, color: T.text }}>
           <Sidebar step={step} maxReached={maxReached} onJump={i => i <= maxReached && setStep(i)} serverStatuses={serverStatuses} />
@@ -2609,12 +2654,15 @@ export default function App() {
               dark={dark} setDark={setDark}
             />
             <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto", background: T.bg }}>
-              {renderStep()}
+              <div key={step} className="app-fade-in">
+                {renderStep()}
+              </div>
             </div>
             <div style={{
               background: T.surface, borderTop: `1px solid ${T.border}`,
               padding: "12px 28px", display: "flex", justifyContent: "space-between", alignItems: "center",
               flexShrink: 0,
+              boxShadow: T.bg === "#eef0f5" ? "0 -1px 3px rgba(15,17,23,0.05)" : "0 -1px 3px rgba(0,0,0,0.25)",
             }}>
               <GhostBtn disabled={step === 0} onClick={() => setStep(p => p - 1)}>← Back</GhostBtn>
               <span style={{ fontSize: 14, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
