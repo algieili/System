@@ -5,7 +5,6 @@ import {
   LineChart, Line, ReferenceLine,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   PieChart, Pie, Cell,
-  RadialBarChart, RadialBar,
   ScatterChart, Scatter, ZAxis,
   ComposedChart,
 } from "recharts";
@@ -1554,19 +1553,37 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
 };
 
 /* ── VISUAL 4: Resource Utilization Gauge Pair ── */
+// Pure-SVG gauge arc math — avoids a Recharts RadialBarChart quirk where the
+// "background" track prop can render as a full circle instead of respecting
+// the gauge's start/end angle, which showed up as a stray big circle.
+const polarPoint = (cx, cy, r, angleDeg) => {
+  const rad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+};
+const describeGaugeArc = (cx, cy, r, startAngle, endAngle) => {
+  const start = polarPoint(cx, cy, r, endAngle);
+  const end = polarPoint(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
+};
+
 const MiniGauge = ({ label, value, color, sub }) => {
   const T = useT();
-  const data = [{ name: label, value: Math.min(value, 100), fill: color }];
+  const pct = Math.max(0, Math.min(100, value));
+  const startAngle = -120, endAngle = 120; // 240° sweep, matches a classic speedometer
+  const valueAngle = startAngle + (endAngle - startAngle) * (pct / 100);
+  const cx = 75, cy = 75, r = 58;
+  const trackPath = describeGaugeArc(cx, cy, r, startAngle, endAngle);
+  const valuePath = pct > 0 ? describeGaugeArc(cx, cy, r, startAngle, valueAngle) : null;
+
   return (
     <div style={{ flex: "1 1 200px", textAlign: "center" }}>
-      <div style={{ position: "relative", width: "100%", height: 150 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <RadialBarChart innerRadius="70%" outerRadius="100%" data={data} startAngle={210} endAngle={-30} barSize={16}>
-            <PolarAngleAxis type="number" domain={[0, 100]} angleAxisId={0} tick={false} />
-            <RadialBar dataKey="value" cornerRadius={8} background={{ fill: T.elevated }} />
-          </RadialBarChart>
-        </ResponsiveContainer>
-        <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ width: "100%", maxWidth: 170, margin: "0 auto", position: "relative" }}>
+        <svg viewBox="0 0 150 150" width="100%" height="150" style={{ display: "block" }}>
+          <path d={trackPath} fill="none" stroke={T.elevated} strokeWidth="14" strokeLinecap="round" />
+          {valuePath && <path d={valuePath} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />}
+        </svg>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           <div style={{ fontSize: 24, fontWeight: 800, color, fontFamily: T.fontMono }}>{value}%</div>
         </div>
       </div>
