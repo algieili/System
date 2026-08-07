@@ -1631,6 +1631,418 @@ const ImprovementComposedChart = ({ machine: m, gbfsData, psoData }) => {
   );
 };
 
+/* ─────────────────────────────────────────────
+   "COMPARISON & EVALUATION DASHBOARD" SECTION
+   Recreates the 3-way (Current System vs GBFS vs PSO) comparison
+   layout: system panels, combined bar chart, detailed table,
+   evaluation summary cards, gauges/donut/score row, workflow,
+   validation, and research conclusion.
+───────────────────────────────────────────── */
+
+// Estimates memory/storage/queue for an algorithm's run by scaling the
+// machine's own baseline readings by how its CPU utilization compares —
+// there's no per-algorithm telemetry for these fields, so this keeps the
+// numbers internally consistent (lower utilization → lower estimated load).
+const deriveAuxMetrics = (m, algoUtil) => {
+  const baseCpu = +m?.cpuUtilization || algoUtil || 1;
+  const scale = baseCpu ? algoUtil / baseCpu : 1;
+  return {
+    memory:  +(((m?.memoryUsage ?? 0)) * scale).toFixed(2),
+    storage: Math.round(((m?.storageUsage ?? m?.taskSize ?? 0)) * scale),
+    queue:   Math.max(0, Math.round(((m?.queueLength ?? 0)) * scale)),
+  };
+};
+
+const SystemComparisonPanels = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const gSrv = resolveServer(gbfsData.recommendedServer);
+  const pSrv = resolveServer(psoData.recommendedServer);
+  const gAux = deriveAuxMetrics(m, +gbfsData.utilization);
+  const pAux = deriveAuxMetrics(m, +psoData.utilization);
+
+  const panels = [
+    {
+      key: "base", title: "Current System (Before Offloading)", icon: "🖥",
+      color: T.amber, bg: T.amberBg,
+      left:  [["Latency", `${m.avgLatency} ms`], ["Processing Time", `${m.processingTime} ms`], ["Throughput", `${(m.throughput / 60).toFixed(2)} tasks/s`], ["Energy Consumption", `${m.energyConsumption} kWh`]],
+      right: [["CPU Utilization", `${m.cpuUtilization}%`], ["Memory Usage", `${m.memoryUsage} GB`], ["Storage Usage", `${m.storageUsage ?? m.taskSize} MB / task`], ["Queue Length", `${m.queueLength ?? 0} tasks`]],
+      note: "All tasks are processed locally on the IoT device.",
+    },
+    {
+      key: "gbfs", title: `GBFS Result (${gSrv.label})`, icon: gSrv.icon,
+      color: T.blue, bg: T.blueBg,
+      left:  [["Latency", `${gbfsData.latency} ms`], ["Processing Time", `${gbfsData.time} ms`], ["Throughput", `${gbfsData.throughput} tasks/s`], ["Energy Consumption", `${gbfsData.energy} kWh`]],
+      right: [["CPU Utilization", `${gbfsData.utilization}%`], ["Memory Usage", `${gAux.memory} GB`], ["Storage Usage", `${gAux.storage} MB / task`], ["Queue Length", `${gAux.queue} tasks`]],
+      note: `GBFS selected ${gSrv.label} with estimated metrics.`,
+    },
+    {
+      key: "pso", title: `PSO Result (${pSrv.label})`, icon: pSrv.icon,
+      color: T.purple, bg: T.purpleBg,
+      left:  [["Latency", `${psoData.latency} ms`], ["Processing Time", `${psoData.time} ms`], ["Throughput", `${psoData.throughput} tasks/s`], ["Energy Consumption", `${psoData.energy} kWh`]],
+      right: [["CPU Utilization", `${psoData.utilization}%`], ["Memory Usage", `${pAux.memory} GB`], ["Storage Usage", `${pAux.storage} MB / task`], ["Queue Length", `${pAux.queue} tasks`]],
+      note: `PSO selected ${pSrv.label} with optimal performance.`,
+    },
+  ];
+
+  return (
+    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+      {panels.map(p => (
+        <div key={p.key} style={{ flex: "1 1 300px", background: T.surface, border: `1px solid ${p.color}`, borderRadius: 8, overflow: "hidden" }}>
+          <div style={{ background: p.bg, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${p.color}` }}>
+            <span style={{ fontSize: 18 }}>{p.icon}</span>
+            <span style={{ fontSize: 14, fontWeight: 700, color: p.color, fontFamily: T.fontSans, letterSpacing: "0.03em" }}>{p.title.toUpperCase()}</span>
+          </div>
+          <div style={{ padding: "14px 16px", display: "flex", gap: 14 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              {p.left.map(([l, v]) => (
+                <div key={l}>
+                  <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{l}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+              {p.right.map(([l, v]) => (
+                <div key={l}>
+                  <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{l}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ padding: "8px 16px 12px", fontSize: 13, color: p.color, fontFamily: T.fontSans }}>{p.note}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const CombinedPerformanceBarChart = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const data = [
+    { metric: "Latency (ms)",         Base: +m.avgLatency,                     GBFS: +gbfsData.latency,     PSO: +psoData.latency },
+    { metric: "Processing Time (ms)", Base: +m.processingTime,                 GBFS: +gbfsData.time,        PSO: +psoData.time },
+    { metric: "Throughput (t/s)",     Base: +(m.throughput / 60).toFixed(2),   GBFS: +gbfsData.throughput,  PSO: +psoData.throughput },
+    { metric: "Energy (kWh)",         Base: +m.energyConsumption,              GBFS: +gbfsData.energy,      PSO: +psoData.energy },
+    { metric: "CPU Usage (%)",        Base: +m.cpuUtilization,                 GBFS: +gbfsData.utilization, PSO: +psoData.utilization },
+  ];
+  return (
+    <Card title="Performance Comparison Across All Systems" sub="Current System vs GBFS vs PSO — raw measured values" accent={T.blue}>
+      <ResponsiveContainer width="100%" height={300}>
+        <BarChart data={data} margin={{ top: 24, right: 10, left: 0, bottom: 10 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          <XAxis dataKey="metric" stroke={T.dim} fontSize={12} fontFamily={T.fontSans} interval={0} />
+          <YAxis stroke={T.dim} fontSize={13} fontFamily={T.fontMono} />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend
+            wrapperStyle={{ fontSize: 13, fontFamily: T.fontSans }}
+            formatter={(v) => v === "Base" ? "Current System (Before Offloading)" : v === "GBFS" ? "GBFS (Edge Server A)" : "PSO (Cloud Server B)"}
+          />
+          <Bar dataKey="Base" fill={T.amber}  radius={[4, 4, 0, 0]}><LabelList dataKey="Base" position="top" fill={T.amber}  fontSize={12} fontFamily={T.fontMono} /></Bar>
+          <Bar dataKey="GBFS" fill={T.blue}   radius={[4, 4, 0, 0]}><LabelList dataKey="GBFS" position="top" fill={T.blue}   fontSize={12} fontFamily={T.fontMono} /></Bar>
+          <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.purple} fontSize={12} fontFamily={T.fontMono} /></Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div style={{ marginTop: 12 }}>
+        <InfoBox color="blue">
+          <strong>Interpretation:</strong> Lower latency and processing time indicate faster execution. Higher throughput
+          indicates better system performance. The winning algorithm achieves the lowest latency while maintaining
+          higher throughput and lower energy usage.
+        </InfoBox>
+      </div>
+    </Card>
+  );
+};
+
+const DetailedNumericComparisonTable = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const gAux = deriveAuxMetrics(m, +gbfsData.utilization);
+  const pAux = deriveAuxMetrics(m, +psoData.utilization);
+
+  const rows = [
+    ["Latency (ms)",             +m.avgLatency,                          +gbfsData.latency,     +psoData.latency,     "lower"],
+    ["Processing Time (ms)",     +m.processingTime,                      +gbfsData.time,        +psoData.time,        "lower"],
+    ["Throughput (tasks/s)",     +(m.throughput / 60).toFixed(2),        +gbfsData.throughput,  +psoData.throughput,  "higher"],
+    ["Energy Consumption (kWh)", +m.energyConsumption,                   +gbfsData.energy,      +psoData.energy,      "lower"],
+    ["CPU Utilization (%)",      +m.cpuUtilization,                      +gbfsData.utilization, +psoData.utilization, "lower"],
+    ["Memory Usage (GB)",        +m.memoryUsage,                         gAux.memory,           pAux.memory,          "lower"],
+    ["Storage Usage (MB/task)",  +(m.storageUsage ?? m.taskSize ?? 0),   gAux.storage,          pAux.storage,         "lower"],
+    ["Queue Length (tasks)",     +(m.queueLength ?? 0),                  gAux.queue,            pAux.queue,           "lower"],
+  ];
+
+  const bestOf = (b, g, p, dir) => {
+    const vals = { Base: b, GBFS: g, PSO: p };
+    let bestKey = "Base";
+    Object.keys(vals).forEach(k => {
+      if (dir === "lower" ? vals[k] < vals[bestKey] : vals[k] > vals[bestKey]) bestKey = k;
+    });
+    return bestKey;
+  };
+
+  return (
+    <Card title="Detailed Numeric Comparison" sub="All systems, side by side" accent={T.purple}>
+      <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <thead><tr><Th>Metric</Th><Th>Current System</Th><Th>GBFS</Th><Th>PSO</Th><Th>Best</Th></tr></thead>
+        <tbody>
+          {rows.map(([label, b, g, p, dir], i) => {
+            const best = bestOf(b, g, p, dir);
+            return (
+              <TableRow key={label} isOdd={i % 2 === 1} cells={[
+                <span style={{ fontFamily: T.fontSans, color: T.text }}>{label}</span>,
+                <span style={{ fontFamily: T.fontMono, color: best === "Base" ? T.amber  : T.muted, fontWeight: best === "Base" ? 700 : 400 }}>{b}</span>,
+                <span style={{ fontFamily: T.fontMono, color: best === "GBFS" ? T.blue   : T.muted, fontWeight: best === "GBFS" ? 700 : 400 }}>{g}</span>,
+                <span style={{ fontFamily: T.fontMono, color: best === "PSO"  ? T.purple : T.muted, fontWeight: best === "PSO"  ? 700 : 400 }}>{p}</span>,
+                <Badge color={best === "PSO" ? "purple" : best === "GBFS" ? "blue" : "amber"}>{best === "Base" ? "Current" : best}</Badge>,
+              ]} />
+            );
+          })}
+        </tbody>
+      </table>
+    </Card>
+  );
+};
+
+const EvalStatCard = ({ icon, label, value, valueColor, sub1, sub2, caption }) => {
+  const T = useT();
+  return (
+    <div style={{ flex: "1 1 150px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 14px", textAlign: "center" }}>
+      <div style={{ width: 40, height: 40, borderRadius: "50%", background: T.elevated, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, margin: "0 auto 10px" }}>{icon}</div>
+      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: valueColor, fontFamily: T.fontMono, marginBottom: 6 }}>{value}</div>
+      {sub1 && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{sub1}</div>}
+      {sub2 && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 4 }}>{sub2}</div>}
+      {caption && <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, marginTop: 4, fontWeight: 600 }}>{caption}</div>}
+    </div>
+  );
+};
+
+const EvaluationSummaryGrid = ({ machine: m, gbfsData, psoData, offloadResult }) => {
+  const T = useT();
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+  const winnerData = gbfsWins ? gbfsData : psoData;
+
+  const baseLatency = +m.avgLatency, baseTime = +m.processingTime;
+  const baseThroughput = +(m.throughput / 60).toFixed(2);
+  const baseEnergy = +m.energyConsumption, baseCpu = +m.cpuUtilization;
+
+  const winLatency = +winnerData.latency, winTime = +winnerData.time;
+  const winThroughput = +winnerData.throughput, winEnergy = +winnerData.energy, winCpu = +winnerData.utilization;
+
+  const pct = (base, val, lowerBetter = true) =>
+    base ? +(((lowerBetter ? base - val : val - base) / base) * 100).toFixed(1) : null;
+
+  const latPct    = pct(baseLatency, winLatency, true);
+  const timePct   = pct(baseTime, winTime, true);
+  const thrPct    = pct(baseThroughput, winThroughput, false);
+  const energyPct = pct(baseEnergy, winEnergy, true);
+  const cpuPct    = pct(baseCpu, winCpu, true);
+
+  const measuredLat = offloadResult?.measuredLatency;
+  const predicted = Math.min(+gbfsData.latency, +psoData.latency);
+  const deviation = measuredLat ? Math.abs(measuredLat - predicted) / predicted * 100 : null;
+  const accuracy = deviation != null ? Math.max(0, 100 - deviation).toFixed(1) : null;
+
+  const arrow = (v) => v == null ? "" : v >= 0 ? "↓" : "↑";
+  const arrowUp = (v) => v == null ? "" : v >= 0 ? "↑" : "↓";
+
+  const cards = [
+    { icon: "🎯", label: "Prediction Accuracy", value: accuracy != null ? `${accuracy}%` : "—", color: T.blue,
+      sub1: accuracy != null ? `Predicted: ${predicted} ms` : "Awaiting offload", sub2: accuracy != null ? `Actual: ${measuredLat} ms` : "" },
+    { icon: "📉", label: "Latency Improvement", value: latPct != null ? `${arrow(latPct)} ${Math.abs(latPct)}%` : "—", color: T.green,
+      sub1: `${baseLatency} ms → ${winLatency} ms`, caption: "Lower is better" },
+    { icon: "⚙️", label: "Processing Time Improvement", value: timePct != null ? `${arrow(timePct)} ${Math.abs(timePct)}%` : "—", color: T.green,
+      sub1: `${baseTime} ms → ${winTime} ms`, caption: "Lower is better" },
+    { icon: "📈", label: "Throughput Improvement", value: thrPct != null ? `${arrowUp(thrPct)} ${Math.abs(thrPct)}%` : "—", color: T.green,
+      sub1: `${baseThroughput} → ${winThroughput} tasks/s`, caption: "Higher is better" },
+    { icon: "⚡", label: "Energy Saving", value: energyPct != null ? `${arrow(energyPct)} ${Math.abs(energyPct)}%` : "—", color: T.amber,
+      sub1: `${baseEnergy} kWh → ${winEnergy} kWh`, caption: "Lower is better" },
+    { icon: "🥧", label: "Resource Utilization", value: cpuPct != null ? `${arrow(cpuPct)} ${Math.abs(cpuPct)}%` : "—", color: T.purple,
+      sub1: `${baseCpu}% → ${winCpu}%`, caption: "Lower is better" },
+  ];
+
+  return (
+    <Card title="Evaluation Summary" sub={`${winnerAlgo} vs current baseline`} accent={T.green}>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+        {cards.map(c => (
+          <EvalStatCard key={c.label} icon={c.icon} label={c.label} value={c.value} valueColor={c.color} sub1={c.sub1} sub2={c.sub2} caption={c.caption} />
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+const CompositeScoreCard = ({ gbfsData, psoData }) => {
+  const T = useT();
+  const defs = [
+    { g: gbfsData.latency,     p: psoData.latency,     lower: true },
+    { g: gbfsData.time,        p: psoData.time,        lower: true },
+    { g: gbfsData.throughput,  p: psoData.throughput,  lower: false },
+    { g: gbfsData.energy,      p: psoData.energy,      lower: true },
+    { g: gbfsData.utilization, p: psoData.utilization, lower: true },
+  ];
+  const scores = defs.map(d => radarScore(d.g, d.p, d.lower));
+  const avgG = Math.round(scores.reduce((a, s) => a + s.GBFS, 0) / scores.length);
+  const avgP = Math.round(scores.reduce((a, s) => a + s.PSO, 0) / scores.length);
+  const leaderName = avgG >= avgP ? "GBFS" : "PSO";
+
+  const rows = [
+    { key: "GBFS", label: "GBFS (Edge Server A)", value: avgG, color: T.blue },
+    { key: "PSO",  label: "PSO (Cloud Server B)",  value: avgP, color: T.purple },
+  ];
+
+  return (
+    <Card accent={T.green} title="Composite Performance Score" sub="Out of 100">
+      {rows.map(r => (
+        <div key={r.key} style={{ marginBottom: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontFamily: T.fontSans, color: T.text, marginBottom: 5 }}>
+            <span>{r.label}</span>
+            <span style={{ fontFamily: T.fontMono, fontWeight: 700, color: r.color }}>
+              {r.value} / 100 {leaderName === r.key && "🏆"}
+            </span>
+          </div>
+          <div style={{ height: 12, background: T.elevated, borderRadius: 6, overflow: "hidden", border: `1px solid ${T.border}` }}>
+            <div style={{ width: `${r.value}%`, height: "100%", background: r.color, borderRadius: 6, transition: "width 0.4s ease" }} />
+          </div>
+        </div>
+      ))}
+    </Card>
+  );
+};
+
+const SimulationWorkflowCard = () => {
+  const T = useT();
+  const steps = [
+    { icon: "⚙",  n: 1, title: "Machine Setup",       desc: "IoT device and task profile configured." },
+    { icon: "🗄", n: 2, title: "Data Collection",      desc: "Real-time metrics collected from device." },
+    { icon: "💻", n: 3, title: "Algorithm Execution",  desc: "GBFS and PSO evaluate the same task profile." },
+    { icon: "🖥", n: 4, title: "Server Selection",     desc: "Best server selected based on lowest latency." },
+    { icon: "📤", n: 5, title: "Task Offloading",      desc: "Task dispatched to the selected server." },
+    { icon: "📈", n: 6, title: "Actual Measurement",   desc: "Real latency measured after execution." },
+    { icon: "📊", n: 7, title: "Evaluation",           desc: "Results analyzed and saved to the system." },
+  ];
+  return (
+    <Card title="Simulation Workflow (Process Flow)" accent={T.blue}>
+      <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 0, justifyContent: "center" }}>
+        {steps.map((s, idx) => (
+          <React.Fragment key={s.n}>
+            {idx > 0 && <div style={{ display: "flex", alignItems: "center", padding: "34px 4px 0", flexShrink: 0 }}>
+              <span style={{ color: T.dim, fontSize: 13 }}>→</span>
+            </div>}
+            <div style={{ flex: "0 0 auto", width: 100, textAlign: "center" }}>
+              <div style={{
+                width: 46, height: 46, borderRadius: "50%", margin: "0 auto 8px",
+                background: T.elevated, border: `1px solid ${T.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20,
+              }}>{s.icon}</div>
+              <div style={{ fontSize: 12, color: T.blue, fontFamily: T.fontMono, fontWeight: 700, marginBottom: 2 }}>{s.n}</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 3 }}>{s.title}</div>
+              <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.4 }}>{s.desc}</div>
+            </div>
+          </React.Fragment>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
+const ValidationSummaryCard = ({ gbfsData, psoData, offloadResult }) => {
+  const T = useT();
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+  const predicted = Math.min(+gbfsData.latency, +psoData.latency);
+  const measuredLat = offloadResult?.measuredLatency;
+  const deviationPct = measuredLat ? (Math.abs(measuredLat - predicted) / predicted * 100).toFixed(1) : null;
+  const deviationOk = measuredLat ? +deviationPct <= 20 : null;
+
+  return (
+    <Card title={`Validation (${winnerAlgo})`} accent={measuredLat ? (deviationOk ? T.green : T.amber) : T.dim}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+        <Stat label="Predicted Latency" value={`${predicted} ms`} color={gbfsWins ? "blue" : "purple"} />
+        <Stat label="Actual Latency" value={measuredLat ? `${measuredLat} ms` : "—"} color="green" />
+        <Stat label="Deviation" value={deviationPct != null ? `${deviationPct}%` : "—"} color={deviationOk ? "green" : "amber"} />
+      </div>
+      {measuredLat ? (
+        <InfoBox color={deviationOk ? "green" : "amber"}>
+          {deviationOk
+            ? `The measured latency (${measuredLat} ms) is within the 20% simulation tolerance. The prediction is validated.`
+            : `The measured latency (${measuredLat} ms) deviates ${deviationPct}% from the prediction, above the 20% tolerance band.`}
+        </InfoBox>
+      ) : (
+        <InfoBox color="amber">Offload the task to unlock validation against the real measured latency.</InfoBox>
+      )}
+    </Card>
+  );
+};
+
+const ResearchConclusionCard = ({ machine: m, gbfsData, psoData }) => {
+  const T = useT();
+  const gbfsWins = gbfsData.latency <= psoData.latency;
+  const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+  const decidedSrv = resolveServer((gbfsWins ? gbfsData : psoData).recommendedServer);
+
+  return (
+    <Card title="Research Conclusion" accent={T.green}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+        <div style={{
+          flexShrink: 0, width: 40, height: 40, borderRadius: "50%",
+          background: T.greenBg, border: `1px solid ${T.greenDim}`,
+          display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: T.green,
+        }}>✓</div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: T.green, fontFamily: T.fontSans, marginBottom: 6 }}>
+            {winnerAlgo} is the optimal algorithm.
+          </div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.6 }}>
+            Compared with the baseline system before offloading, {winnerAlgo} produced lower latency, lower processing
+            time, reduced resource utilization, and improved throughput on {decidedSrv.label} — making it the optimal
+            algorithm for {m.machineId}'s simulated IoT task offloading environment.
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+};
+
+const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadResult }) => {
+  const T = useT();
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 16 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: T.text, fontFamily: T.fontSans, letterSpacing: "0.02em" }}>
+          COMPARISON &amp; EVALUATION DASHBOARD
+        </div>
+        <div style={{ fontSize: 13, color: T.blue, fontFamily: T.fontSans, marginTop: 2 }}>
+          Baseline (No Offloading) vs GBFS vs PSO
+        </div>
+      </div>
+
+      <SystemComparisonPanels machine={m} gbfsData={gbfsData} psoData={psoData} />
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ flex: "2 1 520px" }}><CombinedPerformanceBarChart machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
+        <div style={{ flex: "1 1 380px" }}><DetailedNumericComparisonTable machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
+      </div>
+
+      <div style={{ marginBottom: 16 }}>
+        <EvaluationSummaryGrid machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+      </div>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ flex: "1 1 300px" }}><UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} /></div>
+        <div style={{ flex: "1 1 300px" }}><EnergyDonutChart gbfsData={gbfsData} psoData={psoData} /></div>
+        <div style={{ flex: "1 1 300px" }}><CompositeScoreCard gbfsData={gbfsData} psoData={psoData} /></div>
+      </div>
+
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ flex: "2 1 480px" }}><SimulationWorkflowCard /></div>
+        <div style={{ flex: "1 1 260px" }}><ValidationSummaryCard gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} /></div>
+        <div style={{ flex: "1 1 260px" }}><ResearchConclusionCard machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
+      </div>
+    </div>
+  );
+};
+
 const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
@@ -1670,7 +2082,9 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         </p>
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+      <ComparisonEvaluationDashboard machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+
+      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", marginTop: 24 }}>
         <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color={gbfsWins ? "blue" : "purple"} />
         <Stat label="Algo-Chosen Server" value={decidedSrv.label}   color={serverColor(decidedKey)} mono={false} />
         <Stat label="GBFS Latency"       value={`${gbfsBase} ms`}   color="blue" />
