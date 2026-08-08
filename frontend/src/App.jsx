@@ -1495,14 +1495,12 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
     <Card title="Composite Efficiency Score" sub="Average performance score across all 5 metrics" accent={T.purple}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: "0 0 auto", position: "relative", width: 200, height: 200 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270} isAnimationActive={false}>
-                {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
-              </Pie>
-              <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart width={200} height={200}>
+            <Pie data={data} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270} isAnimationActive={false}>
+              {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
+            </Pie>
+            <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+          </PieChart>
           {/* Explicit themed disc behind the donut hole, so the center never
               falls back to a stray white/blank circle regardless of host styles. */}
           <div style={{
@@ -1557,18 +1555,17 @@ const EnergyDonutChart = ({ machine: m, gbfsData, psoData }) => {
     <Card title="Energy Consumption Split" sub="Share of combined energy utilization, by algorithm" accent={T.amber}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: "0 0 auto", position: "relative", width: 190, height: 190 }}>
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data} dataKey="value" nameKey="name"
-                innerRadius={58} outerRadius={88} paddingAngle={3}
-                startAngle={90} endAngle={-270} isAnimationActive={false}
-              >
-                {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
-              </Pie>
-              <Tooltip formatter={(v, n, entry) => [`${v} kWh (${entry.payload.pct}%)`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart width={190} height={190}>
+            <Pie
+              data={data} dataKey="value" nameKey="name"
+              cx={95} cy={95}
+              innerRadius={58} outerRadius={88} paddingAngle={3}
+              startAngle={90} endAngle={-270} isAnimationActive={false}
+            >
+              {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
+            </Pie>
+            <Tooltip formatter={(v, n, entry) => [`${v} kWh (${entry.payload.pct}%)`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+          </PieChart>
           {/* Explicit themed disc behind the donut hole so the center never
               falls back to a stray blank/white circle. */}
           <div style={{
