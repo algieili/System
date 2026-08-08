@@ -1538,7 +1538,7 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
 };
 
 /* ── VISUAL 3: Energy Consumption Split ── */
-const EnergyDonutChart = ({ gbfsData, psoData }) => {
+const EnergyDonutChart = ({ machine: m, gbfsData, psoData }) => {
   const T = useT();
   const g = Math.max(0.001, +gbfsData.energy), p = Math.max(0.001, +psoData.energy);
   const total = g + p;
@@ -1547,19 +1547,39 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
     { name: "PSO",  value: p, fill: T.purple, pct: +(p / total * 100).toFixed(1) },
   ];
   const saver = g <= p ? "GBFS" : "PSO";
+  const saverColor = g <= p ? T.blue : T.purple;
+  const winnerEnergy = Math.min(g, p);
+
+  const baseEnergy = m?.energyConsumption != null ? +m.energyConsumption : null;
+  const savingsPct = baseEnergy ? +(((baseEnergy - winnerEnergy) / baseEnergy) * 100).toFixed(1) : null;
+
   return (
     <Card title="Energy Consumption Split" sub="Share of combined energy utilization, by algorithm" accent={T.amber}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: "0 0 auto", width: 200, height: 200 }}>
+        <div style={{ flex: "0 0 auto", position: "relative", width: 190, height: 190 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={0} outerRadius={92} label={({ pct }) => `${pct}%`}
-                labelLine={false} isAnimationActive={false} style={{ fontSize: 13, fontFamily: T.fontMono, fill: T.text }}>
+              <Pie
+                data={data} dataKey="value" nameKey="name"
+                innerRadius={58} outerRadius={88} paddingAngle={3}
+                startAngle={90} endAngle={-270} isAnimationActive={false}
+              >
                 {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
               </Pie>
-              <Tooltip formatter={(v, n) => [`${v} kWh`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+              <Tooltip formatter={(v, n, entry) => [`${v} kWh (${entry.payload.pct}%)`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
             </PieChart>
           </ResponsiveContainer>
+          {/* Explicit themed disc behind the donut hole so the center never
+              falls back to a stray blank/white circle. */}
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 108, height: 108, borderRadius: "50%", background: T.surface,
+            border: `1px solid ${T.borderSub}`, pointerEvents: "none",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: saverColor, fontFamily: T.fontMono }}>{saver}</div>
+            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans }}>most efficient</div>
+          </div>
         </div>
         <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 6 }}>
           {data.map(d => (
@@ -1571,10 +1591,27 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
                 <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
               </div>
-              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>{d.value} kWh</span>
+              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>
+                {d.value} kWh <span style={{ fontSize: 12, color: T.muted, fontWeight: 400 }}>({d.pct}%)</span>
+              </span>
             </div>
           ))}
-          <InfoBox color="amber"><strong>{saver}</strong> is the more energy-efficient choice for this task.</InfoBox>
+          {baseEnergy != null && (
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              background: T.elevated, border: `1px dashed ${T.border}`, borderRadius: 6, padding: "6px 9px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <span style={{ width: 10, height: 10, borderRadius: 2, background: T.dim, display: "inline-block" }} />
+                <span style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, fontWeight: 600 }}>Current System</span>
+              </div>
+              <span style={{ fontSize: 15, color: T.muted, fontFamily: T.fontMono, fontWeight: 700 }}>{baseEnergy} kWh</span>
+            </div>
+          )}
+          <InfoBox color="amber">
+            <strong>{saver}</strong> is the more energy-efficient choice for this task
+            {savingsPct != null && <> — <strong>{savingsPct}%</strong> less energy than the current (non-offloaded) system</>}.
+          </InfoBox>
         </div>
       </div>
     </Card>
@@ -2076,7 +2113,7 @@ const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadR
 
       <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginBottom: 10 }}>
         <UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} />
-        <EnergyDonutChart gbfsData={gbfsData} psoData={psoData} />
+        <EnergyDonutChart machine={m} gbfsData={gbfsData} psoData={psoData} />
         <CompositeScoreCard gbfsData={gbfsData} psoData={psoData} />
       </div>
 
@@ -2261,7 +2298,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
       <TradeoffBubbleChart machine={m} gbfsData={gbfsData} psoData={psoData} />
       <EfficiencyDonutChart gbfsData={gbfsData} psoData={psoData} />
-      <EnergyDonutChart gbfsData={gbfsData} psoData={psoData} />
+      <EnergyDonutChart machine={m} gbfsData={gbfsData} psoData={psoData} />
       <UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} />
       <ImprovementComposedChart machine={m} gbfsData={gbfsData} psoData={psoData} />
 
