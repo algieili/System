@@ -1493,41 +1493,41 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
   const leader = avgG >= avgP ? "GBFS" : "PSO";
   return (
     <Card title="Composite Efficiency Score" sub="Average performance score across all 5 metrics" accent={T.purple}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: "0 0 auto", position: "relative", width: 200, height: 200 }}>
-          <PieChart width={200} height={200}>
-            <Pie data={data} dataKey="value" nameKey="name" cx={100} cy={100} innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270} isAnimationActive={false}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 auto", position: "relative", width: 150, height: 150 }}>
+          <PieChart width={150} height={150}>
+            <Pie data={data} dataKey="value" nameKey="name" cx={75} cy={75} innerRadius={46} outerRadius={69} paddingAngle={3} startAngle={90} endAngle={-270} isAnimationActive={false}>
               {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
             </Pie>
-            <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+            <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 12 }} />
           </PieChart>
           {/* Explicit themed disc behind the donut hole, so the center never
               falls back to a stray white/blank circle regardless of host styles. */}
           <div style={{
             position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 118, height: 118, borderRadius: "50%", background: T.surface,
+            width: 88, height: 88, borderRadius: "50%", background: T.surface,
             border: `1px solid ${T.borderSub}`, pointerEvents: "none",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: leader === "GBFS" ? T.blue : T.purple, fontFamily: T.fontMono }}>{leader}</div>
-            <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>leads</div>
+            <div style={{ fontSize: 17, fontWeight: 800, color: leader === "GBFS" ? T.blue : T.purple, fontFamily: T.fontMono }}>{leader}</div>
+            <div style={{ fontSize: 11, color: T.muted, fontFamily: T.fontSans }}>leads</div>
           </div>
         </div>
-        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ flex: "1 1 180px", display: "flex", flexDirection: "column", gap: 5 }}>
           {data.map(d => (
             <div key={d.name} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
-                <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: d.fill, display: "inline-block" }} />
+                <span style={{ fontSize: 13, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
               </div>
-              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>{d.value.toFixed(1)} <span style={{ fontSize: 13, color: T.muted, fontWeight: 400 }}>/ {(total).toFixed(0)}</span></span>
+              <span style={{ fontSize: 13, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>{d.value.toFixed(1)} <span style={{ fontSize: 11, color: T.muted, fontWeight: 400 }}>/ {(total).toFixed(0)}</span></span>
             </div>
           ))}
-          <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, lineHeight: 1.5 }}>
-            Each metric contributes up to 100 pts, awarded proportionally to how close an algorithm got to the better result on that axis. Higher combined score wins.
+          <div style={{ fontSize: 11, color: T.dim, fontFamily: T.fontSans, lineHeight: 1.4 }}>
+            Each metric contributes up to 100 pts, awarded proportionally to how close an algorithm got to the better result. Higher combined score wins.
           </div>
         </div>
       </div>
@@ -1553,61 +1553,61 @@ const EnergyDonutChart = ({ machine: m, gbfsData, psoData }) => {
 
   return (
     <Card title="Energy Consumption Split" sub="Share of combined energy utilization, by algorithm" accent={T.amber}>
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: "0 0 auto", position: "relative", width: 190, height: 190 }}>
-          <PieChart width={190} height={190}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ flex: "0 0 auto", position: "relative", width: 145, height: 145 }}>
+          <PieChart width={145} height={145}>
             <Pie
               data={data} dataKey="value" nameKey="name"
-              cx={95} cy={95}
-              innerRadius={58} outerRadius={88} paddingAngle={3}
+              cx={72.5} cy={72.5}
+              innerRadius={44} outerRadius={67} paddingAngle={3}
               startAngle={90} endAngle={-270} isAnimationActive={false}
             >
               {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
             </Pie>
-            <Tooltip formatter={(v, n, entry) => [`${v} kWh (${entry.payload.pct}%)`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
+            <Tooltip formatter={(v, n, entry) => [`${v} kWh (${entry.payload.pct}%)`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 12 }} />
           </PieChart>
           {/* Explicit themed disc behind the donut hole so the center never
               falls back to a stray blank/white circle. */}
           <div style={{
             position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-            width: 108, height: 108, borderRadius: "50%", background: T.surface,
+            width: 82, height: 82, borderRadius: "50%", background: T.surface,
             border: `1px solid ${T.borderSub}`, pointerEvents: "none",
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
           }}>
-            <div style={{ fontSize: 20, fontWeight: 800, color: saverColor, fontFamily: T.fontMono }}>{saver}</div>
-            <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans }}>most efficient</div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: saverColor, fontFamily: T.fontMono }}>{saver}</div>
+            <div style={{ fontSize: 10, color: T.muted, fontFamily: T.fontSans }}>most efficient</div>
           </div>
         </div>
-        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ flex: "1 1 180px", display: "flex", flexDirection: "column", gap: 5 }}>
           {data.map(d => (
             <div key={d.name} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 5, padding: "5px 8px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
-                <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: d.fill, display: "inline-block" }} />
+                <span style={{ fontSize: 13, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
               </div>
-              <span style={{ fontSize: 15, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>
-                {d.value} kWh <span style={{ fontSize: 12, color: T.muted, fontWeight: 400 }}>({d.pct}%)</span>
+              <span style={{ fontSize: 13, color: d.fill, fontFamily: T.fontMono, fontWeight: 700 }}>
+                {d.value} kWh <span style={{ fontSize: 11, color: T.muted, fontWeight: 400 }}>({d.pct}%)</span>
               </span>
             </div>
           ))}
           {baseEnergy != null && (
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: T.elevated, border: `1px dashed ${T.border}`, borderRadius: 6, padding: "6px 9px",
+              background: T.elevated, border: `1px dashed ${T.border}`, borderRadius: 5, padding: "5px 8px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 2, background: T.dim, display: "inline-block" }} />
-                <span style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, fontWeight: 600 }}>Current System</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: T.dim, display: "inline-block" }} />
+                <span style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, fontWeight: 600 }}>Current System</span>
               </div>
-              <span style={{ fontSize: 15, color: T.muted, fontFamily: T.fontMono, fontWeight: 700 }}>{baseEnergy} kWh</span>
+              <span style={{ fontSize: 13, color: T.muted, fontFamily: T.fontMono, fontWeight: 700 }}>{baseEnergy} kWh</span>
             </div>
           )}
           <InfoBox color="amber">
-            <strong>{saver}</strong> is the more energy-efficient choice for this task
-            {savingsPct != null && <> — <strong>{savingsPct}%</strong> less energy than the current (non-offloaded) system</>}.
+            <strong>{saver}</strong> is the more energy-efficient choice
+            {savingsPct != null && <> — <strong>{savingsPct}%</strong> less energy than the current system</>}.
           </InfoBox>
         </div>
       </div>
