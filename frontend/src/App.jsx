@@ -163,12 +163,12 @@ const Card = ({ title, sub, children, accent }) => {
   return (
     <div className="app-surface" style={{
       background: T.surface, border: `1px solid ${T.border}`,
-      borderRadius: 10, marginBottom: 16, overflow: "hidden",
+      borderRadius: 10, marginBottom: 12, overflow: "hidden",
       boxShadow: T.bg === "#eef0f5" ? "0 1px 3px rgba(15,17,23,0.06)" : "0 1px 3px rgba(0,0,0,0.22)",
     }}>
       {(title || sub) && (
         <div style={{
-          padding: "14px 20px", borderBottom: `1px solid ${T.borderSub}`,
+          padding: "11px 16px", borderBottom: `1px solid ${T.borderSub}`,
           display: "flex", alignItems: "baseline", gap: 10,
           background: T.elevated,
         }}>
@@ -179,7 +179,7 @@ const Card = ({ title, sub, children, accent }) => {
           </div>
         </div>
       )}
-      <div style={{ padding: "20px" }}>{children}</div>
+      <div style={{ padding: "16px" }}>{children}</div>
     </div>
   );
 };
@@ -1267,8 +1267,8 @@ const RadarTooltip = ({ active, payload, label, rows }) => {
   if (!active || !payload?.length) return null;
   const row = rows.find(r => r.metric === label);
   return (
-    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
-      <div style={{ fontSize: 14, color: T.muted, marginBottom: 6 }}>{label}</div>
+    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px", fontFamily: T.fontMono }}>
+      <div style={{ fontSize: 14, color: T.muted, marginBottom: 5 }}>{label}</div>
       <div style={{ fontSize: 15, color: T.blue, marginBottom: 3 }}>GBFS: <strong>{row?.GBFSraw} {row?.unit}</strong></div>
       <div style={{ fontSize: 15, color: T.purple }}>PSO: <strong>{row?.PSOraw} {row?.unit}</strong></div>
     </div>
@@ -1297,18 +1297,18 @@ const SummaryRadarChart = ({ gbfsData, psoData }) => {
   });
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{ marginBottom: 12 }}>
       <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 2 }}>
         Performance Radar
       </div>
-      <div style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, marginBottom: 10 }}>
+      <div style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, marginBottom: 6 }}>
         Every axis points outward toward "better" — a bigger shape means stronger overall performance.
       </div>
-      <div style={{ display: "flex", gap: 16, marginBottom: 6, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 5, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.blue, display: "inline-block" }} /> GBFS (Edge Server A)
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO (Cloud Server B)
         </div>
       </div>
@@ -1352,17 +1352,17 @@ const WinTallyChart = ({ gbfsData, psoData }) => {
   const psoPct  = 100 - gbfsPct;
 
   return (
-    <div style={{ marginBottom: 20 }}>
+    <div style={{ marginBottom: 12 }}>
       <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginBottom: 2 }}>
         Metric Win Tally
       </div>
-      <div style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, marginBottom: 12 }}>
+      <div style={{ fontSize: 14, color: T.muted, fontFamily: T.fontSans, marginBottom: 8 }}>
         Head-to-head count of which algorithm came out ahead on each of the {results.length} measured metrics.
       </div>
 
       <div style={{
         display: "flex", height: 34, borderRadius: 8, overflow: "hidden",
-        border: `1px solid ${T.border}`, marginBottom: 10,
+        border: `1px solid ${T.border}`, marginBottom: 6,
       }}>
         {gbfsWinCount > 0 && (
           <div style={{
@@ -1386,25 +1386,25 @@ const WinTallyChart = ({ gbfsData, psoData }) => {
         )}
       </div>
 
-      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.blue, display: "inline-block" }} />
           GBFS won <strong style={{ color: T.text }}>{gbfsWinCount}</strong> of {results.length}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 14, fontFamily: T.fontSans, color: T.muted }}>
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} />
           PSO won <strong style={{ color: T.text }}>{psoWinCount}</strong> of {results.length}
         </div>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
         {results.map(r => (
           <div key={r.label} style={{
             flex: "1 1 150px",
             border: `1px solid ${r.winner === "GBFS" ? T.blueDim : T.purpleDim}`,
             background: r.winner === "GBFS" ? T.blueBg : T.purpleBg,
-            borderRadius: 6, padding: "8px 10px",
-            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+            borderRadius: 6, padding: "6px 6px",
+            display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
           }}>
             <span style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{r.label}</span>
             <Badge color={r.winner === "GBFS" ? "blue" : "purple"}>{r.winner}</Badge>
@@ -1425,7 +1425,7 @@ const BubbleTooltip = ({ active, payload }) => {
   const d = payload[0]?.payload;
   if (!d) return null;
   return (
-    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px", fontFamily: T.fontMono }}>
+    <div style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px", fontFamily: T.fontMono }}>
       <div style={{ fontSize: 13, color: d.color, marginBottom: 4, fontWeight: 700 }}>{d.name}</div>
       <div style={{ fontSize: 13, color: T.muted }}>Latency: <strong style={{ color: T.text }}>{d.x} ms</strong></div>
       <div style={{ fontSize: 13, color: T.muted }}>Utilization: <strong style={{ color: T.text }}>{d.y}%</strong></div>
@@ -1459,9 +1459,9 @@ const TradeoffBubbleChart = ({ machine: m, gbfsData, psoData }) => {
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
-      <div style={{ display: "flex", gap: 16, marginTop: 6, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 10, marginTop: 5, flexWrap: "wrap", justifyContent: "center" }}>
         {data.map(d => (
-          <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontFamily: T.fontSans, color: T.muted }}>
+          <div key={d.name} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 13, fontFamily: T.fontSans, color: T.muted }}>
             <span style={{ width: 10, height: 10, borderRadius: "50%", background: d.fill, display: "inline-block" }} /> {d.name}
           </div>
         ))}
@@ -1493,7 +1493,7 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
   const leader = avgG >= avgP ? "GBFS" : "PSO";
   return (
     <Card title="Composite Efficiency Score" sub="Average performance score across all 5 metrics" accent={T.purple}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: "0 0 auto", position: "relative", width: 200, height: 200 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -1515,13 +1515,13 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
             <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>leads</div>
           </div>
         </div>
-        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 6 }}>
           {data.map(d => (
             <div key={d.name} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
                 <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
               </div>
@@ -1549,7 +1549,7 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
   const saver = g <= p ? "GBFS" : "PSO";
   return (
     <Card title="Energy Consumption Split" sub="Share of combined energy utilization, by algorithm" accent={T.amber}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ flex: "0 0 auto", width: 200, height: 200 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
@@ -1561,13 +1561,13 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
             </PieChart>
           </ResponsiveContainer>
         </div>
-        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ flex: "1 1 200px", display: "flex", flexDirection: "column", gap: 6 }}>
           {data.map(d => (
             <div key={d.name} style={{
               display: "flex", alignItems: "center", justifyContent: "space-between",
-              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 14px",
+              background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "6px 9px",
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ width: 10, height: 10, borderRadius: 2, background: d.fill, display: "inline-block" }} />
                 <span style={{ fontSize: 14, color: T.text, fontFamily: T.fontSans, fontWeight: 600 }}>{d.name}</span>
               </div>
@@ -1626,11 +1626,11 @@ const UtilizationGaugePair = ({ gbfsData, psoData }) => {
   const T = useT();
   return (
     <Card title="Resource Utilization Gauges" sub="Edge/compute load required by each algorithm's chosen path" accent={T.green}>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", justifyContent: "center" }}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
         <MiniGauge label="GBFS" value={+gbfsData.utilization} color={T.blue} sub={`${resolveServer(gbfsData.recommendedServer)?.label ?? ""}`} />
         <MiniGauge label="PSO" value={+psoData.utilization} color={T.purple} sub={`${resolveServer(psoData.recommendedServer)?.label ?? ""}`} />
       </div>
-      <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, marginTop: 8, textAlign: "center" }}>
+      <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, marginTop: 6, textAlign: "center" }}>
         Lower utilization leaves more headroom for other tasks queued on the same server.
       </div>
     </Card>
@@ -1731,15 +1731,15 @@ const SystemComparisonPanels = ({ machine: m, gbfsData, psoData }) => {
   ];
 
   return (
-    <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
+    <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginBottom: 10 }}>
       {panels.map(p => (
         <div key={p.key} style={{ background: T.surface, border: `1px solid ${p.color}`, borderRadius: 8, overflow: "hidden" }}>
-          <div style={{ background: p.bg, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${p.color}` }}>
+          <div style={{ background: p.bg, padding: "8px 10px", display: "flex", alignItems: "center", gap: 6, borderBottom: `1px solid ${p.color}` }}>
             <span style={{ fontSize: 18 }}>{p.icon}</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: p.color, fontFamily: T.fontSans, letterSpacing: "0.03em" }}>{p.title.toUpperCase()}</span>
           </div>
-          <div style={{ padding: "14px 16px", display: "flex", gap: 14 }}>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ padding: "9px 10px", display: "flex", gap: 9 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
               {p.left.map(([l, v]) => (
                 <div key={l}>
                   <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{l}</div>
@@ -1747,7 +1747,7 @@ const SystemComparisonPanels = ({ machine: m, gbfsData, psoData }) => {
                 </div>
               ))}
             </div>
-            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 6 }}>
               {p.right.map(([l, v]) => (
                 <div key={l}>
                   <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{l}</div>
@@ -1756,7 +1756,7 @@ const SystemComparisonPanels = ({ machine: m, gbfsData, psoData }) => {
               ))}
             </div>
           </div>
-          <div style={{ padding: "8px 16px 12px", fontSize: 13, color: p.color, fontFamily: T.fontSans }}>{p.note}</div>
+          <div style={{ padding: "6px 10px 8px", fontSize: 13, color: p.color, fontFamily: T.fontSans }}>{p.note}</div>
         </div>
       ))}
     </div>
@@ -1789,7 +1789,7 @@ const CombinedPerformanceBarChart = ({ machine: m, gbfsData, psoData }) => {
           <Bar dataKey="PSO"  fill={T.purple} radius={[4, 4, 0, 0]}><LabelList dataKey="PSO"  position="top" fill={T.purple} fontSize={12} fontFamily={T.fontMono} /></Bar>
         </BarChart>
       </ResponsiveContainer>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 8 }}>
         <InfoBox color="blue">
           <strong>Interpretation:</strong> Lower latency and processing time indicate faster execution. Higher throughput
           indicates better system performance. The winning algorithm achieves the lowest latency while maintaining
@@ -1851,10 +1851,10 @@ const DetailedNumericComparisonTable = ({ machine: m, gbfsData, psoData }) => {
 const EvalStatCard = ({ icon, label, value, valueColor, sub1, sub2, caption }) => {
   const T = useT();
   return (
-    <div style={{ flex: "1 1 150px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: "16px 14px", textAlign: "center" }}>
+    <div style={{ flex: "1 1 150px", background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 9px", textAlign: "center" }}>
       <div style={{ width: 40, height: 40, borderRadius: "50%", background: T.elevated, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, margin: "0 auto 10px" }}>{icon}</div>
-      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
-      <div style={{ fontSize: 24, fontWeight: 800, color: valueColor, fontFamily: T.fontMono, marginBottom: 6 }}>{value}</div>
+      <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em" }}>{label}</div>
+      <div style={{ fontSize: 24, fontWeight: 800, color: valueColor, fontFamily: T.fontMono, marginBottom: 5 }}>{value}</div>
       {sub1 && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>{sub1}</div>}
       {sub2 && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 4 }}>{sub2}</div>}
       {caption && <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontSans, marginTop: 4, fontWeight: 600 }}>{caption}</div>}
@@ -1909,7 +1909,7 @@ const EvaluationSummaryGrid = ({ machine: m, gbfsData, psoData, offloadResult })
 
   return (
     <Card title="Evaluation Summary" sub={`${winnerAlgo} vs current baseline`} accent={T.green}>
-      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
         {cards.map(c => (
           <EvalStatCard key={c.label} icon={c.icon} label={c.label} value={c.value} valueColor={c.color} sub1={c.sub1} sub2={c.sub2} caption={c.caption} />
         ))}
@@ -1940,8 +1940,8 @@ const CompositeScoreCard = ({ gbfsData, psoData }) => {
   return (
     <Card accent={T.green} title="Composite Performance Score" sub="Out of 100">
       {rows.map(r => (
-        <div key={r.key} style={{ marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontFamily: T.fontSans, color: T.text, marginBottom: 5 }}>
+        <div key={r.key} style={{ marginBottom: 9 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontFamily: T.fontSans, color: T.text, marginBottom: 4 }}>
             <span>{r.label}</span>
             <span style={{ fontFamily: T.fontMono, fontWeight: 700, color: r.color }}>
               {r.value} / 100 {leaderName === r.key && "🏆"}
@@ -1972,7 +1972,7 @@ const SimulationWorkflowCard = () => {
       <div style={{ display: "flex", alignItems: "flex-start", flexWrap: "wrap", gap: 0, justifyContent: "center" }}>
         {steps.map((s, idx) => (
           <React.Fragment key={s.n}>
-            {idx > 0 && <div style={{ display: "flex", alignItems: "center", padding: "34px 4px 0", flexShrink: 0 }}>
+            {idx > 0 && <div style={{ display: "flex", alignItems: "center", padding: "20px 4px 0", flexShrink: 0 }}>
               <span style={{ color: T.dim, fontSize: 13 }}>→</span>
             </div>}
             <div style={{ flex: "0 0 auto", width: 100, textAlign: "center" }}>
@@ -2003,7 +2003,7 @@ const ValidationSummaryCard = ({ gbfsData, psoData, offloadResult }) => {
 
   return (
     <Card title={`Validation (${winnerAlgo})`} accent={measuredLat ? (deviationOk ? T.green : T.amber) : T.dim}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
         <Stat label="Predicted Latency" value={`${predicted} ms`} color={gbfsWins ? "blue" : "purple"} />
         <Stat label="Actual Latency" value={measuredLat ? `${measuredLat} ms` : "—"} color="green" />
         <Stat label="Deviation" value={deviationPct != null ? `${deviationPct}%` : "—"} color={deviationOk ? "green" : "amber"} />
@@ -2029,14 +2029,14 @@ const ResearchConclusionCard = ({ machine: m, gbfsData, psoData }) => {
 
   return (
     <Card title="Research Conclusion" accent={T.green}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
         <div style={{
           flexShrink: 0, width: 40, height: 40, borderRadius: "50%",
           background: T.greenBg, border: `1px solid ${T.greenDim}`,
           display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: T.green,
         }}>✓</div>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: T.green, fontFamily: T.fontSans, marginBottom: 6 }}>
+          <div style={{ fontSize: 15, fontWeight: 800, color: T.green, fontFamily: T.fontSans, marginBottom: 5 }}>
             {winnerAlgo} is the optimal algorithm.
           </div>
           <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, lineHeight: 1.6 }}>
@@ -2053,8 +2053,8 @@ const ResearchConclusionCard = ({ machine: m, gbfsData, psoData }) => {
 const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadResult }) => {
   const T = useT();
   return (
-    <div style={{ marginBottom: 8 }}>
-      <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ marginBottom: 10 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: T.text, fontFamily: T.fontSans, letterSpacing: "0.02em" }}>
           COMPARISON &amp; EVALUATION DASHBOARD
         </div>
@@ -2065,22 +2065,22 @@ const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadR
 
       <SystemComparisonPanels machine={m} gbfsData={gbfsData} psoData={psoData} />
 
-      <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 12, marginBottom: 16 }}>
+      <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 8, marginBottom: 10 }}>
         <CombinedPerformanceBarChart machine={m} gbfsData={gbfsData} psoData={psoData} />
         <DetailedNumericComparisonTable machine={m} gbfsData={gbfsData} psoData={psoData} />
       </div>
 
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 10 }}>
         <EvaluationSummaryGrid machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
       </div>
 
-      <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
+      <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 8, marginBottom: 10 }}>
         <UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} />
         <EnergyDonutChart gbfsData={gbfsData} psoData={psoData} />
         <CompositeScoreCard gbfsData={gbfsData} psoData={psoData} />
       </div>
 
-      <div className="app-grid-311" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
+      <div className="app-grid-311" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)", gap: 8 }}>
         <SimulationWorkflowCard />
         <ValidationSummaryCard gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
         <ResearchConclusionCard machine={m} gbfsData={gbfsData} psoData={psoData} />
@@ -2119,7 +2119,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 12 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Latency Results</h1>
         <p style={{ fontSize: 16, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           Task from <strong style={{ color: T.text }}>{m.name}</strong> offloaded to{" "}
@@ -2130,7 +2130,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
       <ComparisonEvaluationDashboard machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
 
-      <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap", marginTop: 24 }}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap", marginTop: 14 }}>
         <Stat label="Chosen Algorithm based on Task Offloading Performance" value={winnerAlgo} color={gbfsWins ? "blue" : "purple"} />
         <Stat label="Algo-Chosen Server" value={decidedSrv.label}   color={serverColor(decidedKey)} mono={false} />
         <Stat label="GBFS Latency"       value={`${gbfsBase} ms`}   color="blue" />
@@ -2142,8 +2142,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       <div style={{
         background: T.elevated, border: `1px solid ${T.border}`,
         borderLeft: `3px solid ${gbfsWins ? T.blue : T.purple}`,
-        borderRadius: 8, padding: "16px 20px", marginBottom: 16,
-        display: "flex", alignItems: "center", gap: 16,
+        borderRadius: 8, padding: "10px 12px", marginBottom: 10,
+        display: "flex", alignItems: "center", gap: 10,
       }}>
         <div style={{ fontSize: 40, fontWeight: 800, color: gbfsWins ? T.blue : T.purple, fontFamily: T.fontMono, lineHeight: 1 }}>{winnerAlgo}</div>
         <div>
@@ -2184,7 +2184,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
         return (
           <Card title="Current System vs. Algorithm-Optimized" sub={`Baseline (no offloading) vs. ${winnerAlgo} on ${decidedSrv.label}`} accent={T.amber}>
-            <p style={{ fontSize: 14, color: T.muted, marginTop: 0, marginBottom: 16, fontFamily: T.fontSans, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 14, color: T.muted, marginTop: 0, marginBottom: 10, fontFamily: T.fontSans, lineHeight: 1.6 }}>
               "Current System" reflects {m.machineId}'s baseline performance if the task were processed without algorithmic
               offloading, using its own reported latency, processing time, and throughput. This is compared against the
               algorithm-optimized outcome to evaluate the efficiency gained from offloading.
@@ -2207,7 +2207,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
                 })}
               </tbody>
             </table>
-            <div style={{ marginTop: 16 }}>
+            <div style={{ marginTop: 10 }}>
               <InfoBox color="amber">
                 Relative to {m.machineId}'s current (non-offloaded) baseline, <strong>{winnerAlgo}</strong> changed latency by{" "}
                 <strong>{latPct === null ? "n/a" : `${latPct}%`}</strong> and throughput by{" "}
@@ -2220,7 +2220,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
 
       {/* ── MACHINE RESOURCE UTILIZATION ── */}
       <Card title="Machine Resource Utilization" sub={`CPU, memory, and storage load · ${m.machineId}`} accent={T.purple}>
-        <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
           <Stat label="CPU Utilization"    value={m.cpuUtilization != null ? `${m.cpuUtilization}%` : "—"} color="blue" />
           <Stat label="Memory Usage"       value={m.memoryUsage != null ? `${m.memoryUsage} GB` : "—"}     color="purple" />
           <Stat label="Storage Footprint"  value={m.storageUsage != null ? `${m.storageUsage} GB` : `${m.taskSize} MB / task`} color="amber" />
@@ -2288,7 +2288,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
             })}
           </tbody>
         </table>
-        <div style={{ marginTop: 16 }}>
+        <div style={{ marginTop: 10 }}>
           <InfoBox color="green">
             <strong>{m.name}</strong> offloaded to {decidedSrv.icon} {decidedSrv.label} by <strong>{winnerAlgo}</strong>.
             {measuredLat && <> Actual latency: <strong style={{ fontFamily: T.fontMono }}>{measuredLat} ms</strong>.</>} Saved to Supabase.
@@ -2322,7 +2322,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
               : `The task has not been offloaded yet, so no measured latency exists to compare against the algorithm's prediction. Complete Step 5 (Offload) to generate ground-truth timing.`,
           },
         ].map(s => (
-          <div key={s.n} style={{ display: "flex", gap: 14, padding: "12px 0", borderTop: s.n > 1 ? `1px solid ${T.borderSub}` : "none" }}>
+          <div key={s.n} style={{ display: "flex", gap: 9, padding: "8px 0", borderTop: s.n > 1 ? `1px solid ${T.borderSub}` : "none" }}>
             <div style={{
               flexShrink: 0, width: 26, height: 26, borderRadius: "50%",
               background: T.blueBg, border: `1px solid ${T.blueDim}`, color: T.blue,
@@ -2343,8 +2343,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
           { algo: "GBFS", color: T.blue, data: gbfsData },
           { algo: "PSO",  color: T.purple, data: psoData },
         ].map(({ algo, color, data }) => (
-          <div key={algo} style={{ marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+          <div key={algo} style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
               <span style={{ fontSize: 16, fontWeight: 700, color, fontFamily: T.fontMono }}>{algo}</span>
               <Badge color="dim">{resolveServer(data.recommendedServer).icon} {serverLabel(data.recommendedServer)}</Badge>
             </div>
@@ -2355,7 +2355,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
               ["Energy Utilization",   `${data.energy} kWh`],
               ["Resource Utilization", `${data.utilization}%`],
             ].map(([l, v]) => (
-              <div key={l} style={{ padding: "8px 0", borderTop: `1px solid ${T.borderSub}` }}>
+              <div key={l} style={{ padding: "6px 0", borderTop: `1px solid ${T.borderSub}` }}>
                 <div style={{ fontSize: 14, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>{l}</div>
                 <div style={{ fontSize: 16, color: T.text, fontFamily: T.fontMono, fontWeight: 600 }}>{v}</div>
               </div>
@@ -2366,8 +2366,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
         <SummaryRadarChart gbfsData={gbfsData} psoData={psoData} />
         <WinTallyChart gbfsData={gbfsData} psoData={psoData} />
 
-        <div style={{ fontSize: 16, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 10 }}>Conclusion</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: T.green, fontFamily: T.fontMono, marginBottom: 6 }}>Conclusion</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           <div style={{ fontSize: 15, color: T.text, fontFamily: T.fontMono }}>
             <strong style={{ color: latencyCmp.winner === "GBFS" ? T.blue : T.purple }}>{latencyCmp.winner}</strong> reduced latency by <strong>{latencyCmp.pct}%</strong>.
           </div>
@@ -2384,7 +2384,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       <Card title="Validation & Accuracy Check" sub="Algorithm-predicted latency vs. actual measured latency" accent={measuredLat ? (deviationOk ? T.green : T.amber) : T.dim}>
         {measuredLat ? (
           <>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
               <Stat label="Predicted Latency" value={`${Math.min(gbfsBase, psoBase)} ms`} color={gbfsWins ? "blue" : "purple"} />
               <Stat label="Measured Latency"  value={`${measuredLat} ms`}                  color="green" />
               <Stat label="Deviation"         value={`${deviationPct}%`}                   color={deviationOk ? "green" : "amber"} />
@@ -2674,7 +2674,7 @@ export default function App() {
               algoDecision={decidedServerKey}
               dark={dark} setDark={setDark}
             />
-            <div style={{ flex: 1, padding: "24px 28px", overflowY: "auto", background: T.bg }}>
+            <div style={{ flex: 1, padding: "18px 22px", overflowY: "auto", background: T.bg }}>
               <div key={step} className="app-fade-in">
                 {renderStep()}
               </div>
