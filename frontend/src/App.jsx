@@ -1483,8 +1483,8 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
     { g: gbfsData.utilization, p: psoData.utilization, lower: true },
   ];
   const scores = defs.map(d => radarScore(d.g, d.p, d.lower));
-  const avgG = +(scores.reduce((a, s) => a + s.GBFS, 0) / scores.length).toFixed(1);
-  const avgP = +(scores.reduce((a, s) => a + s.PSO, 0) / scores.length).toFixed(1);
+  const avgG = Math.max(0.1, +(scores.reduce((a, s) => a + s.GBFS, 0) / scores.length).toFixed(1));
+  const avgP = Math.max(0.1, +(scores.reduce((a, s) => a + s.PSO, 0) / scores.length).toFixed(1));
   const total = avgG + avgP;
   const data = [
     { name: "GBFS", value: avgG, fill: T.blue },
@@ -1497,13 +1497,20 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
         <div style={{ flex: "0 0 auto", position: "relative", width: 200, height: 200 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={data} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270}>
-                {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
+              <Pie data={data} dataKey="value" nameKey="name" innerRadius={62} outerRadius={92} paddingAngle={3} startAngle={90} endAngle={-270} isAnimationActive={false}>
+                {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
               </Pie>
               <Tooltip formatter={(v, n) => [`${v.toFixed(1)} pts`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
             </PieChart>
           </ResponsiveContainer>
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
+          {/* Explicit themed disc behind the donut hole, so the center never
+              falls back to a stray white/blank circle regardless of host styles. */}
+          <div style={{
+            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+            width: 118, height: 118, borderRadius: "50%", background: T.surface,
+            border: `1px solid ${T.borderSub}`, pointerEvents: "none",
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+          }}>
             <div style={{ fontSize: 22, fontWeight: 800, color: leader === "GBFS" ? T.blue : T.purple, fontFamily: T.fontMono }}>{leader}</div>
             <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans }}>leads</div>
           </div>
@@ -1533,8 +1540,8 @@ const EfficiencyDonutChart = ({ gbfsData, psoData }) => {
 /* ── VISUAL 3: Energy Consumption Split ── */
 const EnergyDonutChart = ({ gbfsData, psoData }) => {
   const T = useT();
-  const g = +gbfsData.energy, p = +psoData.energy;
-  const total = g + p || 0.0001;
+  const g = Math.max(0.001, +gbfsData.energy), p = Math.max(0.001, +psoData.energy);
+  const total = g + p;
   const data = [
     { name: "GBFS", value: g, fill: T.blue,   pct: +(g / total * 100).toFixed(1) },
     { name: "PSO",  value: p, fill: T.purple, pct: +(p / total * 100).toFixed(1) },
@@ -1547,8 +1554,8 @@ const EnergyDonutChart = ({ gbfsData, psoData }) => {
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={data} dataKey="value" nameKey="name" innerRadius={0} outerRadius={92} label={({ pct }) => `${pct}%`}
-                labelLine={false} style={{ fontSize: 13, fontFamily: T.fontMono, fill: T.text }}>
-                {data.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                labelLine={false} isAnimationActive={false} style={{ fontSize: 13, fontFamily: T.fontMono, fill: T.text }}>
+                {data.map((d, i) => <Cell key={i} fill={d.fill} stroke="none" />)}
               </Pie>
               <Tooltip formatter={(v, n) => [`${v} kWh`, n]} contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 13 }} />
             </PieChart>
@@ -1601,7 +1608,7 @@ const MiniGauge = ({ label, value, color, sub }) => {
   return (
     <div style={{ flex: "1 1 200px", textAlign: "center" }}>
       <div style={{ width: "100%", maxWidth: 170, margin: "0 auto", position: "relative" }}>
-        <svg viewBox="0 0 150 150" width="100%" height="150" style={{ display: "block" }}>
+        <svg viewBox="0 0 150 150" width="100%" height="150" style={{ display: "block", background: "transparent" }}>
           <path d={trackPath} fill="none" stroke={T.elevated} strokeWidth="14" strokeLinecap="round" />
           {valuePath && <path d={valuePath} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />}
         </svg>
@@ -1724,9 +1731,9 @@ const SystemComparisonPanels = ({ machine: m, gbfsData, psoData }) => {
   ];
 
   return (
-    <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
+    <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
       {panels.map(p => (
-        <div key={p.key} style={{ flex: "1 1 300px", background: T.surface, border: `1px solid ${p.color}`, borderRadius: 8, overflow: "hidden" }}>
+        <div key={p.key} style={{ background: T.surface, border: `1px solid ${p.color}`, borderRadius: 8, overflow: "hidden" }}>
           <div style={{ background: p.bg, padding: "12px 16px", display: "flex", alignItems: "center", gap: 8, borderBottom: `1px solid ${p.color}` }}>
             <span style={{ fontSize: 18 }}>{p.icon}</span>
             <span style={{ fontSize: 14, fontWeight: 700, color: p.color, fontFamily: T.fontSans, letterSpacing: "0.03em" }}>{p.title.toUpperCase()}</span>
@@ -2058,25 +2065,25 @@ const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadR
 
       <SystemComparisonPanels machine={m} gbfsData={gbfsData} psoData={psoData} />
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-        <div style={{ flex: "2 1 520px" }}><CombinedPerformanceBarChart machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
-        <div style={{ flex: "1 1 380px" }}><DetailedNumericComparisonTable machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
+      <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr)", gap: 12, marginBottom: 16 }}>
+        <CombinedPerformanceBarChart machine={m} gbfsData={gbfsData} psoData={psoData} />
+        <DetailedNumericComparisonTable machine={m} gbfsData={gbfsData} psoData={psoData} />
       </div>
 
       <div style={{ marginBottom: 16 }}>
         <EvaluationSummaryGrid machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 16 }}>
-        <div style={{ flex: "1 1 300px" }}><UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} /></div>
-        <div style={{ flex: "1 1 300px" }}><EnergyDonutChart gbfsData={gbfsData} psoData={psoData} /></div>
-        <div style={{ flex: "1 1 300px" }}><CompositeScoreCard gbfsData={gbfsData} psoData={psoData} /></div>
+      <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12, marginBottom: 16 }}>
+        <UtilizationGaugePair gbfsData={gbfsData} psoData={psoData} />
+        <EnergyDonutChart gbfsData={gbfsData} psoData={psoData} />
+        <CompositeScoreCard gbfsData={gbfsData} psoData={psoData} />
       </div>
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ flex: "2 1 480px" }}><SimulationWorkflowCard /></div>
-        <div style={{ flex: "1 1 260px" }}><ValidationSummaryCard gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} /></div>
-        <div style={{ flex: "1 1 260px" }}><ResearchConclusionCard machine={m} gbfsData={gbfsData} psoData={psoData} /></div>
+      <div className="app-grid-311" style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.6fr) minmax(0, 1fr) minmax(0, 1fr)", gap: 12 }}>
+        <SimulationWorkflowCard />
+        <ValidationSummaryCard gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+        <ResearchConclusionCard machine={m} gbfsData={gbfsData} psoData={psoData} />
       </div>
     </div>
   );
@@ -2643,6 +2650,20 @@ export default function App() {
           a, button { font-family: inherit; }
           button { outline: none; }
           .app-fade-in { animation: fadeIn 0.25s ease both; }
+
+          /* Defensive: some hosts/reset stylesheets give <svg>/canvas a default
+             white fill or background, which shows up as a big white disc behind
+             round charts (donuts, gauges). Force every chart surface transparent. */
+          svg, .recharts-wrapper, .recharts-surface, canvas { background: transparent !important; }
+
+          /* Dashboard row grids collapse to a single column on narrow viewports
+             instead of squeezing multi-column rows too tight to read. */
+          @media (max-width: 900px) {
+            .app-grid-21, .app-grid-311 { grid-template-columns: 1fr !important; }
+          }
+          @media (max-width: 640px) {
+            .app-grid-eq { grid-template-columns: 1fr !important; }
+          }
         `}</style>
         <div style={{ display: "flex", minHeight: "100vh", background: T.bg, color: T.text }}>
           <Sidebar step={step} maxReached={maxReached} onJump={i => i <= maxReached && setStep(i)} serverStatuses={serverStatuses} />
