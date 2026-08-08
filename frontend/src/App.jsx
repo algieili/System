@@ -1208,11 +1208,11 @@ const GanttComparisonChart = ({ machine: m, gbfsData, psoData }) => {
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={rows.length * 104}>
+      <ResponsiveContainer width="100%" height={rows.length * 76}>
         <BarChart
           data={rows} layout="vertical"
-          margin={{ top: 4, right: 76, left: 8, bottom: 4 }}
-          barCategoryGap={22} barGap={4}
+          margin={{ top: 2, right: 60, left: 4, bottom: 2 }}
+          barCategoryGap={16} barGap={3}
         >
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} horizontal={false} />
           <XAxis type="number" domain={[0, 100]} hide />
@@ -1312,8 +1312,8 @@ const SummaryRadarChart = ({ gbfsData, psoData }) => {
           <span style={{ width: 10, height: 10, borderRadius: 2, background: T.purple, display: "inline-block" }} /> PSO (Cloud Server B)
         </div>
       </div>
-      <ResponsiveContainer width="100%" height={280}>
-        <RadarChart data={rows} outerRadius="72%">
+      <ResponsiveContainer width="100%" height={210}>
+        <RadarChart data={rows} outerRadius="70%">
           <PolarGrid stroke={T.border} />
           <PolarAngleAxis dataKey="metric" tick={{ fontSize: 13, fill: T.muted, fontFamily: T.fontSans }} />
           <PolarRadiusAxis angle={90} domain={[0, 100]} tick={{ fontSize: 12, fill: T.dim, fontFamily: T.fontMono }} tickCount={5} axisLine={false} />
@@ -1445,8 +1445,8 @@ const TradeoffBubbleChart = ({ machine: m, gbfsData, psoData }) => {
   ];
   return (
     <Card title="Latency vs. Utilization Trade-off" sub="Bubble size = energy utilization · closer to bottom-left is better" accent={T.blue}>
-      <ResponsiveContainer width="100%" height={280}>
-        <ScatterChart margin={{ top: 10, right: 24, left: 4, bottom: 10 }}>
+      <ResponsiveContainer width="100%" height={220}>
+        <ScatterChart margin={{ top: 6, right: 16, left: 2, bottom: 6 }}>
           <CartesianGrid stroke={T.border} strokeDasharray="3 3" />
           <XAxis type="number" dataKey="x" name="Latency" unit=" ms" stroke={T.dim} fontSize={13} fontFamily={T.fontMono}
             label={{ value: "Latency (ms)", position: "insideBottom", offset: -6, fill: T.muted, fontSize: 13, fontFamily: T.fontSans }} />
@@ -1635,23 +1635,23 @@ const MiniGauge = ({ label, value, color, sub }) => {
   const pct = Math.max(0, Math.min(100, value));
   const startAngle = -120, endAngle = 120; // 240° sweep, matches a classic speedometer
   const valueAngle = startAngle + (endAngle - startAngle) * (pct / 100);
-  const cx = 75, cy = 75, r = 58;
+  const cx = 60, cy = 60, r = 46;
   const trackPath = describeGaugeArc(cx, cy, r, startAngle, endAngle);
   const valuePath = pct > 0 ? describeGaugeArc(cx, cy, r, startAngle, valueAngle) : null;
 
   return (
-    <div style={{ flex: "1 1 200px", textAlign: "center" }}>
-      <div style={{ width: "100%", maxWidth: 170, margin: "0 auto", position: "relative" }}>
-        <svg viewBox="0 0 150 150" width="100%" height="150" style={{ display: "block", background: "transparent" }}>
-          <path d={trackPath} fill="none" stroke={T.elevated} strokeWidth="14" strokeLinecap="round" />
-          {valuePath && <path d={valuePath} fill="none" stroke={color} strokeWidth="14" strokeLinecap="round" />}
+    <div style={{ flex: "1 1 150px", textAlign: "center" }}>
+      <div style={{ width: "100%", maxWidth: 130, margin: "0 auto", position: "relative" }}>
+        <svg viewBox="0 0 120 120" width="100%" height="118" style={{ display: "block", background: "transparent" }}>
+          <path d={trackPath} fill="none" stroke={T.elevated} strokeWidth="11" strokeLinecap="round" />
+          {valuePath && <path d={valuePath} fill="none" stroke={color} strokeWidth="11" strokeLinecap="round" />}
         </svg>
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ fontSize: 24, fontWeight: 800, color, fontFamily: T.fontMono }}>{value}%</div>
+          <div style={{ fontSize: 19, fontWeight: 800, color, fontFamily: T.fontMono }}>{value}%</div>
         </div>
       </div>
-      <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginTop: -6 }}>{label}</div>
-      {sub && <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginTop: 2 }}>{sub}</div>}
+      <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans, marginTop: -4 }}>{label}</div>
+      {sub && <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, marginTop: 1 }}>{sub}</div>}
     </div>
   );
 };
@@ -1694,8 +1694,8 @@ const ImprovementComposedChart = ({ machine: m, gbfsData, psoData }) => {
 
   return (
     <Card title="Improvement vs. Current System" sub={`Baseline vs ${winnerAlgo}-optimized, with % change`} accent={T.blue}>
-      <ResponsiveContainer width="100%" height={260}>
-        <ComposedChart data={rows} margin={{ top: 20, right: 40, left: 0, bottom: 4 }}>
+      <ResponsiveContainer width="100%" height={200}>
+        <ComposedChart data={rows} margin={{ top: 14, right: 30, left: 0, bottom: 2 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
           <XAxis dataKey="metric" stroke={T.dim} fontSize={13} fontFamily={T.fontSans} />
           <YAxis yAxisId="left" stroke={T.dim} fontSize={13} fontFamily={T.fontMono} />
@@ -1808,8 +1808,8 @@ const CombinedPerformanceBarChart = ({ machine: m, gbfsData, psoData }) => {
   ];
   return (
     <Card title="Performance Comparison Across All Systems" sub="Current System vs GBFS vs PSO — raw measured values" accent={T.blue}>
-      <ResponsiveContainer width="100%" height={300}>
-        <BarChart data={data} margin={{ top: 24, right: 10, left: 0, bottom: 10 }}>
+      <ResponsiveContainer width="100%" height={230}>
+        <BarChart data={data} margin={{ top: 16, right: 6, left: 0, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
           <XAxis dataKey="metric" stroke={T.dim} fontSize={12} fontFamily={T.fontSans} interval={0} />
           <YAxis stroke={T.dim} fontSize={13} fontFamily={T.fontMono} />
@@ -1943,7 +1943,7 @@ const EvaluationSummaryGrid = ({ machine: m, gbfsData, psoData, offloadResult })
 
   return (
     <Card title="Evaluation Summary" sub={`${winnerAlgo} vs current baseline`} accent={T.green}>
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 6 }}>
         {cards.map(c => (
           <EvalStatCard key={c.label} icon={c.icon} label={c.label} value={c.value} valueColor={c.color} sub1={c.sub1} sub2={c.sub2} caption={c.caption} />
         ))}
@@ -2280,8 +2280,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       </Card>
 
       <Card title="Full Metrics Comparison" sub={`All indicators · ${decidedSrv.label}`} accent={T.purple}>
-        <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={barData} margin={{ top: 10, right: 16, left: 0, bottom: 4 }}>
+        <ResponsiveContainer width="100%" height={170}>
+          <BarChart data={barData} margin={{ top: 8, right: 10, left: 0, bottom: 2 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
             <XAxis dataKey="metric" stroke={T.dim} fontSize={14} fontFamily={T.fontMono} />
             <YAxis stroke={T.dim} fontSize={14} fontFamily={T.fontMono} />
