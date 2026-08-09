@@ -1849,14 +1849,7 @@ const DetailedNumericComparisonTable = ({ machine: m, gbfsData, psoData }) => {
     ["Queue Length (tasks)",     +(m.queueLength ?? 0),                  gAux.queue,            pAux.queue,           "lower"],
   ];
 
-  const bestOf = (b, g, p, dir) => {
-    const vals = { Base: b, GBFS: g, PSO: p };
-    let bestKey = "Base";
-    Object.keys(vals).forEach(k => {
-      if (dir === "lower" ? vals[k] < vals[bestKey] : vals[k] > vals[bestKey]) bestKey = k;
-    });
-    return bestKey;
-  };
+  const bestOf = (g, p, dir) => (dir === "lower" ? g <= p : g >= p) ? "GBFS" : "PSO";
 
   return (
     <Card title="Detailed Numeric Comparison" sub="All systems, side by side" accent={T.purple}>
@@ -1864,14 +1857,14 @@ const DetailedNumericComparisonTable = ({ machine: m, gbfsData, psoData }) => {
         <thead><tr><Th>Metric</Th><Th>Current System</Th><Th>GBFS</Th><Th>PSO</Th><Th>Best</Th></tr></thead>
         <tbody>
           {rows.map(([label, b, g, p, dir], i) => {
-            const best = bestOf(b, g, p, dir);
+            const best = bestOf(g, p, dir);
             return (
               <TableRow key={label} isOdd={i % 2 === 1} cells={[
                 <span style={{ fontFamily: T.fontSans, color: T.text }}>{label}</span>,
-                <span style={{ fontFamily: T.fontMono, color: best === "Base" ? T.amber  : T.muted, fontWeight: best === "Base" ? 700 : 400 }}>{b}</span>,
+                <span style={{ fontFamily: T.fontMono, color: T.muted }}>{b}</span>,
                 <span style={{ fontFamily: T.fontMono, color: best === "GBFS" ? T.blue   : T.muted, fontWeight: best === "GBFS" ? 700 : 400 }}>{g}</span>,
                 <span style={{ fontFamily: T.fontMono, color: best === "PSO"  ? T.purple : T.muted, fontWeight: best === "PSO"  ? 700 : 400 }}>{p}</span>,
-                <Badge color={best === "PSO" ? "purple" : best === "GBFS" ? "blue" : "amber"}>{best === "Base" ? "Current" : best}</Badge>,
+                <Badge color={best === "PSO" ? "purple" : "blue"}>{best}</Badge>,
               ]} />
             );
           })}
