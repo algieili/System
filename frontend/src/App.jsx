@@ -551,7 +551,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
       </div>
 
       <Card title="Registered Devices" sub="Live data from Supabase" accent={T.blue}>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+        <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
           {machines.map(mc => {
             const sel = selectedId === mc.id;
             return (
@@ -561,7 +561,6 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setSelectedId(mc.id); } }}
                 className="app-clickable"
                 style={{
-                  flex: "1 1 160px", maxWidth: 200,
                   border: `2px solid ${sel ? T.green : T.border}`,
                   borderRadius: 10, overflow: "hidden",
                   background: sel ? T.greenBg : T.elevated,
