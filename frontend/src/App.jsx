@@ -551,7 +551,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
       </div>
 
       <Card title="Registered Devices" sub="Live data from Supabase" accent={T.blue}>
-        <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
+        <div className="app-grid-eq" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 12 }}>
           {machines.map(mc => {
             const sel = selectedId === mc.id;
             return (
