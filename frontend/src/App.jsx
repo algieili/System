@@ -114,6 +114,54 @@ const STEPS = [
 ];
 
 /* ─────────────────────────────────────────────
+   WORKLOAD TIERS
+   Hand-supplied Low/Medium/High parameter sets per machine ID.
+   These override the live-fetched machine parameters when a
+   workload tier is selected, so the whole pipeline (data collection,
+   algorithms, offload, results) runs against the chosen scenario
+   instead of whatever Supabase happens to report.
+───────────────────────────────────────────── */
+const WORKLOAD_TIERS = {
+  CPCM1: {
+    low:    { taskSize: 35, processingTime: 85,  queueLength: 1, cpuUtilization: 40, memoryUsage: 1.2, bandwidth: 115, transmissionDelay: 11, energyConsumption: 1.5, throughput: 16, avgLatency: 58 },
+    medium: { taskSize: 50, processingTime: 120, queueLength: 3, cpuUtilization: 60, memoryUsage: 1.6, bandwidth: 100, transmissionDelay: 16, energyConsumption: 2.3, throughput: 12, avgLatency: 88 },
+    high:   { taskSize: 75, processingTime: 180, queueLength: 7, cpuUtilization: 90, memoryUsage: 2.2, bandwidth: 75,  transmissionDelay: 25, energyConsumption: 3.8, throughput: 8,  avgLatency: 138 },
+  },
+  PB2: {
+    low:    { taskSize: 12, processingTime: 45,  queueLength: 1, cpuUtilization: 30, memoryUsage: 0.9, bandwidth: 100, transmissionDelay: 8,  energyConsumption: 1.0, throughput: 21, avgLatency: 48 },
+    medium: { taskSize: 20, processingTime: 60,  queueLength: 1, cpuUtilization: 45, memoryUsage: 1.2, bandwidth: 80,  transmissionDelay: 12, energyConsumption: 1.5, throughput: 16, avgLatency: 72 },
+    high:   { taskSize: 45, processingTime: 130, queueLength: 5, cpuUtilization: 90, memoryUsage: 2.0, bandwidth: 60,  transmissionDelay: 22, energyConsumption: 3.2, throughput: 9,  avgLatency: 125 },
+  },
+  WM1: {
+    low:    { taskSize: 18, processingTime: 50,  queueLength: 1, cpuUtilization: 35, memoryUsage: 1.2, bandwidth: 115, transmissionDelay: 8,  energyConsumption: 1.2, throughput: 23, avgLatency: 55 },
+    medium: { taskSize: 30, processingTime: 80,  queueLength: 2, cpuUtilization: 55, memoryUsage: 2.0, bandwidth: 100, transmissionDelay: 12, energyConsumption: 2.1, throughput: 18, avgLatency: 92 },
+    high:   { taskSize: 60, processingTime: 155, queueLength: 6, cpuUtilization: 90, memoryUsage: 2.8, bandwidth: 70,  transmissionDelay: 24, energyConsumption: 3.9, throughput: 9,  avgLatency: 140 },
+  },
+  SM3: {
+    low:    { taskSize: 15, processingTime: 45,  queueLength: 1, cpuUtilization: 30, memoryUsage: 1.0, bandwidth: 95, transmissionDelay: 9,  energyConsumption: 1.1, throughput: 19, avgLatency: 52 },
+    medium: { taskSize: 25, processingTime: 70,  queueLength: 1, cpuUtilization: 50, memoryUsage: 1.5, bandwidth: 75, transmissionDelay: 15, energyConsumption: 1.8, throughput: 14, avgLatency: 85 },
+    high:   { taskSize: 50, processingTime: 145, queueLength: 5, cpuUtilization: 90, memoryUsage: 2.4, bandwidth: 60, transmissionDelay: 25, energyConsumption: 3.5, throughput: 8,  avgLatency: 135 },
+  },
+  PCM1: {
+    low:    { taskSize: 25, processingTime: 70,  queueLength: 1, cpuUtilization: 35, memoryUsage: 0.9, bandwidth: 105, transmissionDelay: 9,  energyConsumption: 1.2, throughput: 19, avgLatency: 50 },
+    medium: { taskSize: 40, processingTime: 100, queueLength: 2, cpuUtilization: 55, memoryUsage: 1.3, bandwidth: 90,  transmissionDelay: 14, energyConsumption: 2.0, throughput: 15, avgLatency: 78 },
+    high:   { taskSize: 70, processingTime: 165, queueLength: 7, cpuUtilization: 90, memoryUsage: 2.1, bandwidth: 65,  transmissionDelay: 26, energyConsumption: 3.7, throughput: 8,  avgLatency: 135 },
+  },
+};
+
+const WORKLOAD_LABELS = { low: "Low", medium: "Medium", high: "High" };
+
+// Merge a tier's overrides onto the live-fetched machine record. Falls
+// back to the untouched machine when no tier is selected or the machine
+// has no hand-supplied tier data.
+const applyWorkloadTier = (machine, tier) => {
+  if (!machine || !tier) return machine;
+  const overrides = WORKLOAD_TIERS[machine.machineId]?.[tier];
+  if (!overrides) return machine;
+  return { ...machine, ...overrides };
+};
+
+/* ─────────────────────────────────────────────
    SHARED PRIMITIVES
 ───────────────────────────────────────────── */
 const Badge = ({ color = "blue", children, dot }) => {
@@ -291,6 +339,60 @@ const DualBtn = ({ onClick, disabled, children }) => {
   );
 };
 
+/* ─────────────────────────────────────────────
+   WORKLOAD TIER SELECTOR
+   Segmented Low / Medium / High control. Shown whenever the selected
+   machine has hand-supplied tier data. Selecting a tier overrides that
+   machine's task parameters for the rest of the pipeline; "Live Data"
+   reverts to whatever was fetched from Supabase.
+───────────────────────────────────────────── */
+const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
+  const T = useT();
+  const hasTiers = !!WORKLOAD_TIERS[machineId];
+  if (!hasTiers) return null;
+
+  const options = [
+    { key: null,     label: "Live Data" },
+    { key: "low",    label: "Low" },
+    { key: "medium", label: "Medium" },
+    { key: "high",   label: "High" },
+  ];
+  const tierColor = { low: T.green, medium: T.amber, high: T.red };
+
+  return (
+    <Card title="Workload Scenario" sub={`${machineId} · hand-supplied Low / Medium / High parameter sets`} accent={T.purple}>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {options.map(opt => {
+          const active = workload === opt.key;
+          const color = opt.key ? tierColor[opt.key] : T.blue;
+          return (
+            <button
+              key={opt.label} className="app-btn" onClick={() => setWorkload(opt.key)}
+              style={{
+                flex: "1 1 110px", padding: "10px 14px", borderRadius: 7,
+                border: `1px solid ${active ? color : T.border}`,
+                background: active ? `${color}22` : T.elevated,
+                color: active ? color : T.muted,
+                fontFamily: T.fontSans, fontWeight: active ? 700 : 500, fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              {active && "✓ "}{opt.label}
+            </button>
+          );
+        })}
+      </div>
+      {workload && (
+        <div style={{ marginTop: 12 }}>
+          <InfoBox color={workload === "high" ? "red" : workload === "medium" ? "amber" : "green"}>
+            Running the <strong>{WORKLOAD_LABELS[workload]}</strong> workload scenario — task parameters below
+            reflect this tier instead of the live-fetched values.
+          </InfoBox>
+        </div>
+      )}
+    </Card>
+  );
+};
 
 /* ─────────────────────────────────────────────
    SIDEBAR
@@ -397,7 +499,7 @@ const Sidebar = ({ step, maxReached, onJump, serverStatuses }) => {
 /* ─────────────────────────────────────────────
    TOP BAR
 ───────────────────────────────────────────── */
-const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
+const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark, workload }) => {
   const T = useT();
 
   const srv = algoDecision ? resolveServer(algoDecision) : null;
@@ -440,6 +542,19 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
       </div>
 
       <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        {workload && (
+          <div style={{
+            display: "flex", alignItems: "center", gap: 6, fontSize: 14,
+            fontFamily: T.fontMono,
+            color: workload === "high" ? T.red : workload === "medium" ? T.amber : T.green,
+            background: workload === "high" ? T.redBg : workload === "medium" ? T.amberBg : T.greenBg,
+            border: `1px solid ${T.border}`,
+            borderRadius: 4, padding: "3px 10px",
+          }}>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>workload →</span>
+            {WORKLOAD_LABELS[workload]}
+          </div>
+        )}
         {srv && (
           <div style={{
             display: "flex", alignItems: "center", gap: 6, fontSize: 14,
@@ -495,7 +610,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark }) => {
 /* ─────────────────────────────────────────────
    STEP 0: SELECT MACHINE
 ───────────────────────────────────────────── */
-const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
+const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry, workload, setWorkload }) => {
   const T = useT();
   const machines = Object.values(machineData);
   const m = machineData[selectedId];
@@ -579,6 +694,11 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
                       <Badge color="green" dot>selected</Badge>
                     </div>
                   )}
+                  {WORKLOAD_TIERS[mc.machineId] && (
+                    <div style={{ position: "absolute", top: 8, left: 8 }}>
+                      <Badge color="purple" dot>tiers</Badge>
+                    </div>
+                  )}
                 </div>
                 <div style={{ padding: "10px 12px 12px" }}>
                   <div style={{ fontSize: 16, fontWeight: 700, color: sel ? T.green : T.text, marginBottom: 2, fontFamily: T.fontMono }}>{mc.machineId}</div>
@@ -590,6 +710,8 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
           })}
         </div>
       </Card>
+
+      {m && <WorkloadSelector machineId={m.machineId} workload={workload} setWorkload={setWorkload} />}
 
       {m && (
         <Card title={`${m.machineId} — ${m.name}`} sub="Device metadata" accent={T.green}>
@@ -629,24 +751,32 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
 /* ─────────────────────────────────────────────
    STEP 1: COLLECT DATA
 ───────────────────────────────────────────── */
-const Step1CollectData = ({ machine: m }) => {
+const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
   const T = useT();
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Parameters</h1>
         <p style={{ fontSize: 16, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
-          Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.
+          {workload ? (
+            <>Showing the <strong style={{ color: T.text }}>{WORKLOAD_LABELS[workload]}</strong> workload scenario for{" "}
+            <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
+          ) : (
+            <>Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
+          )}{" "}
           These metrics are fed into the algorithms to determine the optimal offload target.
         </p>
       </div>
+
+      <WorkloadSelector machineId={m.machineId} workload={workload} setWorkload={setWorkload} />
+
       <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
         <Stat label="Task Size"          value={`${m.taskSize} MB`}          color="blue" />
         <Stat label="Processing Time"    value={`${m.processingTime} ms`}    color="green" />
         <Stat label="Bandwidth"          value={`${m.bandwidth} Mbps`}       color="purple" />
         <Stat label="Energy Utilization" value={`${m.energyConsumption} kWh`}color="amber" />
       </div>
-      <Card title="Parameter Table" sub={`${m.machineId} · Supabase`} accent={T.blue}>
+      <Card title="Parameter Table" sub={`${m.machineId} · ${workload ? `${WORKLOAD_LABELS[workload]} workload` : "Supabase"}`} accent={T.blue}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><Th>Parameter</Th><Th>Value</Th><Th>Description</Th></tr></thead>
           <tbody>
@@ -2181,8 +2311,13 @@ export default function App() {
   const [offloadError,   setOffloadError]   = useState(null);
   const [gbfsProgress,   setGbfsProgress]   = useState("");
   const [psoProgress,    setPsoProgress]    = useState("");
+  const [workload,       setWorkload]       = useState(null); // null | 'low' | 'medium' | 'high'
 
-  const machine = selectedId ? machineData[selectedId] : null;
+  const rawMachine = selectedId ? machineData[selectedId] : null;
+  // Tier overrides are applied everywhere downstream of raw fetched data —
+  // Collect Data, both algorithm calls, offload, and the results dashboard
+  // all see the tiered parameters instead of Supabase's live values.
+  const machine = applyWorkloadTier(rawMachine, workload);
 
   const decidedServerKey = (() => {
     if (!gbfsData || !psoData) return null;
@@ -2278,7 +2413,16 @@ export default function App() {
   const handleSelectMachine = id => {
     setSelectedId(id); setGbfsData(null); setPsoData(null);
     setOffloadResult(null); setMaxReached(0);
+    setGbfsProgress(""); setPsoProgress(""); setWorkload(null);
+  };
+
+  const handleSetWorkload = tier => {
+    setWorkload(tier);
+    // Changing the workload tier invalidates any algorithm/offload results
+    // that were computed against the previous parameter set.
+    setGbfsData(null); setPsoData(null); setOffloadResult(null);
     setGbfsProgress(""); setPsoProgress("");
+    setMaxReached(r => Math.min(r, 1));
   };
 
   const canNext = () => {
@@ -2293,8 +2437,8 @@ export default function App() {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} />;
-      case 1: return machine ? <Step1CollectData machine={machine} /> : null;
+      case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} workload={workload} setWorkload={handleSetWorkload} />;
+      case 1: return machine ? <Step1CollectData machine={machine} workload={workload} setWorkload={handleSetWorkload} /> : null;
       case 2: return machine ? (
         <Step2Algorithms
           machine={machine} gbfsData={gbfsData} psoData={psoData}
@@ -2375,6 +2519,7 @@ export default function App() {
               onJump={i => i <= maxReached && setStep(i)}
               algoDecision={decidedServerKey}
               dark={dark} setDark={setDark}
+              workload={workload}
             />
             <div style={{ flex: 1, padding: "18px 22px", overflowY: "auto", background: T.bg }}>
               <div key={step} className="app-fade-in">
