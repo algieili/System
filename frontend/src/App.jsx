@@ -150,6 +150,7 @@ const WORKLOAD_TIERS = {
 };
 
 const WORKLOAD_LABELS = { low: "Low", medium: "Medium", high: "High" };
+const WORKLOAD_PRIORITY = { low: "Low", medium: "Normal", high: "High" };
 
 // Merge a tier's overrides onto the live-fetched machine record. Falls
 // back to the untouched machine when no tier is selected or the machine
@@ -159,6 +160,132 @@ const applyWorkloadTier = (machine, tier) => {
   const overrides = WORKLOAD_TIERS[machine.machineId]?.[tier];
   if (!overrides) return machine;
   return { ...machine, ...overrides };
+};
+
+/* ─────────────────────────────────────────────
+   REAL ALGORITHM COMPUTATION (GBFS + PSO)
+
+   Every number shown in the execution-simulation UI is produced by these
+   functions from the machine's own (tiered) parameters — nothing here is
+   random or hand-typed. SERVER_PROFILES encodes the physical trade-off
+   already described in SERVERS: Edge Server A sits closer to the device
+   (less network hop delay, more compute headroom) while Cloud Server B
+   is energy-efficient but adds network latency.
+───────────────────────────────────────────── */
+const SERVER_PROFILES = {
+  A: { networkLatencyMs: 5,  computeSpeedFactor: 1.00, energyFactor: 1.15, utilizationFactor: 0.90, queueFactor: 1.00 },
+  B: { networkLatencyMs: 35, computeSpeedFactor: 0.75, energyFactor: 0.55, utilizationFactor: 0.55, queueFactor: 0.60 },
+};
+
+// Linearly interpolate between the two server profiles at position x∈[0,1]
+// (0 = pure Edge A, 1 = pure Cloud B). Used by PSO, which searches this
+// continuous relaxation of the discrete A/B choice.
+const interpolateProfile = (x) => {
+  const a = SERVER_PROFILES.A, b = SERVER_PROFILES.B;
+  const lerp = (k) => a[k] + (b[k] - a[k]) * x;
+  return {
+    networkLatencyMs:   lerp("networkLatencyMs"),
+    computeSpeedFactor:  lerp("computeSpeedFactor"),
+    energyFactor:        lerp("energyFactor"),
+    utilizationFactor:   lerp("utilizationFactor"),
+    queueFactor:         lerp("queueFactor"),
+  };
+};
+
+// Evaluate one machine's parameters against one server profile, producing
+// the concrete metrics the algorithms compare.
+const evaluateCandidate = (machine, profile) => {
+  const time        = +(machine.processingTime * profile.computeSpeedFactor).toFixed(2);
+  const networkDelay= +(machine.transmissionDelay + profile.networkLatencyMs).toFixed(2);
+  const queueDelay  = +(machine.queueLength * 2 * profile.queueFactor).toFixed(2);
+  const latency      = +(time + networkDelay + queueDelay).toFixed(2);
+  const utilization  = +Math.min(100, machine.cpuUtilization * profile.utilizationFactor).toFixed(1);
+  const energy        = +(machine.energyConsumption * profile.energyFactor).toFixed(2);
+  const throughput    = +(machine.throughput / profile.computeSpeedFactor).toFixed(1);
+  const queueLength   = Math.max(0, Math.round(machine.queueLength * profile.queueFactor));
+  return { time, latency, utilization, energy, throughput, queueLength, networkDelay, queueDelay };
+};
+
+// Weighted fitness used by PSO — lower is better. Combines the three
+// metrics the spec calls out (latency, energy, utilization) after
+// normalizing each against the machine's own Edge/Cloud range so no
+// single unit dominates.
+const fitnessOf = (machine, x) => {
+  const cand = evaluateCandidate(machine, interpolateProfile(x));
+  const aC = evaluateCandidate(machine, SERVER_PROFILES.A);
+  const bC = evaluateCandidate(machine, SERVER_PROFILES.B);
+  const norm = (v, lo, hi) => (hi === lo ? 0 : (v - Math.min(lo, hi)) / Math.abs(hi - lo));
+  const latN = norm(cand.latency, aC.latency, bC.latency);
+  const enN  = norm(cand.energy, aC.energy, bC.energy);
+  const utN  = norm(cand.utilization, aC.utilization, bC.utilization);
+  const cost = 0.5 * latN + 0.3 * enN + 0.2 * utN;
+  return { cost, fitness: +(1 - cost).toFixed(4), candidate: cand };
+};
+
+// GBFS: greedy, single-shot — evaluate both discrete servers and take the
+// immediate lower-latency winner. No iteration, matching the heuristic's
+// definition.
+const computeGBFS = (machine) => {
+  const A = evaluateCandidate(machine, SERVER_PROFILES.A);
+  const B = evaluateCandidate(machine, SERVER_PROFILES.B);
+  const winner = A.latency <= B.latency ? "A" : "B";
+  const w = winner === "A" ? A : B;
+  const loser = winner === "A" ? B : A;
+  return {
+    candidates: { A, B },
+    recommendedServer: winner,
+    latency: w.latency, time: w.time, utilization: w.utilization,
+    energy: w.energy, throughput: w.throughput,
+    decisionReason: `Greedy pick: ${resolveServer(winner).label} latency ${w.latency} ms beats ${resolveServer(winner === "A" ? "B" : "A").label}'s ${loser.latency} ms.`,
+  };
+};
+
+// PSO: real particle swarm search over the continuous A↔B relaxation.
+// Two particles, fixed (non-random) starting positions/velocities so runs
+// are reproducible for the same machine/workload — every iteration's
+// fitness is an actual evaluation of fitnessOf(), not a placeholder.
+const computePSO = (machine, iterations = 4) => {
+  const w = 0.5, c1 = 1.5, c2 = 1.5;
+  let particles = [
+    { x: 0.15, v: 0.10 },
+    { x: 0.85, v: -0.10 },
+  ];
+  let globalBestX = particles[0].x, globalBestFitness = -Infinity;
+  const log = [];
+
+  for (let it = 1; it <= iterations; it++) {
+    const evals = particles.map(p => fitnessOf(machine, p.x));
+    evals.forEach((e, i) => { if (e.fitness > globalBestFitness) { globalBestFitness = e.fitness; globalBestX = particles[i].x; } });
+
+    log.push({
+      iteration: it,
+      particleA: { x: +particles[0].x.toFixed(3), fitness: evals[0].fitness, ...evals[0].candidate },
+      particleB: { x: +particles[1].x.toFixed(3), fitness: evals[1].fitness, ...evals[1].candidate },
+      bestFitness: +globalBestFitness.toFixed(4),
+      bestX: +globalBestX.toFixed(3),
+    });
+
+    particles = particles.map((p, i) => {
+      const pBestX = p.x; // (single-shot personal memory this run)
+      const newV = w * p.v + c1 * 0.5 * (pBestX - p.x) + c2 * 0.5 * (globalBestX - p.x);
+      const newX = Math.min(1, Math.max(0, p.x + newV));
+      return { x: newX, v: newV };
+    });
+  }
+
+  const finalX = globalBestX;
+  const finalCandidate = fitnessOf(machine, finalX).candidate;
+  const recommendedServer = finalX < 0.5 ? "A" : "B";
+  const official = evaluateCandidate(machine, SERVER_PROFILES[recommendedServer]);
+
+  return {
+    iterations: log,
+    candidates: { A: evaluateCandidate(machine, SERVER_PROFILES.A), B: evaluateCandidate(machine, SERVER_PROFILES.B) },
+    recommendedServer,
+    latency: official.latency, time: official.time, utilization: official.utilization,
+    energy: official.energy, throughput: official.throughput,
+    decisionReason: `Converged to x=${finalX.toFixed(3)} after ${iterations} iterations (fitness ${globalBestFitness.toFixed(4)}) → ${resolveServer(recommendedServer).label}.`,
+  };
 };
 
 /* ─────────────────────────────────────────────
@@ -390,6 +517,45 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
           </InfoBox>
         </div>
       )}
+    </Card>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   SELECTED WORKLOAD CARD
+   Shown below the Parameter Table. Reflects whichever workload the user
+   currently has selected (a hand-supplied tier, or "Live Data" pulled
+   from Supabase) — every field re-renders from the current `machine`
+   object, so switching tiers updates this card immediately.
+───────────────────────────────────────────── */
+const SelectedWorkloadCard = ({ machine: m, workload }) => {
+  const T = useT();
+  if (!m) return null;
+  const priority = workload ? WORKLOAD_PRIORITY[workload] : "Live";
+  const label = workload ? WORKLOAD_LABELS[workload] : "Live Data";
+  const color = workload === "high" ? T.red : workload === "medium" ? T.amber : workload === "low" ? T.green : T.blue;
+
+  const fields = [
+    ["Workload",                   label],
+    ["Machine",                    `${m.name} (${m.machineId})`],
+    ["CPU Requirement",            `${m.cpuUtilization}%`],
+    ["Memory Requirement",         `${m.memoryUsage} GB`],
+    ["Data Size",                  `${m.taskSize} MB`],
+    ["Estimated Processing Time",  `${m.processingTime} ms`],
+    ["Priority",                   priority],
+    ["Queue Length",               `${m.queueLength} tasks`],
+  ];
+
+  return (
+    <Card title="Selected Workload" sub="Updates live with the workload tier you choose" accent={color}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+        {fields.map(([l, v]) => (
+          <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 12px" }}>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>{l}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: l === "Workload" ? color : T.text, fontFamily: T.fontMono }}>{v}</div>
+          </div>
+        ))}
+      </div>
     </Card>
   );
 };
@@ -802,6 +968,9 @@ const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
           </tbody>
         </table>
       </Card>
+
+      <SelectedWorkloadCard machine={m} workload={workload} />
+
       <InfoBox color="green">
         All parameters loaded. The algorithms will evaluate Edge Server A and Cloud Server B
         to determine where this task should be offloaded.
@@ -823,9 +992,116 @@ const serverColor = (key) => {
   return "green";
 };
 
+const TermLine = ({ children, done, color }) => {
+  const T = useT();
+  return (
+    <div style={{ fontFamily: T.fontMono, fontSize: 13, color: done ? (color || T.green) : T.muted, marginBottom: 3, lineHeight: 1.6 }}>
+      {done ? "✓ " : "… "}{children}
+    </div>
+  );
+};
+
+const MetricLine = ({ label, value }) => {
+  const T = useT();
+  return (
+    <div style={{ fontFamily: T.fontMono, fontSize: 13, color: T.muted, paddingLeft: 18, lineHeight: 1.6 }}>
+      {label}: <strong style={{ color: T.text }}>{value}</strong>
+    </div>
+  );
+};
+
+// GBFS: greedy, single-shot evaluation. Every value shown here comes
+// straight from `sim` (the output of computeGBFS) — the animation only
+// controls *when* each already-computed fact is revealed.
+const GBFSExecutionPanel = ({ machine: m, sim, stage }) => {
+  const T = useT();
+  if (!sim) return null;
+  const srv = resolveServer(sim.recommendedServer);
+  return (
+    <Card title="GBFS Execution Simulation" sub="Greedy Best-First Search — immediate best choice" accent={T.blue}>
+      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
+        <TermLine done={stage >= 1}>Analyzing selected workload ({m.machineId})...</TermLine>
+
+        {stage >= 2 && (
+          <>
+            <TermLine done>Evaluating Edge Server A</TermLine>
+            <MetricLine label="Latency" value={`${sim.candidates.A.latency} ms`} />
+            <MetricLine label="Processing time" value={`${sim.candidates.A.time} ms`} />
+            <MetricLine label="Resource utilization" value={`${sim.candidates.A.utilization}%`} />
+            <MetricLine label="Energy consumption" value={`${sim.candidates.A.energy} kWh`} />
+            <MetricLine label="Queue length" value={`${sim.candidates.A.queueLength} tasks`} />
+          </>
+        )}
+        {stage >= 3 && (
+          <>
+            <div style={{ height: 6 }} />
+            <TermLine done>Evaluating Cloud Server B</TermLine>
+            <MetricLine label="Latency" value={`${sim.candidates.B.latency} ms`} />
+            <MetricLine label="Processing time" value={`${sim.candidates.B.time} ms`} />
+            <MetricLine label="Resource utilization" value={`${sim.candidates.B.utilization}%`} />
+            <MetricLine label="Energy consumption" value={`${sim.candidates.B.energy} kWh`} />
+            <MetricLine label="Queue length" value={`${sim.candidates.B.queueLength} tasks`} />
+          </>
+        )}
+        {stage >= 4 && <div style={{ height: 6 }} />}
+        <TermLine done={stage >= 4}>Comparing server performance...</TermLine>
+        <TermLine done={stage >= 5}>Selecting best heuristic option...</TermLine>
+      </div>
+
+      {stage >= 5 && (
+        <div style={{ marginTop: 12, background: T.blueBg, border: `1px solid ${T.blueDim}`, borderLeft: `3px solid ${T.blue}`, borderRadius: 8, padding: "12px 16px" }}>
+          <div style={{ fontSize: 13, color: T.blue, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans, marginBottom: 6 }}>Final GBFS Result</div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Server: <strong>{srv.icon} {srv.label}</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Latency: <strong>{sim.latency} ms</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Processing Time: <strong>{sim.time} ms</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Resource Utilization: <strong>{sim.utilization}%</strong></div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginTop: 6 }}>{sim.decisionReason}</div>
+        </div>
+      )}
+    </Card>
+  );
+};
+
+// PSO: real particle-swarm search over the two-server space. Iteration
+// rows are revealed one at a time, but each row's fitness/position values
+// are the actual output of computePSO's iteration log — nothing here is
+// interpolated or randomized for show.
+const PSOExecutionPanel = ({ machine: m, sim, iteration }) => {
+  const T = useT();
+  if (!sim) return null;
+  const done = iteration >= sim.iterations.length;
+  const srv = resolveServer(sim.recommendedServer);
+  return (
+    <Card title="PSO Execution Simulation" sub="Particle Swarm Optimization — iterative convergence" accent={T.purple}>
+      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
+        {sim.iterations.slice(0, iteration).map(row => (
+          <div key={row.iteration} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: row.iteration < iteration ? `1px dashed ${T.borderSub}` : "none" }}>
+            <TermLine done color={T.purple}>Iteration {row.iteration}</TermLine>
+            <MetricLine label="Particle A (Edge-leaning, x)" value={`${row.particleA.x} → fitness ${row.particleA.fitness}`} />
+            <MetricLine label="Particle B (Cloud-leaning, x)" value={`${row.particleB.x} → fitness ${row.particleB.fitness}`} />
+            <MetricLine label="Best fitness so far" value={row.bestFitness} />
+          </div>
+        ))}
+        {done && <TermLine done color={T.green}>Optimization complete</TermLine>}
+      </div>
+
+      {done && (
+        <div style={{ marginTop: 12, background: T.purpleBg, border: `1px solid ${T.purpleDim}`, borderLeft: `3px solid ${T.purple}`, borderRadius: 8, padding: "12px 16px" }}>
+          <div style={{ fontSize: 13, color: T.purple, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans, marginBottom: 6 }}>Final PSO Result</div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Server: <strong>{srv.icon} {srv.label}</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Latency: <strong>{sim.latency} ms</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Processing Time: <strong>{sim.time} ms</strong></div>
+          <div style={{ fontSize: 15, fontFamily: T.fontMono, color: T.text }}>Resource Utilization: <strong>{sim.utilization}%</strong></div>
+          <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginTop: 6 }}>{sim.decisionReason}</div>
+        </div>
+      )}
+    </Card>
+  );
+};
+
 const Step2Algorithms = ({
   machine: m, gbfsData, psoData, algoRunning, algoError,
-  onRunBoth, gbfsProgress, psoProgress,
+  onRunBoth, gbfsSim, psoSim, gbfsStage, psoIteration,
 }) => {
   const T = useT();
   const bothDone = !!gbfsData && !!psoData;
@@ -901,22 +1177,6 @@ const Step2Algorithms = ({
           ))}
         </div>
 
-        {(gbfsProgress || psoProgress) && (
-          <div style={{ marginBottom: 16, display: "flex", flexDirection: "column", gap: 8 }}>
-            {[["GBFS", "Greedy Best-First Search", T.blue, gbfsData], ["PSO", "Particle Swarm Optimization", T.purple, psoData]].map(([name, fullName, color, done]) => (
-              <div key={name}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, color: T.muted, fontFamily: T.fontMono, marginBottom: 4 }}>
-                  <span style={{ color }}><strong>{name}</strong> <span style={{ color: T.dim, fontWeight: 400 }}>— {fullName}</span></span>
-                  <span>{done ? `done ✓  →  ${serverLabel(done.recommendedServer)}` : algoRunning ? "running…" : ""}</span>
-                </div>
-                <div style={{ height: 4, background: T.border, borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ height: "100%", background: color, borderRadius: 2, width: done ? "100%" : algoRunning ? "55%" : "0%", transition: "width 0.6s ease" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
         {algoError && <div style={{ marginBottom: 16 }}><ErrBox>Run failed — {algoError}</ErrBox></div>}
 
         <div style={{ display: "flex", justifyContent: "center", gap: 10, flexWrap: "wrap", paddingTop: 4 }}>
@@ -926,6 +1186,13 @@ const Step2Algorithms = ({
           {bothDone && !algoRunning && <GhostBtn onClick={onRunBoth}>↺ Re-run</GhostBtn>}
         </div>
       </Card>
+
+      {(algoRunning || gbfsSim) && (
+        <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+          <GBFSExecutionPanel machine={m} sim={gbfsSim} stage={gbfsStage} />
+          <PSOExecutionPanel machine={m} sim={psoSim} iteration={psoIteration} />
+        </div>
+      )}
 
       {bothDone && (() => {
         return (
@@ -2245,7 +2512,44 @@ const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadR
   );
 };
 
-const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
+/* ─────────────────────────────────────────────
+   DATABASE HISTORY
+   Logs each completed run (machine, workload, algorithm, server,
+   measured latency, status) as it happens. Session-scoped — kept in
+   React state rather than localStorage per this environment's artifact
+   rules; wiring this to Supabase just means posting the same row shape
+   to a new backend endpoint alongside the existing /offload call.
+───────────────────────────────────────────── */
+const DatabaseHistory = ({ history }) => {
+  const T = useT();
+  return (
+    <Card title="Database History" sub="Execution logs from this session, most recent first" accent={T.dim}>
+      {history.length === 0 ? (
+        <InfoBox color="blue">No executions logged yet — complete an offload to add the first record.</InfoBox>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead><tr><Th>Date/Time</Th><Th>Machine</Th><Th>Workload</Th><Th>Level</Th><Th>Algorithm</Th><Th>Server</Th><Th>Latency</Th><Th>Status</Th></tr></thead>
+          <tbody>
+            {history.map((h, i) => (
+              <TableRow key={h.id} isOdd={i % 2 === 1} cells={[
+                <span style={{ fontFamily: T.fontSans, color: T.text }}>{h.timestamp}</span>,
+                <span style={{ fontFamily: T.fontSans, color: T.text }}>{h.machineName} ({h.machineId})</span>,
+                <span style={{ fontFamily: T.fontSans, color: T.muted }}>{h.workloadName}</span>,
+                <Badge color={h.level === "High" ? "red" : h.level === "Medium" ? "amber" : h.level === "Low" ? "green" : "dim"}>{h.level}</Badge>,
+                <Badge color={h.algorithm === "GBFS" ? "blue" : "purple"}>{h.algorithm}</Badge>,
+                <span style={{ fontFamily: T.fontMono, color: T.text }}>{h.server}</span>,
+                <span style={{ fontFamily: T.fontMono, color: T.text }}>{h.latency} ms</span>,
+                <Badge color={h.status === "Success" ? "green" : "red"}>{h.status}</Badge>,
+              ]} />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </Card>
+  );
+};
+
+const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
@@ -2267,6 +2571,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult }) => {
       </div>
 
       <ComparisonEvaluationDashboard machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+
+      <DatabaseHistory history={history} />
     </div>
   );
 };
@@ -2309,9 +2615,12 @@ export default function App() {
   const [offloadResult,  setOffloadResult]  = useState(null);
   const [offloading,     setOffloading]     = useState(false);
   const [offloadError,   setOffloadError]   = useState(null);
-  const [gbfsProgress,   setGbfsProgress]   = useState("");
-  const [psoProgress,    setPsoProgress]    = useState("");
+  const [gbfsSim,        setGbfsSim]        = useState(null); // full computeGBFS() output, set as soon as it's computed
+  const [psoSim,         setPsoSim]         = useState(null); // full computePSO() output, set as soon as it's computed
+  const [gbfsStage,      setGbfsStage]      = useState(0);     // 0..5 reveal stage for the GBFS panel
+  const [psoIteration,   setPsoIteration]   = useState(0);     // 0..N revealed PSO iterations
   const [workload,       setWorkload]       = useState(null); // null | 'low' | 'medium' | 'high'
+  const [history,        setHistory]        = useState([]);   // Database History log (session-scoped)
 
   const rawMachine = selectedId ? machineData[selectedId] : null;
   // Tier overrides are applied everywhere downstream of raw fetched data —
@@ -2353,32 +2662,49 @@ export default function App() {
 
   useEffect(() => { loadMachines(); pingServers(); }, [loadMachines, pingServers]);
 
+  const delay = (ms) => new Promise(res => setTimeout(res, ms));
+
+  // Reveals the already-computed GBFS result stage by stage. The values
+  // shown at each stage come straight from `result` (computeGBFS output);
+  // only the *timing* of disclosure is animated.
+  const revealGBFS = async (result) => {
+    setGbfsStage(0);
+    await delay(300); setGbfsStage(1);
+    await delay(450); setGbfsStage(2);
+    await delay(450); setGbfsStage(3);
+    await delay(350); setGbfsStage(4);
+    await delay(350); setGbfsStage(5);
+    setGbfsData(result);
+  };
+
+  // Reveals the already-computed PSO iteration log one row at a time.
+  const revealPSO = async (result) => {
+    setPsoIteration(0);
+    await delay(300);
+    for (let i = 1; i <= result.iterations.length; i++) {
+      setPsoIteration(i);
+      await delay(450);
+    }
+    await delay(250);
+    setPsoData(result);
+  };
+
   const runBothAlgorithms = async () => {
     setAlgoRunning(true); setAlgoError(null);
     setGbfsData(null); setPsoData(null);
-    setGbfsProgress(""); setPsoProgress("");
+    setGbfsSim(null); setPsoSim(null);
+    setGbfsStage(0); setPsoIteration(0);
     try {
-      setGbfsProgress("Running…");
-      const gbfsResult = await apiFetch(PRIMARY_BASE, "/gbfs", {
-        method: "POST",
-        body: JSON.stringify({ machine, candidates: Object.keys(SERVERS) }),
-      });
-      if (!gbfsResult.recommendedServer) {
-        gbfsResult.recommendedServer = "A";
-      }
-      setGbfsData(gbfsResult);
-      setGbfsProgress("Done ✓");
+      // Real computation happens up front — the same selected workload
+      // (machine) is fed to both algorithms, satisfying the single-
+      // source-of-truth requirement. The animation below only reveals
+      // these already-computed metrics; it never invents new ones.
+      const gbfsResult = computeGBFS(machine);
+      const psoResult = computePSO(machine);
+      setGbfsSim(gbfsResult);
+      setPsoSim(psoResult);
 
-      setPsoProgress("Running…");
-      const psoResult = await apiFetch(PRIMARY_BASE, "/pso", {
-        method: "POST",
-        body: JSON.stringify({ machine, candidates: Object.keys(SERVERS) }),
-      });
-      if (!psoResult.recommendedServer) {
-        psoResult.recommendedServer = "B";
-      }
-      setPsoData(psoResult);
-      setPsoProgress("Done ✓");
+      await Promise.all([revealGBFS(gbfsResult), revealPSO(psoResult)]);
 
       setMaxReached(r => Math.max(r, 5));
     } catch (err) {
@@ -2406,6 +2732,15 @@ export default function App() {
         }),
       });
       setOffloadResult(result);
+      setHistory(h => [{
+        id: `${Date.now()}`,
+        timestamp: new Date().toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
+        machineName: machine.name, machineId: machine.machineId,
+        workloadName: machine.taskType || machine.category || "Standard Load",
+        level: workload ? WORKLOAD_LABELS[workload] : "Live",
+        algorithm: winnerAlgo, server: targetSrv.label,
+        latency: result.measuredLatency, status: result.status === "success" ? "Success" : "Failed",
+      }, ...h]);
     } catch (err) { setOffloadError(err.message); }
     finally { setOffloading(false); }
   };
@@ -2413,7 +2748,8 @@ export default function App() {
   const handleSelectMachine = id => {
     setSelectedId(id); setGbfsData(null); setPsoData(null);
     setOffloadResult(null); setMaxReached(0);
-    setGbfsProgress(""); setPsoProgress(""); setWorkload(null);
+    setGbfsSim(null); setPsoSim(null); setGbfsStage(0); setPsoIteration(0);
+    setWorkload(null);
   };
 
   const handleSetWorkload = tier => {
@@ -2421,7 +2757,7 @@ export default function App() {
     // Changing the workload tier invalidates any algorithm/offload results
     // that were computed against the previous parameter set.
     setGbfsData(null); setPsoData(null); setOffloadResult(null);
-    setGbfsProgress(""); setPsoProgress("");
+    setGbfsSim(null); setPsoSim(null); setGbfsStage(0); setPsoIteration(0);
     setMaxReached(r => Math.min(r, 1));
   };
 
@@ -2444,7 +2780,8 @@ export default function App() {
           machine={machine} gbfsData={gbfsData} psoData={psoData}
           algoRunning={algoRunning} algoError={algoError}
           onRunBoth={runBothAlgorithms}
-          gbfsProgress={gbfsProgress} psoProgress={psoProgress}
+          gbfsSim={gbfsSim} psoSim={psoSim}
+          gbfsStage={gbfsStage} psoIteration={psoIteration}
         />
       ) : null;
       case 3: return machine ? <Step3SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData} /> : null;
@@ -2456,7 +2793,7 @@ export default function App() {
         />
       ) : null;
       case 5: return machine ? (
-        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
+        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} />
       ) : null;
       default: return null;
     }
@@ -2535,7 +2872,7 @@ export default function App() {
               <GhostBtn disabled={step === 0} onClick={() => setStep(p => p - 1)}>← Back</GhostBtn>
               <span style={{ fontSize: 14, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
               <PrimaryBtn disabled={!canNext() || step >= 5} onClick={goNext}>
-                {step >= 5 ? "Complete" : "Next →"}
+                {step >= 5 ? "Complete" : step === 1 ? "Send to Algorithm Simulation →" : "Next →"}
               </PrimaryBtn>
             </div>
           </div>
