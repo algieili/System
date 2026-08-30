@@ -490,9 +490,9 @@ const DualBtn = ({ onClick, disabled, children }) => {
 
 /* ─────────────────────────────────────────────
    WORKLOAD TIER SELECTOR
-   Segmented Low / Medium / High control. Shown on the Collect Data page
-   only (not on IoT Machines) for whichever machine has hand-supplied
-   tier data. Live Data has been removed — every run uses a tier.
+   Segmented Live Data / Low / Medium / High control. Shown on the
+   Collect Data page for whichever machine has hand-supplied tier data.
+   "Live Data" reverts to whatever was fetched from Supabase.
 ───────────────────────────────────────────── */
 const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const T = useT();
@@ -500,6 +500,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   if (!hasTiers) return null;
 
   const options = [
+    { key: null,     label: "Live Data" },
     { key: "low",    label: "Low" },
     { key: "medium", label: "Medium" },
     { key: "high",   label: "High" },
@@ -507,11 +508,11 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const tierColor = { low: T.green, medium: T.amber, high: T.red };
 
   return (
-    <Card title="Workload Level" sub={`${machineId} · assigned Low / Medium / High parameter sets`} accent={T.purple}>
+    <Card title="Workload Level" sub={`${machineId} · Live Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map(opt => {
           const active = workload === opt.key;
-          const color = tierColor[opt.key];
+          const color = opt.key ? tierColor[opt.key] : T.blue;
           return (
             <button
               key={opt.label} className="app-btn" onClick={() => setWorkload(opt.key)}
@@ -543,15 +544,16 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
 
 /* ─────────────────────────────────────────────
    SELECTED WORKLOAD CARD
-   Shown below the Parameter Table. Reflects whichever workload tier the
-   user currently has selected — every field re-renders from the current
-   `machine` object, so switching tiers updates this card immediately.
+   Shown below the Parameter Table. Reflects whichever workload the user
+   currently has selected (a hand-supplied tier, or "Live Data" pulled
+   from Supabase) — every field re-renders from the current `machine`
+   object, so switching tiers updates this card immediately.
 ───────────────────────────────────────────── */
 const SelectedWorkloadCard = ({ machine: m, workload }) => {
   const T = useT();
   if (!m) return null;
-  const priority = workload ? WORKLOAD_PRIORITY[workload] : "Standard";
-  const label = workload ? WORKLOAD_LABELS[workload] : "Standard";
+  const priority = workload ? WORKLOAD_PRIORITY[workload] : "Live";
+  const label = workload ? WORKLOAD_LABELS[workload] : "Live Data";
   const color = workload === "high" ? T.red : workload === "medium" ? T.amber : workload === "low" ? T.green : T.blue;
 
   const fields = [
@@ -945,7 +947,7 @@ const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
             <>Showing the <strong style={{ color: T.text }}>{WORKLOAD_LABELS[workload]}</strong> workload for{" "}
             <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
           ) : (
-            <>Showing standard parameters for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
+            <>Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
           )}{" "}
           These metrics are fed into the algorithms to determine the optimal offload target.
         </p>
@@ -959,7 +961,7 @@ const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
         <Stat label="Bandwidth"          value={`${m.bandwidth} Mbps`}       color="purple" />
         <Stat label="Energy Utilization" value={`${m.energyConsumption} kWh`}color="amber" />
       </div>
-      <Card title="Parameter Table" sub={`${m.machineId} · ${workload ? `${WORKLOAD_LABELS[workload]} workload` : "Standard"}`} accent={T.blue}>
+      <Card title="Parameter Table" sub={`${m.machineId} · ${workload ? `${WORKLOAD_LABELS[workload]} workload` : "Supabase"}`} accent={T.blue}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><Th>Parameter</Th><Th>Value</Th><Th>Description</Th></tr></thead>
           <tbody>
@@ -2844,10 +2846,7 @@ export default function App() {
       const data = await apiFetch(PRIMARY_BASE, "/machines");
       setMachineData(data);
       const firstId = Object.keys(data)[0];
-      if (firstId) {
-        setSelectedId(firstId);
-        setWorkload(WORKLOAD_TIERS[data[firstId]?.machineId] ? "medium" : null);
-      }
+      if (firstId) setSelectedId(firstId);
       setServerStatuses(prev => ({ ...prev, A: "online" }));
     } catch (err) {
       setMachinesError(err.message);
@@ -2944,7 +2943,7 @@ export default function App() {
     setSelectedId(id); setGbfsData(null); setPsoData(null);
     setOffloadResult(null); setMaxReached(0);
     setGbfsSim(null); setPsoSim(null); setGbfsStage(0); setPsoIteration(0);
-    setWorkload(WORKLOAD_TIERS[machineData[id]?.machineId] ? "medium" : null);
+    setWorkload(null);
   };
 
   const handleSetWorkload = tier => {
