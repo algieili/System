@@ -89,6 +89,23 @@ const SERVERS = {
 // All algorithm requests go to this neutral gateway
 const PRIMARY_BASE = SERVERS.A.baseUrl;
 
+// Database History persistence. There's no backend history endpoint yet
+// (see /offload — it only returns the measured latency for one task), so
+// history is kept in localStorage rather than only React state. This is
+// what makes records survive a page refresh; swapping to real Supabase
+// persistence later just means writing the same row shape to a new
+// endpoint instead of (or alongside) localStorage.
+const HISTORY_STORAGE_KEY = "edgeOffloadSim.history.v1";
+const loadHistory = () => {
+  try {
+    const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+};
+const saveHistory = (history) => {
+  try { localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(history)); } catch { /* storage unavailable — history just won't persist */ }
+};
+
 const apiFetch = async (baseUrl, path, options = {}) => {
   const res = await fetch(`${baseUrl}${path}`, {
     headers: { "Content-Type": "application/json" },
@@ -203,7 +220,12 @@ const evaluateCandidate = (machine, profile) => {
   const energy        = +(machine.energyConsumption * profile.energyFactor).toFixed(2);
   const throughput    = +(machine.throughput / profile.computeSpeedFactor).toFixed(1);
   const queueLength   = Math.max(0, Math.round(machine.queueLength * profile.queueFactor));
-  return { time, latency, utilization, energy, throughput, queueLength, networkDelay, queueDelay };
+  const resourceAvailability = +(100 - utilization).toFixed(1);
+  // Single ranking number GBFS compares nodes on — same weighting scheme
+  // (network 35% / compute 30% / queue 20% / load 15%) used to combine
+  // otherwise incomparable units (ms vs %) into one heuristic.
+  const heuristicScore = +(networkDelay * 0.35 + time * 0.30 + queueDelay * 0.20 + utilization * 0.15).toFixed(2);
+  return { time, latency, utilization, energy, throughput, queueLength, networkDelay, queueDelay, resourceAvailability, heuristicScore };
 };
 
 // Weighted fitness used by PSO — lower is better. Combines the three
@@ -468,9 +490,9 @@ const DualBtn = ({ onClick, disabled, children }) => {
 
 /* ─────────────────────────────────────────────
    WORKLOAD TIER SELECTOR
-   Segmented Low / Medium / High control. Shown whenever the selected
-   machine has hand-supplied tier data. Selecting a tier overrides that
-   machine's task parameters for the rest of the pipeline.
+   Segmented Live Data / Low / Medium / High control. Shown on the
+   Collect Data page for whichever machine has hand-supplied tier data.
+   "Live Data" reverts to whatever was fetched from Supabase.
 ───────────────────────────────────────────── */
 const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const T = useT();
@@ -478,6 +500,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   if (!hasTiers) return null;
 
   const options = [
+    { key: null,     label: "Live Data" },
     { key: "low",    label: "Low" },
     { key: "medium", label: "Medium" },
     { key: "high",   label: "High" },
@@ -485,11 +508,11 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const tierColor = { low: T.green, medium: T.amber, high: T.red };
 
   return (
-    <Card title="Workload Scenario" sub={`${machineId} · hand-supplied Low / Medium / High parameter sets`} accent={T.purple}>
+    <Card title="Workload Level" sub={`${machineId} · Live Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map(opt => {
           const active = workload === opt.key;
-          const color = tierColor[opt.key];
+          const color = opt.key ? tierColor[opt.key] : T.blue;
           return (
             <button
               key={opt.label} className="app-btn" onClick={() => setWorkload(opt.key)}
@@ -507,16 +530,12 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
           );
         })}
       </div>
-      {workload ? (
+      {workload && (
         <div style={{ marginTop: 12 }}>
           <InfoBox color={workload === "high" ? "red" : workload === "medium" ? "amber" : "green"}>
             Running the <strong>{WORKLOAD_LABELS[workload]}</strong> workload scenario — task parameters below
-            reflect this tier instead of the raw device baseline.
+            reflect this tier instead of the live-fetched values.
           </InfoBox>
-        </div>
-      ) : (
-        <div style={{ marginTop: 12 }}>
-          <InfoBox color="amber">Select a workload tier above to continue.</InfoBox>
         </div>
       )}
     </Card>
@@ -526,15 +545,16 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
 /* ─────────────────────────────────────────────
    SELECTED WORKLOAD CARD
    Shown below the Parameter Table. Reflects whichever workload the user
-   currently has selected — every field re-renders from the current
-   `machine` object, so switching tiers updates this card immediately.
+   currently has selected (a hand-supplied tier, or "Live Data" pulled
+   from Supabase) — every field re-renders from the current `machine`
+   object, so switching tiers updates this card immediately.
 ───────────────────────────────────────────── */
 const SelectedWorkloadCard = ({ machine: m, workload }) => {
   const T = useT();
   if (!m) return null;
-  const priority = workload ? WORKLOAD_PRIORITY[workload] : "—";
-  const label = workload ? WORKLOAD_LABELS[workload] : "Not selected";
-  const color = workload === "high" ? T.red : workload === "medium" ? T.amber : workload === "low" ? T.green : T.dim;
+  const priority = workload ? WORKLOAD_PRIORITY[workload] : "Live";
+  const label = workload ? WORKLOAD_LABELS[workload] : "Live Data";
+  const color = workload === "high" ? T.red : workload === "medium" ? T.amber : workload === "low" ? T.green : T.blue;
 
   const fields = [
     ["Workload",                   label],
@@ -777,7 +797,7 @@ const TopBar = ({ step, maxReached, onJump, algoDecision, dark, setDark, workloa
 /* ─────────────────────────────────────────────
    STEP 0: SELECT MACHINE
 ───────────────────────────────────────────── */
-const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry }) => {
+const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, onRetry, workload, setWorkload }) => {
   const T = useT();
   const machines = Object.values(machineData);
   const m = machineData[selectedId];
@@ -905,7 +925,7 @@ const Step0Machine = ({ machineData, loading, error, selectedId, setSelectedId, 
             ))}
           </div>
           <InfoBox color="green">
-            <strong>{m.machineId}</strong> selected — proceed to Collect Data to choose a workload and view task parameters.
+            <strong>{m.machineId}</strong> selected — proceed to collect task parameters.
           </InfoBox>
         </Card>
       )}
@@ -924,10 +944,10 @@ const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
         <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Parameters</h1>
         <p style={{ fontSize: 16, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
           {workload ? (
-            <>Showing the <strong style={{ color: T.text }}>{WORKLOAD_LABELS[workload]}</strong> workload scenario for{" "}
+            <>Showing the <strong style={{ color: T.text }}>{WORKLOAD_LABELS[workload]}</strong> workload for{" "}
             <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
           ) : (
-            <>Select a workload tier for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong> to load its task parameters.</>
+            <>Live data fetched for <strong style={{ color: T.text }}>{m.name} ({m.machineId})</strong>.</>
           )}{" "}
           These metrics are fed into the algorithms to determine the optimal offload target.
         </p>
@@ -941,7 +961,7 @@ const Step1CollectData = ({ machine: m, workload, setWorkload }) => {
         <Stat label="Bandwidth"          value={`${m.bandwidth} Mbps`}       color="purple" />
         <Stat label="Energy Utilization" value={`${m.energyConsumption} kWh`}color="amber" />
       </div>
-      <Card title="Parameter Table" sub={`${m.machineId} · ${workload ? `${WORKLOAD_LABELS[workload]} workload` : "Select a workload above"}`} accent={T.blue}>
+      <Card title="Parameter Table" sub={`${m.machineId} · ${workload ? `${WORKLOAD_LABELS[workload]} workload` : "Supabase"}`} accent={T.blue}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead><tr><Th>Parameter</Th><Th>Value</Th><Th>Description</Th></tr></thead>
           <tbody>
@@ -1000,104 +1020,70 @@ const TermLine = ({ children, done, color }) => {
   );
 };
 
-const MetricLine = ({ label, value }) => {
+const GBFS_STEPS = ["Task Input", "Identify Candidates", "Evaluate Heuristic", "Compare Nodes", "Select Best", "Decision"];
+const PSO_STEPS  = ["Task Input", "Init Particles", "Evaluate Fitness", "Update Bests", "Update Positions", "Converge", "Decision"];
+
+const StepPipeline = ({ steps, activeIdx, activeColor, activeText }) => {
   const T = useT();
   return (
-    <div style={{ fontFamily: T.fontMono, fontSize: 13, color: T.muted, paddingLeft: 18, lineHeight: 1.6 }}>
-      {label}: <strong style={{ color: T.text }}>{value}</strong>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", fontFamily: T.fontMono, fontSize: 12, marginBottom: 12 }}>
+      {steps.map((s, i) => (
+        <React.Fragment key={s}>
+          <span style={{
+            padding: "4px 9px", borderRadius: 5,
+            border: `1px solid ${i === activeIdx ? activeColor : T.borderSub}`,
+            background: i === activeIdx ? activeColor : "transparent",
+            color: i === activeIdx ? activeText : T.dim,
+            fontWeight: i === activeIdx ? 700 : 400,
+          }}>{s}</span>
+          {i < steps.length - 1 && <span style={{ color: T.dim }}>→</span>}
+        </React.Fragment>
+      ))}
     </div>
   );
 };
 
-/* ─────────────────────────────────────────────
-   GBFS / PSO FIXED LINE GRAPHS
-   Fixed x-axis categories so both graphs are always visible under
-   Decision Logic — flat before a run, and progressively filled in with
-   the same computed values (gbfsSim / psoSim) that drive the execution
-   panels and final results, so the graph and the result never diverge.
-───────────────────────────────────────────── */
-const GBFS_GRAPH_LABELS = ["Start", "Edge A", "Cloud B", "Compare", "Decision"];
-
-const buildGbfsGraphData = (sim, machine, stage) => {
-  const baseline = machine?.avgLatency != null ? +machine.avgLatency : 50;
-  if (!sim) {
-    return GBFS_GRAPH_LABELS.map(label => ({ label, value: baseline }));
-  }
-  const aLat = sim.candidates.A.latency;
-  const bLat = sim.candidates.B.latency;
-  const compareLat = +((aLat + bLat) / 2).toFixed(2);
-  const finalLat = sim.latency;
-  const vals = [baseline, aLat, bLat, compareLat, finalLat];
-  return GBFS_GRAPH_LABELS.map((label, i) => ({ label, value: i <= stage - 1 ? vals[i] : null }));
-};
-
-const PSO_GRAPH_LABELS = ["Start", "Iter 1", "Iter 2", "Iter 3", "Iter 4"];
-
-const buildPsoGraphData = (sim, iteration) => {
-  if (!sim) {
-    return PSO_GRAPH_LABELS.map(label => ({ label, value: 0.5 }));
-  }
-  const vals = [0.5, ...sim.iterations.map(it => it.bestFitness)];
-  return PSO_GRAPH_LABELS.map((label, i) => ({ label, value: i <= iteration ? vals[i] : null }));
-};
-
-const FixedLineGraph = ({ data, color, yLabel, flat, domain }) => {
+const EvalTh = ({ children }) => {
   const T = useT();
-  return (
-    <div>
-      <ResponsiveContainer width="100%" height={150}>
-        <LineChart data={data} margin={{ top: 8, right: 14, left: -14, bottom: 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
-          <XAxis dataKey="label" stroke={T.dim} fontSize={12} fontFamily={T.fontMono} />
-          <YAxis stroke={T.dim} fontSize={12} fontFamily={T.fontMono} domain={domain || ["auto", "auto"]} />
-          <Tooltip contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 12 }} />
-          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} connectNulls={false} isAnimationActive animationDuration={280} />
-        </LineChart>
-      </ResponsiveContainer>
-      <div style={{ fontSize: 12, color: flat ? T.amber : T.muted, fontFamily: T.fontSans, marginTop: 2 }}>
-        {flat ? "Flatline — waiting for algorithm execution." : yLabel}
-      </div>
-    </div>
-  );
+  return <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: T.dim, padding: "5px 8px", borderBottom: `1px solid ${T.borderSub}`, fontFamily: T.fontSans, fontWeight: 600 }}>{children}</th>;
 };
 
-// GBFS: greedy, single-shot evaluation. Every value shown here comes
-// straight from `sim` (the output of computeGBFS) — the animation only
-// controls *when* each already-computed fact is revealed.
+// GBFS: greedy, single-shot evaluation. Every number in the table below
+// comes straight from `sim` (computeGBFS's output) — the animation only
+// controls *when* each already-computed row/step is revealed, mirroring
+// the node-by-node scan → compare → select flow of a real GBFS pass.
 const GBFSExecutionPanel = ({ machine: m, sim, stage }) => {
   const T = useT();
   if (!sim) return null;
   const srv = resolveServer(sim.recommendedServer);
-  return (
-    <Card title="GBFS Execution Simulation" sub="Greedy Best-First Search — immediate best choice" accent={T.blue}>
-      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
-        <TermLine done={stage >= 1}>Analyzing selected workload ({m.machineId})...</TermLine>
+  const pipelineIdx = [0, 1, 2, 2, 3, 5][stage] ?? -1; // both evaluate stages (A then B) map to the same step
 
-        {stage >= 2 && (
-          <>
-            <TermLine done>Evaluating Edge Server A</TermLine>
-            <MetricLine label="Latency" value={`${sim.candidates.A.latency} ms`} />
-            <MetricLine label="Processing time" value={`${sim.candidates.A.time} ms`} />
-            <MetricLine label="Resource utilization" value={`${sim.candidates.A.utilization}%`} />
-            <MetricLine label="Energy consumption" value={`${sim.candidates.A.energy} kWh`} />
-            <MetricLine label="Queue length" value={`${sim.candidates.A.queueLength} tasks`} />
-          </>
-        )}
-        {stage >= 3 && (
-          <>
-            <div style={{ height: 6 }} />
-            <TermLine done>Evaluating Cloud Server B</TermLine>
-            <MetricLine label="Latency" value={`${sim.candidates.B.latency} ms`} />
-            <MetricLine label="Processing time" value={`${sim.candidates.B.time} ms`} />
-            <MetricLine label="Resource utilization" value={`${sim.candidates.B.utilization}%`} />
-            <MetricLine label="Energy consumption" value={`${sim.candidates.B.energy} kWh`} />
-            <MetricLine label="Queue length" value={`${sim.candidates.B.queueLength} tasks`} />
-          </>
-        )}
-        {stage >= 4 && <div style={{ height: 6 }} />}
-        <TermLine done={stage >= 4}>Comparing server performance...</TermLine>
-        <TermLine done={stage >= 5}>Selecting best heuristic option...</TermLine>
-      </div>
+  const rows = [
+    { key: "A", label: resolveServer("A").label, visible: stage >= 2, active: stage === 2, selected: stage >= 5 && sim.recommendedServer === "A", data: sim.candidates.A },
+    { key: "B", label: resolveServer("B").label, visible: stage >= 3, active: stage === 3, selected: stage >= 5 && sim.recommendedServer === "B", data: sim.candidates.B },
+  ];
+
+  return (
+    <Card title="GBFS Execution Simulation" sub="Greedy Best-First Search — single-pass, immediate best choice" accent={T.blue}>
+      <StepPipeline steps={GBFS_STEPS} activeIdx={pipelineIdx} activeColor={T.blue} activeText={T.bg === "#eef0f5" ? "#fff" : "#0d1117"} />
+      <TermLine done={stage >= 1}>Analyzing selected workload ({m.machineId})...</TermLine>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+        <thead><tr><EvalTh>Node</EvalTh><EvalTh>Est. Latency</EvalTh><EvalTh>Proc. Time</EvalTh><EvalTh>Resource Avail.</EvalTh><EvalTh>Heuristic Score</EvalTh></tr></thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.key} style={{ background: r.selected ? T.blueBg : r.active ? T.elevated : "transparent" }}>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.text, fontWeight: r.selected ? 700 : 400, borderBottom: `1px solid ${T.borderSub}` }}>{r.label}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.latency} ms` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.time} ms` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.resourceAvailability}%` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, fontWeight: r.selected ? 700 : 400, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? r.data.heuristicScore : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <TermLine done={stage >= 4} color={T.blue}>Comparing server performance...</TermLine>
+      <TermLine done={stage >= 5} color={T.blue}>Selecting best heuristic option...</TermLine>
 
       {stage >= 5 && (
         <div style={{ marginTop: 12, background: T.blueBg, border: `1px solid ${T.blueDim}`, borderLeft: `3px solid ${T.blue}`, borderRadius: 8, padding: "12px 16px" }}>
@@ -1113,28 +1099,68 @@ const GBFSExecutionPanel = ({ machine: m, sim, stage }) => {
   );
 };
 
-// PSO: real particle-swarm search over the two-server space. Iteration
-// rows are revealed one at a time, but each row's fitness/position values
-// are the actual output of computePSO's iteration log — nothing here is
+// Horizontal track: 0% = pure Edge Server A, 100% = pure Cloud Server B.
+// Particle dots sit at their real x-position for the currently revealed
+// iteration; the amber marker sits at the current global-best position.
+// All positions come from computePSO's iteration log, not from CSS-only
+// animation values.
+const PSOTrack = ({ row }) => {
+  const T = useT();
+  const bestX = (row?.bestX ?? 0) * 100;
+  return (
+    <div style={{ position: "relative", height: 56, background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, margin: "8px 0 4px" }}>
+      <div style={{ position: "absolute", top: 4, left: "0%", fontSize: 10, fontFamily: T.fontMono, color: T.dim }}>Edge A</div>
+      <div style={{ position: "absolute", top: 4, right: "0%", fontSize: 10, fontFamily: T.fontMono, color: T.dim }}>Cloud B</div>
+      {row && (
+        <>
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: `${bestX}%`, width: 2, background: T.amber, boxShadow: `0 0 6px ${T.amber}`, transition: "left 0.4s ease" }} />
+          <div style={{ position: "absolute", top: 24, left: `calc(${row.particleA.x * 100}% - 5px)`, width: 11, height: 11, borderRadius: "50%", background: T.purple, boxShadow: `0 0 8px ${T.purple}`, transition: "left 0.4s cubic-bezier(.4,0,.2,1)" }} />
+          <div style={{ position: "absolute", top: 38, left: `calc(${row.particleB.x * 100}% - 5px)`, width: 11, height: 11, borderRadius: "50%", background: T.purple, opacity: 0.7, boxShadow: `0 0 8px ${T.purple}`, transition: "left 0.4s cubic-bezier(.4,0,.2,1)" }} />
+        </>
+      )}
+    </div>
+  );
+};
+
+// PSO: real particle-swarm search over the continuous Edge↔Cloud
+// relaxation. Iteration rows, the track dots, and the pipeline step are
+// all driven off the same computePSO() log — nothing here is
 // interpolated or randomized for show.
 const PSOExecutionPanel = ({ machine: m, sim, iteration }) => {
   const T = useT();
   if (!sim) return null;
   const done = iteration >= sim.iterations.length;
   const srv = resolveServer(sim.recommendedServer);
+  const currentRow = iteration > 0 ? sim.iterations[iteration - 1] : null;
+  const pipelineIdx = done ? PSO_STEPS.length - 1 : iteration === 0 ? 0 : Math.min(PSO_STEPS.length - 2, 1 + Math.floor(((iteration - 1) / sim.iterations.length) * 4));
+
   return (
     <Card title="PSO Execution Simulation" sub="Particle Swarm Optimization — iterative convergence" accent={T.purple}>
-      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
-        {sim.iterations.slice(0, iteration).map(row => (
-          <div key={row.iteration} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: row.iteration < iteration ? `1px dashed ${T.borderSub}` : "none" }}>
-            <TermLine done color={T.purple}>Iteration {row.iteration}</TermLine>
-            <MetricLine label="Particle A (Edge-leaning, x)" value={`${row.particleA.x} → fitness ${row.particleA.fitness}`} />
-            <MetricLine label="Particle B (Cloud-leaning, x)" value={`${row.particleB.x} → fitness ${row.particleB.fitness}`} />
-            <MetricLine label="Best fitness so far" value={row.bestFitness} />
-          </div>
-        ))}
-        {done && <TermLine done color={T.green}>Optimization complete</TermLine>}
+      <StepPipeline steps={PSO_STEPS} activeIdx={pipelineIdx} activeColor={T.purple} activeText="#2a0016" />
+
+      <div style={{ fontFamily: T.fontMono, fontSize: 12, color: T.muted }}>
+        {currentRow ? <>Iteration <strong style={{ color: T.purple }}>{currentRow.iteration}</strong> / {sim.iterations.length} · global best fitness <strong style={{ color: T.purple }}>{currentRow.bestFitness}</strong> → {resolveServer(currentRow.bestX < 0.5 ? "A" : "B").label}</> : "Awaiting task…"}
       </div>
+      <PSOTrack row={currentRow} />
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+        <thead><tr><EvalTh>Particle</EvalTh><EvalTh>Position (x)</EvalTh><EvalTh>Fitness</EvalTh><EvalTh>Leaning</EvalTh></tr></thead>
+        <tbody>
+          {currentRow ? [
+            { name: "P1", ...currentRow.particleA },
+            { name: "P2", ...currentRow.particleB },
+          ].map(p => (
+            <tr key={p.name}>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.text, borderBottom: `1px solid ${T.borderSub}` }}>{p.name}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{p.x}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{p.fitness}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{resolveServer(p.x < 0.5 ? "A" : "B").label}</td>
+            </tr>
+          )) : (
+            <tr><td colSpan={4} style={{ padding: "10px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.dim }}>—</td></tr>
+          )}
+        </tbody>
+      </table>
 
       {done && (
         <div style={{ marginTop: 12, background: T.purpleBg, border: `1px solid ${T.purpleDim}`, borderLeft: `3px solid ${T.purple}`, borderRadius: 8, padding: "12px 16px" }}>
@@ -1148,6 +1174,65 @@ const PSOExecutionPanel = ({ machine: m, sim, iteration }) => {
       )}
     </Card>
   );
+};
+
+// Fixed-position line graph shown under Decision Logic. Before a run it
+// renders a flatline (a single reference value repeated across the x
+// axis, per spec); during/after a run it renders only the steps that
+// have actually been computed so far, so the line visibly grows as the
+// real computation progresses instead of animating for its own sake.
+const PerformanceLineGraph = ({ title, color, data }) => {
+  const T = useT();
+  return (
+    <Card title={title} sub="Latency (ms) — lower is better" accent={color}>
+      <ResponsiveContainer width="100%" height={160}>
+        <LineChart data={data} margin={{ top: 8, right: 10, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke={T.border} />
+          <XAxis dataKey="step" stroke={T.dim} fontSize={11} fontFamily={T.fontSans} />
+          <YAxis stroke={T.dim} fontSize={11} fontFamily={T.fontMono} domain={["auto", "auto"]} />
+          <Tooltip contentStyle={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, fontFamily: T.fontMono, fontSize: 12 }} />
+          <Line type="monotone" dataKey="value" stroke={color} strokeWidth={2} dot={{ r: 3, fill: color }} isAnimationActive={false} />
+        </LineChart>
+      </ResponsiveContainer>
+    </Card>
+  );
+};
+
+const GBFS_GRAPH_STEPS = ["Task Input", "Identify", "Evaluate", "Compare", "Select", "Decision"];
+
+// Before the run: flatline across every step at the machine's own
+// baseline latency. During the run: only the steps actually reached
+// (gated by `stage`) are plotted, each at the real value GBFS computed
+// at that point — the line only moves because real evaluations landed.
+const buildGbfsGraphData = (m, sim, stage) => {
+  const baseline = m?.avgLatency != null ? +m.avgLatency : (sim ? sim.candidates.A.latency : 100);
+  if (!sim) return GBFS_GRAPH_STEPS.map(step => ({ step, value: baseline }));
+
+  const aLat = sim.candidates.A.latency;
+  const bLat = sim.candidates.B.latency;
+  const bestAB = Math.min(aLat, bLat);
+  const values = [baseline, baseline, aLat, bestAB, bestAB, sim.latency];
+  const count = Math.max(1, stage + 1);
+  return GBFS_GRAPH_STEPS.slice(0, count).map((step, i) => ({ step, value: values[i] }));
+};
+
+// Before the run: flatline across a default 4-iteration axis. During the
+// run: one point per revealed iteration, each value the real running-best
+// latency found among that iteration's two particles (a genuine monotonic
+// improvement curve, not a synthetic ease-in animation).
+const buildPsoGraphData = (m, sim, iteration) => {
+  const baseline = m?.avgLatency != null ? +m.avgLatency : 100;
+  if (!sim) return Array.from({ length: 4 }, (_, i) => ({ step: `Iter ${i + 1}`, value: baseline }));
+
+  let running = Infinity;
+  const pts = [];
+  for (let i = 0; i < iteration && i < sim.iterations.length; i++) {
+    const row = sim.iterations[i];
+    running = Math.min(running, row.particleA.latency, row.particleB.latency);
+    pts.push({ step: `Iter ${row.iteration}`, value: +running.toFixed(2) });
+  }
+  if (pts.length === 0) pts.push({ step: "Iter 1", value: baseline });
+  return pts;
 };
 
 const Step2Algorithms = ({
@@ -1200,23 +1285,8 @@ const Step2Algorithms = ({
       </Card>
 
       <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
-        <Card title="GBFS Performance" sub="Latency trace across evaluation steps" accent={T.blue}>
-          <FixedLineGraph
-            data={buildGbfsGraphData(gbfsSim, m, gbfsStage)}
-            color={T.blue}
-            yLabel="Latency (ms) per evaluation step"
-            flat={!gbfsSim}
-          />
-        </Card>
-        <Card title="PSO Performance" sub="Best fitness across optimization iterations" accent={T.purple}>
-          <FixedLineGraph
-            data={buildPsoGraphData(psoSim, psoIteration)}
-            color={T.purple}
-            yLabel="Best fitness (0–1) per iteration"
-            flat={!psoSim}
-            domain={[0, 1]}
-          />
-        </Card>
+        <PerformanceLineGraph title="GBFS Performance" color={T.blue} data={buildGbfsGraphData(m, gbfsSim, gbfsStage)} />
+        <PerformanceLineGraph title="PSO Performance" color={T.purple} data={buildPsoGraphData(m, psoSim, psoIteration)} />
       </div>
 
       <Card title="Execution Pipeline" sub="Both algorithms run in sequence" accent={T.blue}>
@@ -1483,100 +1553,83 @@ const Step3SelectEdge = ({ machine: m, gbfsData, psoData }) => {
 };
 
 /* ─────────────────────────────────────────────
-   OFFLOADING SIMULATION
-   Three additional Offload Task sections — Processing Node Comparison,
-   Task Payload, and Execution Timeline — all driven by the same
-   offloadPhase / offloadProgress signal that comes from the real fetch
-   lifecycle (see App's offloadTask). Nothing here is a separate,
-   disconnected animation: every visual reads off that one shared state.
+   STEP 4: OFFLOAD
 ───────────────────────────────────────────── */
+// Single source of truth for "how far along is the real offload request".
+// Every new section below (progress bar, payload transfer, timeline) reads
+// from this same number, so they can never drift out of sync with each
+// other or with the actual fetch lifecycle. It only ever reaches 100 once
+// the real request resolves successfully (see the effect below) — it
+// never free-runs to completion on its own.
+const useOffloadProgress = (offloading, success) => {
+  const [progress, setProgress] = React.useState(0);
 
-// Splits the single 0–100 offload progress signal into named sub-stages
-// for the timeline/payload displays. The signal itself is still the real
-// one tied to the in-flight request (see offloadTask) — this just labels
-// which part of that real progress the UI is currently in.
-const OFFLOAD_TIMELINE_LABELS = [
-  "Task Selected", "Server Selected", "Payload Transfer", "Server Processing", "Task Execution", "Offloading Complete",
-];
+  React.useEffect(() => {
+    if (offloading) {
+      setProgress(5);
+      const id = setInterval(() => {
+        setProgress(p => (p < 90 ? p + (90 - p) * 0.15 : p));
+      }, 200);
+      return () => clearInterval(id);
+    }
+  }, [offloading]);
 
-const getOffloadSubStage = (progress) => {
-  if (progress < 40) return "payload";
-  if (progress < 75) return "processing";
-  return "execution";
+  React.useEffect(() => {
+    if (!offloading && success) setProgress(100);
+    if (!offloading && !success) setProgress(0);
+  }, [offloading, success]);
+
+  return Math.round(progress);
 };
 
-const getTimelineStatuses = (phase, progress) => {
-  // "Task Selected" and "Server Selected" are always satisfied by the
-  // time this page can render (algorithms already ran and chose a target).
-  const statuses = ["done", "done", "pending", "pending", "pending", "pending"];
-  if (phase === "idle") return statuses;
-
-  const subStage = getOffloadSubStage(progress);
-  const order = ["payload", "processing", "execution"];
-  const subIndex = order.indexOf(subStage); // 0,1,2 → timeline indices 2,3,4
-
-  if (phase === "processing") {
-    for (let i = 0; i < subIndex; i++) statuses[2 + i] = "done";
-    statuses[2 + subIndex] = "active";
-  } else if (phase === "success") {
-    statuses[2] = "done"; statuses[3] = "done"; statuses[4] = "done"; statuses[5] = "done";
-  } else if (phase === "error") {
-    for (let i = 0; i < subIndex; i++) statuses[2 + i] = "done";
-    statuses[2 + subIndex] = "error";
-  }
-  return statuses;
-};
-
-const offloadStatusLabel = (phase, progress) => {
-  if (phase === "success") return "SUCCESS";
-  if (phase === "error") return "FAILED";
-  if (phase === "processing") {
-    const sub = getOffloadSubStage(progress);
-    return sub === "payload" ? "TRANSFERRING" : sub === "processing" ? "PROCESSING" : "EXECUTING";
-  }
-  return "PENDING";
-};
-
-const ProcessingNodeComparisonCard = ({ winnerData, decidedKey, winnerAlgo, offloadPhase }) => {
+const OffloadProgressBar = ({ progress, offloading, success, color }) => {
   const T = useT();
-  const candidates = winnerData?.candidates;
-  if (!candidates) return null;
+  const status = success ? "SUCCESS" : offloading ? "PROCESSING" : progress === 0 ? "PENDING" : "PROCESSING";
+
   return (
-    <Card title="Processing Node Comparison" sub={`Nodes evaluated by ${winnerAlgo} for this task`} accent={T.purple}>
+    <div style={{ marginBottom: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.fontMono, fontSize: 13, color: T.muted, marginBottom: 6 }}>
+        <span>Status: <strong style={{ color: success ? T.green : offloading ? color : T.dim }}>{status}</strong></span>
+        <span>{progress}%</span>
+      </div>
+      <div style={{ height: 10, background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden" }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: success ? T.green : color, transition: "width 0.2s linear", borderRadius: 6 }} />
+      </div>
+    </div>
+  );
+};
+
+// Shows both candidate servers' real evaluated metrics (the same
+// evaluateCandidate() output both algorithms scored against) side by
+// side, with the algorithm-chosen target flagged — this is what the
+// offload decision was actually based on, not a decorative recap.
+const ProcessingNodeComparison = ({ gbfsData, decidedKey, winnerAlgo }) => {
+  const T = useT();
+  const nodes = [
+    { key: "A", data: gbfsData.candidates.A },
+    { key: "B", data: gbfsData.candidates.B },
+  ];
+  return (
+    <Card title="Processing Node Comparison" sub={`Both candidates as evaluated by ${winnerAlgo}`} accent={T.purple}>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {Object.entries(SERVERS).map(([key, srv]) => {
-          const cand = candidates[key];
-          const isChosen = key === decidedKey;
-          const accent = isChosen ? (key === "A" ? T.blue : T.green) : T.border;
-          const accentBg = isChosen ? (key === "A" ? T.blueBg : T.greenBg) : T.elevated;
+        {nodes.map(n => {
+          const srv = resolveServer(n.key);
+          const selected = n.key === decidedKey;
           return (
-            <div key={key} style={{
-              flex: "1 1 220px", border: `1px solid ${accent}`, borderRadius: 8,
-              padding: "14px 16px", background: accentBg,
+            <div key={n.key} style={{
+              flex: "1 1 220px", border: `1px solid ${selected ? T.green : T.border}`,
+              borderRadius: 8, padding: "12px 14px",
+              background: selected ? T.greenBg : T.elevated,
             }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 18 }}>{srv.icon}</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{srv.label}</span>
-                </div>
-                {isChosen ? (
-                  <Badge color={key === "A" ? "blue" : "green"} dot>
-                    {offloadPhase === "idle" ? "Selected" : offloadPhase === "success" ? "Delivered" : "In progress"}
-                  </Badge>
-                ) : (
-                  <Badge color="dim">Evaluated</Badge>
-                )}
+                <span style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{srv.icon} {srv.label}</span>
+                <Badge color={selected ? "green" : "dim"} dot={selected}>{selected ? "Selected" : "Evaluated"}</Badge>
               </div>
-              {cand && (
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-                  {[["Latency", `${cand.latency} ms`], ["Utilization", `${cand.utilization}%`], ["Energy", `${cand.energy} kWh`], ["Queue", `${cand.queueLength} tasks`]].map(([l, v]) => (
-                    <div key={l}>
-                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <div style={{ fontSize: 13, fontFamily: T.fontMono, color: T.muted, lineHeight: 1.7 }}>
+                Latency: <strong style={{ color: T.text }}>{n.data.latency} ms</strong><br />
+                Resource Avail.: <strong style={{ color: T.text }}>{n.data.resourceAvailability}%</strong><br />
+                Energy: <strong style={{ color: T.text }}>{n.data.energy} kWh</strong>
+              </div>
             </div>
           );
         })}
@@ -1585,67 +1638,84 @@ const ProcessingNodeComparisonCard = ({ winnerData, decidedKey, winnerAlgo, offl
   );
 };
 
-const TaskPayloadCard = ({ machine: m, workload, decidedSrv, offloadPhase, offloadProgress, accent }) => {
+// The payload percentage and status are the same `progress` value driving
+// the bar and the timeline below — everything moves together because
+// they all read one real state, not three independent animations.
+const TaskPayloadCard = ({ m, workload, decidedSrv, progress, success }) => {
   const T = useT();
-  const status = offloadStatusLabel(offloadPhase, offloadProgress);
-  const pct = offloadPhase === "success" ? 100 : offloadProgress;
+  const status = success ? "COMPLETE" : progress === 0 ? "PENDING" : progress < 100 ? "TRANSFERRING" : "FINALIZING";
   return (
-    <Card title="Task Payload" sub="Workload being transferred to the target server" accent={accent}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 14 }}>
+    <Card title="Task Payload" sub="Workload data being transferred to the target server" accent={T.amber}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, marginBottom: 12 }}>
         {[
-          ["Workload", workload ? WORKLOAD_LABELS[workload] : "—"],
-          ["Source", `${m.name}`],
-          ["Target", decidedSrv.label],
+          ["Workload", workload ? WORKLOAD_LABELS[workload] : "Live Data"],
+          ["Source",   m.name],
+          ["Target",   decidedSrv.label],
+          ["Size",     `${m.taskSize} MB`],
         ].map(([l, v]) => (
-          <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 12px" }}>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>{l}</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+          <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "8px 10px" }}>
+            <div style={{ fontSize: 11, color: T.muted, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans, marginBottom: 3 }}>{l}</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
           </div>
         ))}
       </div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-        <span style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, textTransform: "uppercase", letterSpacing: "0.06em" }}>Payload</span>
-        <Badge color={status === "SUCCESS" ? "green" : status === "FAILED" ? "red" : "amber"} dot>{status}</Badge>
+      <div style={{ display: "flex", justifyContent: "space-between", fontFamily: T.fontMono, fontSize: 13, color: T.muted, marginBottom: 6 }}>
+        <span>Payload</span>
+        <span>{progress}%</span>
       </div>
-      <div style={{ height: 16, background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 8, overflow: "hidden" }}>
-        <div style={{ width: `${pct}%`, height: "100%", background: accent, borderRadius: 8, transition: "width 0.25s ease" }} />
+      <div style={{ height: 10, background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, overflow: "hidden", marginBottom: 6 }}>
+        <div style={{ height: "100%", width: `${progress}%`, background: success ? T.green : T.amber, transition: "width 0.2s linear", borderRadius: 6 }} />
       </div>
-      <div style={{ fontSize: 13, color: T.dim, fontFamily: T.fontMono, marginTop: 4, textAlign: "right" }}>{pct}%</div>
+      <div style={{ fontFamily: T.fontMono, fontSize: 13, color: success ? T.green : T.amber }}>Status: <strong>{status}</strong></div>
     </Card>
   );
 };
 
-const ExecutionTimelineCard = ({ offloadPhase, offloadProgress, accent }) => {
+const TIMELINE_STEPS = ["Task Selected", "Server Selected", "Payload Transfer", "Server Processing", "Task Execution", "Offloading Complete"];
+
+// Maps the same real `progress` number onto the 6 timeline steps. Task
+// Selected / Server Selected are already true by the time this panel is
+// reachable (the algorithm decision happened in the previous step), so
+// they start checked; the remaining four light up as progress crosses
+// their thresholds, exactly mirroring the payload bar and progress bar.
+const ExecutionTimeline = ({ progress, offloading, success }) => {
   const T = useT();
-  const statuses = getTimelineStatuses(offloadPhase, offloadProgress);
+  // step index 2=Payload Transfer, 3=Server Processing, 4=Task Execution, 5=Offloading Complete.
+  // Steps 0/1 (Task Selected, Server Selected) are already satisfied by
+  // the time this panel is reachable, so they render checked immediately.
+  let activeIdx = null; // the one step currently in progress (not yet done)
+  if (success) {
+    activeIdx = null; // everything below is "done"
+  } else if (offloading || progress > 0) {
+    if (progress < 35) activeIdx = 2;
+    else if (progress < 65) activeIdx = 3;
+    else activeIdx = 4;
+  }
+  // "done" covers every step before the active one, plus 0/1 always,
+  // plus everything when success is true.
+  const doneUpTo = success ? 5 : activeIdx != null ? activeIdx - 1 : 1;
+
   return (
-    <Card title="Execution Timeline" sub="Stages of the offloading process" accent={accent}>
-      <div>
-        {OFFLOAD_TIMELINE_LABELS.map((label, i) => {
-          const status = statuses[i];
-          const icon = status === "done" ? "✓" : status === "active" ? "●" : status === "error" ? "✕" : "○";
-          const color = status === "done" ? T.green : status === "active" ? T.blue : status === "error" ? T.red : T.dim;
+    <Card title="Execution Timeline" sub="Stages of the offloading process" accent={T.blue}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {TIMELINE_STEPS.map((label, i) => {
+          const done = i <= doneUpTo;
+          const active = !done && i === activeIdx;
           return (
-            <div key={label}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{
-                  width: 22, height: 22, borderRadius: "50%", flexShrink: 0,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 13, fontWeight: 700, fontFamily: T.fontMono,
-                  color: status === "pending" ? T.dim : "#fff",
-                  background: status === "pending" ? T.elevated : color,
-                  border: `1px solid ${status === "pending" ? T.border : color}`,
-                }}>
-                  {status === "pending" ? "" : icon}
-                </div>
-                <span style={{ fontSize: 15, fontFamily: T.fontSans, fontWeight: status === "active" ? 700 : 500, color: status === "pending" ? T.dim : T.text }}>
-                  {label}
-                </span>
-                {status === "active" && <span style={{ fontSize: 12, color: T.blue, fontFamily: T.fontMono }}>running…</span>}
-              </div>
-              {i < OFFLOAD_TIMELINE_LABELS.length - 1 && (
-                <div style={{ width: 1, height: 16, background: status === "pending" ? T.border : color, marginLeft: 10.5 }} />
-              )}
+            <div key={label} style={{ display: "flex", alignItems: "center", gap: 10, padding: "5px 0" }}>
+              <span style={{
+                width: 20, height: 20, borderRadius: "50%", flexShrink: 0,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 11, fontFamily: T.fontMono, fontWeight: 700,
+                background: done ? T.green : active ? T.blue : T.elevated,
+                color: done || active ? "#fff" : T.dim,
+                border: `1px solid ${done ? T.green : active ? T.blue : T.border}`,
+              }}>
+                {done ? "✓" : active ? "●" : "○"}
+              </span>
+              <span style={{ fontFamily: T.fontMono, fontSize: 13, color: done ? T.green : active ? T.blue : T.dim, fontWeight: active ? 700 : 400 }}>
+                {label}
+              </span>
             </div>
           );
         })}
@@ -1654,13 +1724,7 @@ const ExecutionTimelineCard = ({ offloadPhase, offloadProgress, accent }) => {
   );
 };
 
-/* ─────────────────────────────────────────────
-   STEP 4: OFFLOAD
-───────────────────────────────────────────── */
-const Step4Offload = ({
-  machine: m, gbfsData, psoData, offloadResult, offloading, offloadError,
-  offloadPhase, offloadProgress, workload, onOffload,
-}) => {
+const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload, onAdvance, workload }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
@@ -1671,6 +1735,8 @@ const Step4Offload = ({
   const decidedSrv = resolveServer(decidedKey);
   const srvAccent  = decidedKey === "A" ? T.blue : T.green;
   const srvAccentBg= decidedKey === "A" ? T.blueBg : T.greenBg;
+  const success    = offloadResult?.status === "success";
+  const progress   = useOffloadProgress(offloading, success);
 
   return (
     <div>
@@ -1720,21 +1786,24 @@ const Step4Offload = ({
         </div>
       </Card>
 
-      {offloadPhase !== "idle" && (
-        <>
-          <ProcessingNodeComparisonCard winnerData={winnerData} decidedKey={decidedKey} winnerAlgo={winnerAlgo} offloadPhase={offloadPhase} />
-          <TaskPayloadCard machine={m} workload={workload} decidedSrv={decidedSrv} offloadPhase={offloadPhase} offloadProgress={offloadProgress} accent={srvAccent} />
-          <ExecutionTimelineCard offloadPhase={offloadPhase} offloadProgress={offloadProgress} accent={srvAccent} />
-        </>
-      )}
+      <ProcessingNodeComparison gbfsData={gbfsData} decidedKey={decidedKey} winnerAlgo={winnerAlgo} />
+
+      <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+        <TaskPayloadCard m={m} workload={workload} decidedSrv={decidedSrv} progress={progress} success={success} />
+        <ExecutionTimeline progress={progress} offloading={offloading} success={success} />
+      </div>
 
       <Card title={`Send to ${decidedSrv.label}`} sub={`POST → ${decidedSrv.baseUrl}/offload`} accent={srvAccent}>
         {offloadError && <div style={{ marginBottom: 16 }}><ErrBox>Offload failed — {offloadError}</ErrBox></div>}
 
+        {(offloading || offloadResult) && (
+          <OffloadProgressBar progress={progress} offloading={offloading} success={success} color={srvAccent} />
+        )}
+
         {!offloadResult ? (
           <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
             <PrimaryBtn onClick={onOffload} disabled={offloading}>
-              {offloading ? `Processing on ${decidedSrv.label}…` : `Offload Task → ${decidedSrv.icon} ${decidedSrv.label}`}
+              {offloading ? `Sending to ${decidedSrv.label}…` : `Offload Task → ${decidedSrv.icon} ${decidedSrv.label}`}
             </PrimaryBtn>
           </div>
         ) : (
@@ -1753,8 +1822,14 @@ const Step4Offload = ({
               ))}
             </div>
             <InfoBox color="green">
-              Task offloaded. Measured latency: <strong style={{ fontFamily: T.fontMono }}>{offloadResult.measuredLatency} ms</strong>. Saved to the database.
+              Task offloaded. Measured latency: <strong style={{ fontFamily: T.fontMono }}>{offloadResult.measuredLatency} ms</strong>. Saved to Supabase.
             </InfoBox>
+
+            {offloadResult.status === "success" && (
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <PrimaryBtn onClick={onAdvance}>Send to {decidedSrv.label} →</PrimaryBtn>
+              </div>
+            )}
           </>
         )}
       </Card>
@@ -2769,22 +2844,18 @@ const ComparisonEvaluationDashboard = ({ machine: m, gbfsData, psoData, offloadR
 
 /* ─────────────────────────────────────────────
    DATABASE HISTORY
-   Persisted through window.storage so completed runs (machine, workload,
-   algorithm, server, measured latency, status) survive a page refresh
-   instead of living only in React state.
+   Logs each completed run (machine, workload, algorithm, server,
+   measured latency, status) as it happens. Persisted to localStorage
+   (see loadHistory/saveHistory) so records survive a page refresh —
+   there's no backend history endpoint yet, so this is the pragmatic
+   stand-in. Wiring it to Supabase later just means posting the same row
+   shape to a new endpoint alongside (or instead of) localStorage.
 ───────────────────────────────────────────── */
-const HISTORY_STORAGE_KEY = "offload-history";
-
-const DatabaseHistory = ({ history, historyLoading }) => {
+const DatabaseHistory = ({ history }) => {
   const T = useT();
   return (
-    <Card title="Database History" sub="Persistent execution logs — saved automatically, available after refresh" accent={T.dim}>
-      {historyLoading ? (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, color: T.muted, fontFamily: T.fontSans, fontSize: 15, padding: "6px 0" }}>
-          <div style={{ width: 14, height: 14, border: `2px solid ${T.blue}`, borderTopColor: "transparent", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-          Loading saved history…
-        </div>
-      ) : history.length === 0 ? (
+    <Card title="Database History" sub="Persisted execution logs, most recent first — survives page refresh" accent={T.dim}>
+      {history.length === 0 ? (
         <InfoBox color="blue">No executions logged yet — complete an offload to add the first record.</InfoBox>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -2809,7 +2880,7 @@ const DatabaseHistory = ({ history, historyLoading }) => {
   );
 };
 
-const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history, historyLoading }) => {
+const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
@@ -2832,7 +2903,7 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history, h
 
       <ComparisonEvaluationDashboard machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
 
-      <DatabaseHistory history={history} historyLoading={historyLoading} />
+      <DatabaseHistory history={history} />
     </div>
   );
 };
@@ -2875,15 +2946,14 @@ export default function App() {
   const [offloadResult,  setOffloadResult]  = useState(null);
   const [offloading,     setOffloading]     = useState(false);
   const [offloadError,   setOffloadError]   = useState(null);
-  const [offloadPhase,   setOffloadPhase]   = useState("idle");  // idle | processing | success | error
-  const [offloadProgress,setOffloadProgress]= useState(0);       // 0..100, tied to the real request lifecycle
   const [gbfsSim,        setGbfsSim]        = useState(null); // full computeGBFS() output, set as soon as it's computed
   const [psoSim,         setPsoSim]         = useState(null); // full computePSO() output, set as soon as it's computed
   const [gbfsStage,      setGbfsStage]      = useState(0);     // 0..5 reveal stage for the GBFS panel
   const [psoIteration,   setPsoIteration]   = useState(0);     // 0..N revealed PSO iterations
   const [workload,       setWorkload]       = useState(null); // null | 'low' | 'medium' | 'high'
-  const [history,        setHistory]        = useState([]);   // Database History log, persisted via window.storage
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [history,        setHistory]        = useState(loadHistory); // Database History — loaded from localStorage, persists across refresh
+
+  useEffect(() => { saveHistory(history); }, [history]);
 
   const rawMachine = selectedId ? machineData[selectedId] : null;
   // Tier overrides are applied everywhere downstream of raw fetched data —
@@ -2921,26 +2991,6 @@ export default function App() {
       setMachinesError(err.message);
       setServerStatuses(prev => ({ ...prev, A: "offline" }));
     } finally { setMachinesLoading(false); }
-  }, []);
-
-  // Load persisted offload history once on mount so records survive a
-  // page refresh instead of living only in component state.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await window.storage.get(HISTORY_STORAGE_KEY, false);
-        if (!cancelled && res?.value) {
-          const parsed = JSON.parse(res.value);
-          if (Array.isArray(parsed)) setHistory(parsed);
-        }
-      } catch {
-        // No saved history yet (first run) — start with an empty log.
-      } finally {
-        if (!cancelled) setHistoryLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => { loadMachines(); pingServers(); }, [loadMachines, pingServers]);
@@ -3002,16 +3052,6 @@ export default function App() {
     const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
 
     setOffloading(true); setOffloadError(null);
-    setOffloadPhase("processing"); setOffloadProgress(3);
-
-    // Progress is tied to the real request lifecycle: it climbs toward
-    // (but never reaches) 90% while the fetch is in flight, then jumps to
-    // 100% only once the response actually comes back — never a fixed
-    // duration loop disconnected from the real offload state.
-    const progressTimer = setInterval(() => {
-      setOffloadProgress(p => (p < 90 ? Math.min(90, p + Math.max(1, Math.round((90 - p) * 0.12))) : p));
-    }, 200);
-
     try {
       const result = await apiFetch(targetSrv.baseUrl, "/offload", {
         method: "POST",
@@ -3024,32 +3064,17 @@ export default function App() {
           psoLatency:   psoData.latency,
         }),
       });
-      clearInterval(progressTimer);
-      setOffloadProgress(100);
-      setOffloadPhase("success");
       setOffloadResult(result);
-
-      const record = {
+      setHistory(h => [{
         id: `${Date.now()}`,
         timestamp: new Date().toLocaleString("en-US", { month: "short", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }),
         machineName: machine.name, machineId: machine.machineId,
         workloadName: machine.taskType || machine.category || "Standard Load",
-        level: workload ? WORKLOAD_LABELS[workload] : "—",
+        level: workload ? WORKLOAD_LABELS[workload] : "Live",
         algorithm: winnerAlgo, server: targetSrv.label,
         latency: result.measuredLatency, status: result.status === "success" ? "Success" : "Failed",
-      };
-      setHistory(h => {
-        const next = [record, ...h];
-        // Persist immediately so the record survives a refresh; failures
-        // here don't block the UI, they just mean the save didn't stick.
-        window.storage.set(HISTORY_STORAGE_KEY, JSON.stringify(next), false).catch(() => {});
-        return next;
-      });
-    } catch (err) {
-      clearInterval(progressTimer);
-      setOffloadPhase("error");
-      setOffloadError(err.message);
-    }
+      }, ...h]);
+    } catch (err) { setOffloadError(err.message); }
     finally { setOffloading(false); }
   };
 
@@ -3058,7 +3083,6 @@ export default function App() {
     setOffloadResult(null); setMaxReached(0);
     setGbfsSim(null); setPsoSim(null); setGbfsStage(0); setPsoIteration(0);
     setWorkload(null);
-    setOffloadPhase("idle"); setOffloadProgress(0);
   };
 
   const handleSetWorkload = tier => {
@@ -3067,7 +3091,6 @@ export default function App() {
     // that were computed against the previous parameter set.
     setGbfsData(null); setPsoData(null); setOffloadResult(null);
     setGbfsSim(null); setPsoSim(null); setGbfsStage(0); setPsoIteration(0);
-    setOffloadPhase("idle"); setOffloadProgress(0);
     setMaxReached(r => Math.min(r, 1));
   };
 
@@ -3083,7 +3106,7 @@ export default function App() {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} />;
+      case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} workload={workload} setWorkload={handleSetWorkload} />;
       case 1: return machine ? <Step1CollectData machine={machine} workload={workload} setWorkload={handleSetWorkload} /> : null;
       case 2: return machine ? (
         <Step2Algorithms
@@ -3099,12 +3122,12 @@ export default function App() {
         <Step4Offload
           machine={machine} gbfsData={gbfsData} psoData={psoData}
           offloadResult={offloadResult} offloading={offloading}
-          offloadError={offloadError} offloadPhase={offloadPhase}
-          offloadProgress={offloadProgress} workload={workload} onOffload={offloadTask}
+          offloadError={offloadError} onOffload={offloadTask}
+          onAdvance={goNext} workload={workload}
         />
       ) : null;
       case 5: return machine ? (
-        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} historyLoading={historyLoading} />
+        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} />
       ) : null;
       default: return null;
     }
