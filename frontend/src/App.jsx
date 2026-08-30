@@ -122,13 +122,30 @@ const apiFetch = async (baseUrl, path, options = {}) => {
 const resolveServer = (key) => SERVERS[key] ?? SERVERS.A;
 
 const STEPS = [
-  { title: "IoT Machine",        short: "Machine",    icon: "⚙" },
-  { title: "Collect Data",       short: "Collect",    icon: "📊" },
-  { title: "Run Algorithms",     short: "Algorithms", icon: "⟳" },
-  { title: "Select Edge Server", short: "Edge Server",icon: "🖥" },
-  { title: "Offload Task",       short: "Offload",    icon: "📤" },
-  { title: "Measure Latency",    short: "Latency",    icon: "📈" },
+  { title: "Choose Machine",              short: "Machine",  icon: "⚙" },
+  { title: "Choose Priority",             short: "Priority", icon: "🎚" },
+  { title: "Select Edge / Offload Task",  short: "Config",   icon: "🎯" },
+  { title: "Run GBFS + PSO",              short: "Run",      icon: "⟳" },
+  { title: "Automatic Offloading",        short: "Offload",  icon: "📤" },
+  { title: "Measure Latency",             short: "Latency",  icon: "📈" },
 ];
+
+// Main Simulation Pipeline stages — a persistent strip showing where the
+// current machine/task is in the overall Simulation → Data → Algorithm →
+// Offload Data → Server flow, independent of which wizard step is on screen.
+const PIPELINE_STAGES = ["Simulation", "Data", "Algorithm", "Offload Data", "Server"];
+
+// Maps live app state onto one of the 5 pipeline stages.
+const derivePipelineStage = ({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult }) => {
+  if (!machine) return 0;                              // Simulation (setup)
+  if (algoRunning) return 2;                            // Algorithm running
+  if (gbfsData && psoData) {
+    if (offloadResult) return 4;                        // Server (delivered)
+    if (offloading) return 3;                            // Offload Data
+    return 3;                                            // decision made, about to offload
+  }
+  return 1;                                              // Data collected, awaiting algorithm run
+};
 
 /* ─────────────────────────────────────────────
    WORKLOAD TIERS
@@ -166,7 +183,7 @@ const WORKLOAD_TIERS = {
   },
 };
 
-const WORKLOAD_LABELS = { low: "Low", medium: "Medium", high: "High" };
+const WORKLOAD_LABELS = { low: "Low", medium: "Mid", high: "High" };
 const WORKLOAD_PRIORITY = { low: "Low", medium: "Normal", high: "High" };
 
 // Merge a tier's overrides onto the live-fetched machine record. Falls
@@ -488,6 +505,71 @@ const DualBtn = ({ onClick, disabled, children }) => {
   );
 };
 
+// Toggle switch — used by the Automatic Offload control.
+const ToggleSwitch = ({ on, onChange, onColor, label }) => {
+  const T = useT();
+  return (
+    <button className="app-btn" onClick={() => onChange(!on)} style={{
+      display: "flex", alignItems: "center", gap: 10,
+      background: "transparent", border: "none", cursor: "pointer", padding: 0,
+    }}>
+      <div style={{
+        position: "relative", width: 44, height: 24, borderRadius: 12,
+        background: on ? (onColor || T.green) : T.elevated,
+        border: `1px solid ${on ? (onColor || T.green) : T.border}`,
+        transition: "background 0.2s ease", flexShrink: 0,
+      }}>
+        <div style={{
+          position: "absolute", top: 2, left: on ? 22 : 2,
+          width: 18, height: 18, borderRadius: "50%", background: "#fff",
+          transition: "left 0.2s cubic-bezier(.4,0,.2,1)", boxShadow: "0 1px 3px rgba(0,0,0,0.35)",
+        }} />
+      </div>
+      {label && <span style={{ fontSize: 15, fontWeight: 600, color: T.text, fontFamily: T.fontSans }}>{label}</span>}
+    </button>
+  );
+};
+
+// Persistent strip: Simulation → Data → Algorithm → Offload Data → Server.
+// Reflects live app state (not the wizard step index) so it stays accurate
+// even if the user jumps between steps via the sidebar.
+const MainSimulationPipeline = ({ activeIdx }) => {
+  const T = useT();
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 0, marginBottom: 16,
+      background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10,
+      padding: "10px 14px", overflowX: "auto",
+    }}>
+      {PIPELINE_STAGES.map((label, i) => {
+        const done = i < activeIdx, active = i === activeIdx;
+        return (
+          <React.Fragment key={label}>
+            {i > 0 && <div style={{ width: 20, height: 1, background: done || active ? T.green : T.border, margin: "0 6px", flexShrink: 0 }} />}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 20,
+              background: active ? T.blueBg : done ? T.greenBg : T.elevated,
+              border: `1px solid ${active ? T.blue : done ? T.green : T.border}`,
+              flexShrink: 0,
+            }}>
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: active ? T.blue : done ? T.green : T.dim,
+                flexShrink: 0,
+              }} />
+              <span style={{
+                fontSize: 13, fontFamily: T.fontMono, whiteSpace: "nowrap",
+                color: active ? T.blue : done ? T.green : T.dim,
+                fontWeight: active ? 700 : 400,
+              }}>{label}</span>
+            </div>
+          </React.Fragment>
+        );
+      })}
+    </div>
+  );
+};
+
 /* ─────────────────────────────────────────────
    WORKLOAD TIER SELECTOR
    Segmented Live Data / Low / Medium / High control. Shown on the
@@ -500,7 +582,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   if (!hasTiers) return null;
 
   const options = [
-    { key: null,     label: "Simulated Data" },
+    { key: null,     label: "Live Data" },
     { key: "low",    label: "Low" },
     { key: "medium", label: "Medium" },
     { key: "high",   label: "High" },
@@ -508,7 +590,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const tierColor = { low: T.green, medium: T.amber, high: T.red };
 
   return (
-    <Card title="Workload Level" sub={`${machineId} · Simulated Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
+    <Card title="Workload Level" sub={`${machineId} · Live Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map(opt => {
           const active = workload === opt.key;
@@ -1235,6 +1317,86 @@ const buildPsoGraphData = (m, sim, iteration) => {
   return pts;
 };
 
+/* ─────────────────────────────────────────────
+   STEP 2: SELECT EDGE / OFFLOAD TASK
+   Config panel shown before running GBFS/PSO. Shows a read-only preview
+   of both candidate servers (the same evaluateCandidate() math the
+   algorithms will use — not their final decision, which only exists
+   after Run GBFS + PSO), the task that will be offloaded, and the
+   Automatic Offload toggle that controls whether the app dispatches the
+   task itself once the algorithms decide, or waits for a manual click.
+───────────────────────────────────────────── */
+const EdgeOffloadConfigStep = ({ machine: m, autoOffload, setAutoOffload }) => {
+  const T = useT();
+  const previewA = evaluateCandidate(m, SERVER_PROFILES.A);
+  const previewB = evaluateCandidate(m, SERVER_PROFILES.B);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Select Edge / Offload Task</h1>
+        <p style={{ fontSize: 16, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+          Preview both candidate servers and the task about to be offloaded, then choose whether offloading happens automatically once GBFS + PSO decide.
+        </p>
+      </div>
+
+      <Card title="Candidate Servers" sub="Preview only — GBFS + PSO will make the actual decision in the next step" accent={T.purple}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {[{ key: "A", data: previewA }, { key: "B", data: previewB }].map(({ key, data }) => {
+            const srv = resolveServer(key);
+            return (
+              <div key={key} style={{ flex: "1 1 220px", border: `1px solid ${T.border}`, borderRadius: 8, padding: "14px 16px", background: T.elevated }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                  <span style={{ fontSize: 18 }}>{srv.icon}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>{srv.label}</span>
+                </div>
+                <div style={{ fontSize: 13, color: T.muted, fontFamily: T.fontSans, marginBottom: 10 }}>{srv.sub}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                  {[["Est. Latency", `${data.latency} ms`], ["Resource Avail.", `${data.resourceAvailability}%`], ["Energy", `${data.energy} kWh`], ["Queue", `${data.queueLength} tasks`]].map(([l, v]) => (
+                    <div key={l}>
+                      <div style={{ fontSize: 12, color: T.muted, fontFamily: T.fontSans, textTransform: "uppercase", letterSpacing: "0.05em" }}>{l}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Card>
+
+      <Card title="Task to Offload" sub="The workload currently selected" accent={T.blue}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+          {[
+            ["Machine", `${m.name} (${m.machineId})`],
+            ["Task Type", m.taskType || m.category],
+            ["Task Size", `${m.taskSize} MB`],
+            ["Processing Time", `${m.processingTime} ms`],
+          ].map(([l, v]) => (
+            <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>{l}</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+            </div>
+          ))}
+        </div>
+      </Card>
+
+      <Card title="Automatic Offload" sub="Controls what happens once GBFS + PSO finish deciding" accent={autoOffload ? T.green : T.dim}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+          <ToggleSwitch on={autoOffload} onChange={setAutoOffload} onColor={T.green} label={autoOffload ? "Automatic Offload: ON" : "Automatic Offload: OFF"} />
+        </div>
+        <div style={{ marginTop: 12 }}>
+          <InfoBox color={autoOffload ? "green" : "blue"}>
+            {autoOffload
+              ? "The moment GBFS + PSO decide which server wins, the task is sent to it automatically — no confirmation needed."
+              : "After GBFS + PSO decide, you'll confirm the offload manually before it's sent."}
+          </InfoBox>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
 const Step2Algorithms = ({
   machine: m, gbfsData, psoData, algoRunning, algoError,
   onRunBoth, gbfsSim, psoSim, gbfsStage, psoIteration,
@@ -1724,7 +1886,7 @@ const ExecutionTimeline = ({ progress, offloading, success }) => {
   );
 };
 
-const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload, onAdvance, workload }) => {
+const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading, offloadError, onOffload, onAdvance, workload, autoOffload }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
@@ -1741,8 +1903,9 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>Task Offloading</h1>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: T.text, margin: 0, fontFamily: T.fontSans }}>{autoOffload ? "Automatic Offloading" : "Task Offloading"}</h1>
         <p style={{ fontSize: 16, color: T.muted, margin: "6px 0 0", fontFamily: T.fontSans }}>
+          {autoOffload ? "Automatic Offload is ON — the task was sent the moment GBFS + PSO decided, no confirmation needed. " : ""}
           Dispatching <strong style={{ color: T.text }}>{m.name}</strong> task to{" "}
           <strong style={{ color: T.text }}>{decidedSrv.icon} {decidedSrv.label}</strong>{" "}
           — target chosen by <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
@@ -1802,9 +1965,13 @@ const Step4Offload = ({ machine: m, gbfsData, psoData, offloadResult, offloading
 
         {!offloadResult ? (
           <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
-            <PrimaryBtn onClick={onOffload} disabled={offloading}>
-              {offloading ? `Sending to ${decidedSrv.label}…` : `Offload Task → ${decidedSrv.icon} ${decidedSrv.label}`}
-            </PrimaryBtn>
+            {autoOffload ? (
+              <InfoBox color="blue">Automatic Offload is sending the task now — no action needed.</InfoBox>
+            ) : (
+              <PrimaryBtn onClick={onOffload} disabled={offloading}>
+                {offloading ? `Sending to ${decidedSrv.label}…` : `Offload Task → ${decidedSrv.icon} ${decidedSrv.label}`}
+              </PrimaryBtn>
+            )}
           </div>
         ) : (
           <>
@@ -2880,7 +3047,7 @@ const DatabaseHistory = ({ history }) => {
   );
 };
 
-const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history }) => {
+const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history, workload }) => {
   const T = useT();
   if (!gbfsData || !psoData) return <Card><InfoBox color="amber">Run both algorithms first.</InfoBox></Card>;
 
@@ -2889,6 +3056,8 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history })
   const winnerData  = gbfsWins ? gbfsData : psoData;
   const decidedKey  = winnerData.recommendedServer;
   const decidedSrv  = resolveServer(decidedKey);
+  const decidedCandidate = winnerData.candidates[decidedKey];
+  const totalLatency = offloadResult?.measuredLatency ?? winnerData.latency;
 
   return (
     <div>
@@ -2900,6 +3069,43 @@ const Step5Latency = ({ machine: m, gbfsData, psoData, offloadResult, history })
           <strong style={{ color: gbfsWins ? T.blue : T.purple }}>{winnerAlgo}</strong>.
         </p>
       </div>
+
+      <Card title="Latency Summary" sub={offloadResult ? "Measured after offloading" : "Predicted — offload not yet confirmed"} accent={T.green}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 10 }}>
+          {[
+            ["Total Latency", `${totalLatency} ms`, "green"],
+            ["Execution Time", `${winnerData.time} ms`, "blue"],
+            ["Offloading Time", `${decidedCandidate.queueDelay} ms`, "amber"],
+            ["Communication Time", `${decidedCandidate.networkDelay} ms`, "purple"],
+            ["Selected Machine", `${m.name} (${m.machineId})`, "dim"],
+            ["Selected Edge Server", decidedSrv.label, decidedKey === "A" ? "blue" : "green"],
+            ["Workload", workload ? WORKLOAD_LABELS[workload] : "Live Data", "dim"],
+            ["Winning Algorithm", winnerAlgo, gbfsWins ? "blue" : "purple"],
+          ].map(([l, v, c]) => (
+            <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 12px" }}>
+              <div style={{ fontSize: 12, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>{l}</div>
+              <Badge color={c}>{v}</Badge>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 14 }}>
+          {[
+            { algo: "GBFS", data: gbfsData, color: T.blue, bg: T.blueBg, border: T.blueDim },
+            { algo: "PSO",  data: psoData,  color: T.purple, bg: T.purpleBg, border: T.purpleDim },
+          ].map(({ algo, data, color, bg, border }) => (
+            <div key={algo} style={{ flex: "1 1 220px", border: `1px solid ${border}`, borderRadius: 8, padding: "12px 14px", background: bg }}>
+              <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: T.fontSans, marginBottom: 6 }}>{algo} Result</div>
+              <div style={{ fontSize: 13, fontFamily: T.fontMono, color: T.muted, lineHeight: 1.7 }}>
+                Server: <strong style={{ color: T.text }}>{resolveServer(data.recommendedServer).label}</strong><br />
+                Latency: <strong style={{ color: T.text }}>{data.latency} ms</strong><br />
+                Processing Time: <strong style={{ color: T.text }}>{data.time} ms</strong><br />
+                Resource Utilization: <strong style={{ color: T.text }}>{data.utilization}%</strong>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Card>
 
       <ComparisonEvaluationDashboard machine={m} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} />
 
@@ -2951,6 +3157,7 @@ export default function App() {
   const [gbfsStage,      setGbfsStage]      = useState(0);     // 0..5 reveal stage for the GBFS panel
   const [psoIteration,   setPsoIteration]   = useState(0);     // 0..N revealed PSO iterations
   const [workload,       setWorkload]       = useState(null); // null | 'low' | 'medium' | 'high'
+  const [autoOffload,    setAutoOffload]    = useState(true); // Automatic Offload toggle — ON by default per the new flow
   const [history,        setHistory]        = useState(loadHistory); // Database History — loaded from localStorage, persists across refresh
 
   useEffect(() => { saveHistory(history); }, [history]);
@@ -3040,16 +3247,28 @@ export default function App() {
       await Promise.all([revealGBFS(gbfsResult), revealPSO(psoResult)]);
 
       setMaxReached(r => Math.max(r, 5));
+
+      // Automatic Offloading: if the toggle is on, dispatch immediately
+      // using the just-computed results (component state hasn't
+      // re-rendered yet, so we pass them explicitly rather than reading
+      // gbfsData/psoData) and jump the user to the Offload step so they
+      // watch it happen — no separate confirmation click.
+      if (autoOffload) {
+        setStep(4);
+        offloadTask(gbfsResult, psoResult);
+      }
     } catch (err) {
       setAlgoError(err.message);
     } finally { setAlgoRunning(false); }
   };
 
-  const offloadTask = async () => {
-    if (!decidedServerKey) return;
-    const targetSrv  = resolveServer(decidedServerKey);
-    const gbfsWins   = gbfsData.latency <= psoData.latency;
+  const offloadTask = async (gbfsOverride, psoOverride) => {
+    const g = gbfsOverride ?? gbfsData, p = psoOverride ?? psoData;
+    if (!g || !p) return;
+    const gbfsWins   = g.latency <= p.latency;
     const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
+    const decidedKey = (gbfsWins ? g : p).recommendedServer;
+    const targetSrv  = resolveServer(decidedKey);
 
     setOffloading(true); setOffloadError(null);
     try {
@@ -3060,8 +3279,8 @@ export default function App() {
           taskSize:     machine.taskSize,
           algorithm:    winnerAlgo,
           targetServer: targetSrv.label,
-          gbfsLatency:  gbfsData.latency,
-          psoLatency:   psoData.latency,
+          gbfsLatency:  g.latency,
+          psoLatency:   p.latency,
         }),
       });
       setOffloadResult(result);
@@ -3096,7 +3315,7 @@ export default function App() {
 
   const canNext = () => {
     if (step === 0) return !!selectedId;
-    if (step === 2) return !!gbfsData && !!psoData;
+    if (step === 1) return machine && WORKLOAD_TIERS[machine.machineId] ? !!workload : true;
     if (step === 3) return !!gbfsData && !!psoData;
     if (step === 4) return !!offloadResult;
     return true;
@@ -3108,7 +3327,8 @@ export default function App() {
     switch (step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} workload={workload} setWorkload={handleSetWorkload} />;
       case 1: return machine ? <Step1CollectData machine={machine} workload={workload} setWorkload={handleSetWorkload} /> : null;
-      case 2: return machine ? (
+      case 2: return machine ? <EdgeOffloadConfigStep machine={machine} autoOffload={autoOffload} setAutoOffload={setAutoOffload} /> : null;
+      case 3: return machine ? (
         <Step2Algorithms
           machine={machine} gbfsData={gbfsData} psoData={psoData}
           algoRunning={algoRunning} algoError={algoError}
@@ -3117,17 +3337,16 @@ export default function App() {
           gbfsStage={gbfsStage} psoIteration={psoIteration}
         />
       ) : null;
-      case 3: return machine ? <Step3SelectEdge machine={machine} gbfsData={gbfsData} psoData={psoData} /> : null;
       case 4: return machine ? (
         <Step4Offload
           machine={machine} gbfsData={gbfsData} psoData={psoData}
           offloadResult={offloadResult} offloading={offloading}
           offloadError={offloadError} onOffload={offloadTask}
-          onAdvance={goNext} workload={workload}
+          onAdvance={goNext} workload={workload} autoOffload={autoOffload}
         />
       ) : null;
       case 5: return machine ? (
-        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} />
+        <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} workload={workload} />
       ) : null;
       default: return null;
     }
@@ -3193,6 +3412,9 @@ export default function App() {
               workload={workload}
             />
             <div style={{ flex: 1, padding: "18px 22px", overflowY: "auto", background: T.bg }}>
+              {machine && step >= 1 && (
+                <MainSimulationPipeline activeIdx={derivePipelineStage({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult })} />
+              )}
               <div key={step} className="app-fade-in">
                 {renderStep()}
               </div>
@@ -3206,7 +3428,7 @@ export default function App() {
               <GhostBtn disabled={step === 0} onClick={() => setStep(p => p - 1)}>← Back</GhostBtn>
               <span style={{ fontSize: 14, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
               <PrimaryBtn disabled={!canNext() || step >= 5} onClick={goNext}>
-                {step >= 5 ? "Complete" : step === 1 ? "Send to Algorithm Simulation →" : "Next →"}
+                {step >= 5 ? "Complete" : step === 2 ? "Send to Algorithm Simulation →" : "Next →"}
               </PrimaryBtn>
             </div>
           </div>
