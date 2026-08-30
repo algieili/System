@@ -1018,52 +1018,70 @@ const TermLine = ({ children, done, color }) => {
   );
 };
 
-const MetricLine = ({ label, value }) => {
+const GBFS_STEPS = ["Task Input", "Identify Candidates", "Evaluate Heuristic", "Compare Nodes", "Select Best", "Decision"];
+const PSO_STEPS  = ["Task Input", "Init Particles", "Evaluate Fitness", "Update Bests", "Update Positions", "Converge", "Decision"];
+
+const StepPipeline = ({ steps, activeIdx, activeColor, activeText }) => {
   const T = useT();
   return (
-    <div style={{ fontFamily: T.fontMono, fontSize: 13, color: T.muted, paddingLeft: 18, lineHeight: 1.6 }}>
-      {label}: <strong style={{ color: T.text }}>{value}</strong>
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center", fontFamily: T.fontMono, fontSize: 12, marginBottom: 12 }}>
+      {steps.map((s, i) => (
+        <React.Fragment key={s}>
+          <span style={{
+            padding: "4px 9px", borderRadius: 5,
+            border: `1px solid ${i === activeIdx ? activeColor : T.borderSub}`,
+            background: i === activeIdx ? activeColor : "transparent",
+            color: i === activeIdx ? activeText : T.dim,
+            fontWeight: i === activeIdx ? 700 : 400,
+          }}>{s}</span>
+          {i < steps.length - 1 && <span style={{ color: T.dim }}>→</span>}
+        </React.Fragment>
+      ))}
     </div>
   );
 };
 
-// GBFS: greedy, single-shot evaluation. Every value shown here comes
-// straight from `sim` (the output of computeGBFS) — the animation only
-// controls *when* each already-computed fact is revealed.
+const EvalTh = ({ children }) => {
+  const T = useT();
+  return <th style={{ textAlign: "left", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.05em", color: T.dim, padding: "5px 8px", borderBottom: `1px solid ${T.borderSub}`, fontFamily: T.fontSans, fontWeight: 600 }}>{children}</th>;
+};
+
+// GBFS: greedy, single-shot evaluation. Every number in the table below
+// comes straight from `sim` (computeGBFS's output) — the animation only
+// controls *when* each already-computed row/step is revealed, mirroring
+// the node-by-node scan → compare → select flow of a real GBFS pass.
 const GBFSExecutionPanel = ({ machine: m, sim, stage }) => {
   const T = useT();
   if (!sim) return null;
   const srv = resolveServer(sim.recommendedServer);
-  return (
-    <Card title="GBFS Execution Simulation" sub="Greedy Best-First Search — immediate best choice" accent={T.blue}>
-      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
-        <TermLine done={stage >= 1}>Analyzing selected workload ({m.machineId})...</TermLine>
+  const pipelineIdx = [0, 1, 2, 2, 3, 5][stage] ?? -1; // both evaluate stages (A then B) map to the same step
 
-        {stage >= 2 && (
-          <>
-            <TermLine done>Evaluating Edge Server A</TermLine>
-            <MetricLine label="Latency" value={`${sim.candidates.A.latency} ms`} />
-            <MetricLine label="Processing time" value={`${sim.candidates.A.time} ms`} />
-            <MetricLine label="Resource utilization" value={`${sim.candidates.A.utilization}%`} />
-            <MetricLine label="Energy consumption" value={`${sim.candidates.A.energy} kWh`} />
-            <MetricLine label="Queue length" value={`${sim.candidates.A.queueLength} tasks`} />
-          </>
-        )}
-        {stage >= 3 && (
-          <>
-            <div style={{ height: 6 }} />
-            <TermLine done>Evaluating Cloud Server B</TermLine>
-            <MetricLine label="Latency" value={`${sim.candidates.B.latency} ms`} />
-            <MetricLine label="Processing time" value={`${sim.candidates.B.time} ms`} />
-            <MetricLine label="Resource utilization" value={`${sim.candidates.B.utilization}%`} />
-            <MetricLine label="Energy consumption" value={`${sim.candidates.B.energy} kWh`} />
-            <MetricLine label="Queue length" value={`${sim.candidates.B.queueLength} tasks`} />
-          </>
-        )}
-        {stage >= 4 && <div style={{ height: 6 }} />}
-        <TermLine done={stage >= 4}>Comparing server performance...</TermLine>
-        <TermLine done={stage >= 5}>Selecting best heuristic option...</TermLine>
-      </div>
+  const rows = [
+    { key: "A", label: resolveServer("A").label, visible: stage >= 2, active: stage === 2, selected: stage >= 5 && sim.recommendedServer === "A", data: sim.candidates.A },
+    { key: "B", label: resolveServer("B").label, visible: stage >= 3, active: stage === 3, selected: stage >= 5 && sim.recommendedServer === "B", data: sim.candidates.B },
+  ];
+
+  return (
+    <Card title="GBFS Execution Simulation" sub="Greedy Best-First Search — single-pass, immediate best choice" accent={T.blue}>
+      <StepPipeline steps={GBFS_STEPS} activeIdx={pipelineIdx} activeColor={T.blue} activeText={T.bg === "#eef0f5" ? "#fff" : "#0d1117"} />
+      <TermLine done={stage >= 1}>Analyzing selected workload ({m.machineId})...</TermLine>
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+        <thead><tr><EvalTh>Node</EvalTh><EvalTh>Est. Latency</EvalTh><EvalTh>Proc. Time</EvalTh><EvalTh>Resource Avail.</EvalTh><EvalTh>Heuristic Score</EvalTh></tr></thead>
+        <tbody>
+          {rows.map(r => (
+            <tr key={r.key} style={{ background: r.selected ? T.blueBg : r.active ? T.elevated : "transparent" }}>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.text, fontWeight: r.selected ? 700 : 400, borderBottom: `1px solid ${T.borderSub}` }}>{r.label}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.latency} ms` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.time} ms` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? `${r.data.resourceAvailability}%` : "—"}</td>
+              <td style={{ padding: "7px 8px", fontFamily: T.fontMono, fontSize: 13, color: r.selected ? T.blue : T.muted, fontWeight: r.selected ? 700 : 400, borderBottom: `1px solid ${T.borderSub}` }}>{r.visible ? r.data.heuristicScore : "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <TermLine done={stage >= 4} color={T.blue}>Comparing server performance...</TermLine>
+      <TermLine done={stage >= 5} color={T.blue}>Selecting best heuristic option...</TermLine>
 
       {stage >= 5 && (
         <div style={{ marginTop: 12, background: T.blueBg, border: `1px solid ${T.blueDim}`, borderLeft: `3px solid ${T.blue}`, borderRadius: 8, padding: "12px 16px" }}>
@@ -1079,28 +1097,68 @@ const GBFSExecutionPanel = ({ machine: m, sim, stage }) => {
   );
 };
 
-// PSO: real particle-swarm search over the two-server space. Iteration
-// rows are revealed one at a time, but each row's fitness/position values
-// are the actual output of computePSO's iteration log — nothing here is
+// Horizontal track: 0% = pure Edge Server A, 100% = pure Cloud Server B.
+// Particle dots sit at their real x-position for the currently revealed
+// iteration; the amber marker sits at the current global-best position.
+// All positions come from computePSO's iteration log, not from CSS-only
+// animation values.
+const PSOTrack = ({ row }) => {
+  const T = useT();
+  const bestX = (row?.bestX ?? 0) * 100;
+  return (
+    <div style={{ position: "relative", height: 56, background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, margin: "8px 0 4px" }}>
+      <div style={{ position: "absolute", top: 4, left: "0%", fontSize: 10, fontFamily: T.fontMono, color: T.dim }}>Edge A</div>
+      <div style={{ position: "absolute", top: 4, right: "0%", fontSize: 10, fontFamily: T.fontMono, color: T.dim }}>Cloud B</div>
+      {row && (
+        <>
+          <div style={{ position: "absolute", top: 0, bottom: 0, left: `${bestX}%`, width: 2, background: T.amber, boxShadow: `0 0 6px ${T.amber}`, transition: "left 0.4s ease" }} />
+          <div style={{ position: "absolute", top: 24, left: `calc(${row.particleA.x * 100}% - 5px)`, width: 11, height: 11, borderRadius: "50%", background: T.purple, boxShadow: `0 0 8px ${T.purple}`, transition: "left 0.4s cubic-bezier(.4,0,.2,1)" }} />
+          <div style={{ position: "absolute", top: 38, left: `calc(${row.particleB.x * 100}% - 5px)`, width: 11, height: 11, borderRadius: "50%", background: T.purple, opacity: 0.7, boxShadow: `0 0 8px ${T.purple}`, transition: "left 0.4s cubic-bezier(.4,0,.2,1)" }} />
+        </>
+      )}
+    </div>
+  );
+};
+
+// PSO: real particle-swarm search over the continuous Edge↔Cloud
+// relaxation. Iteration rows, the track dots, and the pipeline step are
+// all driven off the same computePSO() log — nothing here is
 // interpolated or randomized for show.
 const PSOExecutionPanel = ({ machine: m, sim, iteration }) => {
   const T = useT();
   if (!sim) return null;
   const done = iteration >= sim.iterations.length;
   const srv = resolveServer(sim.recommendedServer);
+  const currentRow = iteration > 0 ? sim.iterations[iteration - 1] : null;
+  const pipelineIdx = done ? PSO_STEPS.length - 1 : iteration === 0 ? 0 : Math.min(PSO_STEPS.length - 2, 1 + Math.floor(((iteration - 1) / sim.iterations.length) * 4));
+
   return (
     <Card title="PSO Execution Simulation" sub="Particle Swarm Optimization — iterative convergence" accent={T.purple}>
-      <div style={{ background: T.bg, border: `1px solid ${T.borderSub}`, borderRadius: 8, padding: "14px 16px" }}>
-        {sim.iterations.slice(0, iteration).map(row => (
-          <div key={row.iteration} style={{ marginBottom: 8, paddingBottom: 8, borderBottom: row.iteration < iteration ? `1px dashed ${T.borderSub}` : "none" }}>
-            <TermLine done color={T.purple}>Iteration {row.iteration}</TermLine>
-            <MetricLine label="Particle A (Edge-leaning, x)" value={`${row.particleA.x} → fitness ${row.particleA.fitness}`} />
-            <MetricLine label="Particle B (Cloud-leaning, x)" value={`${row.particleB.x} → fitness ${row.particleB.fitness}`} />
-            <MetricLine label="Best fitness so far" value={row.bestFitness} />
-          </div>
-        ))}
-        {done && <TermLine done color={T.green}>Optimization complete</TermLine>}
+      <StepPipeline steps={PSO_STEPS} activeIdx={pipelineIdx} activeColor={T.purple} activeText="#2a0016" />
+
+      <div style={{ fontFamily: T.fontMono, fontSize: 12, color: T.muted }}>
+        {currentRow ? <>Iteration <strong style={{ color: T.purple }}>{currentRow.iteration}</strong> / {sim.iterations.length} · global best fitness <strong style={{ color: T.purple }}>{currentRow.bestFitness}</strong> → {resolveServer(currentRow.bestX < 0.5 ? "A" : "B").label}</> : "Awaiting task…"}
       </div>
+      <PSOTrack row={currentRow} />
+
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8 }}>
+        <thead><tr><EvalTh>Particle</EvalTh><EvalTh>Position (x)</EvalTh><EvalTh>Fitness</EvalTh><EvalTh>Leaning</EvalTh></tr></thead>
+        <tbody>
+          {currentRow ? [
+            { name: "P1", ...currentRow.particleA },
+            { name: "P2", ...currentRow.particleB },
+          ].map(p => (
+            <tr key={p.name}>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.text, borderBottom: `1px solid ${T.borderSub}` }}>{p.name}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{p.x}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{p.fitness}</td>
+              <td style={{ padding: "6px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.muted, borderBottom: `1px solid ${T.borderSub}` }}>{resolveServer(p.x < 0.5 ? "A" : "B").label}</td>
+            </tr>
+          )) : (
+            <tr><td colSpan={4} style={{ padding: "10px 8px", fontFamily: T.fontMono, fontSize: 13, color: T.dim }}>—</td></tr>
+          )}
+        </tbody>
+      </table>
 
       {done && (
         <div style={{ marginTop: 12, background: T.purpleBg, border: `1px solid ${T.purpleDim}`, borderLeft: `3px solid ${T.purple}`, borderRadius: 8, padding: "12px 16px" }}>
