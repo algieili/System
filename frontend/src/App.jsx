@@ -508,7 +508,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const tierColor = { low: T.green, medium: T.amber, high: T.red };
 
   return (
-    <Card title="Workload Level" sub={`${machineId} · Live Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
+    <Card title="Workload Level" sub={`${machineId} · Simulated Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map(opt => {
           const active = workload === opt.key;
