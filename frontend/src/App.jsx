@@ -122,29 +122,27 @@ const apiFetch = async (baseUrl, path, options = {}) => {
 const resolveServer = (key) => SERVERS[key] ?? SERVERS.A;
 
 const STEPS = [
-  { title: "Choose Machine",              short: "Machine",  icon: "⚙" },
-  { title: "Choose Priority",             short: "Priority", icon: "🎚" },
-  { title: "Select Edge / Offload Task",  short: "Config",   icon: "🎯" },
-  { title: "Run GBFS + PSO",              short: "Run",      icon: "⟳" },
-  { title: "Automatic Offloading",        short: "Offload",  icon: "📤" },
-  { title: "Measure Latency",             short: "Latency",  icon: "📈" },
+  { title: "Select Machine",     short: "Machine",  icon: "⚙" },
+  { title: "Select Task Level",  short: "Level",    icon: "🎚" },
+  { title: "Run GBFS + PSO",     short: "Run",      icon: "⟳" },
+  { title: "Display Latency",    short: "Latency",  icon: "📈" },
 ];
 
 // Main Simulation Pipeline stages — a persistent strip showing where the
-// current machine/task is in the overall Simulation → Data → Algorithm →
-// Offload Data → Server flow, independent of which wizard step is on screen.
-const PIPELINE_STAGES = ["Simulation", "Data", "Algorithm", "Offload Data", "Server"];
+// current machine/task is in the overall animation flow: Data → GBFS+PSO →
+// Offloading → Selected Machine/Server → Completed → Latency. This runs
+// automatically once "Run GBFS + PSO" is clicked and stops once latency
+// is displayed — it reflects live app state, not the wizard step.
+const PIPELINE_STAGES = ["Data", "GBFS + PSO", "Offloading", "Selected Server", "Completed", "Latency"];
 
-// Maps live app state onto one of the 5 pipeline stages.
-const derivePipelineStage = ({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult }) => {
-  if (!machine) return 0;                              // Simulation (setup)
-  if (algoRunning) return 2;                            // Algorithm running
+const derivePipelineStage = ({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult, step }) => {
+  if (!machine) return 0;                               // Data (setup)
+  if (algoRunning) return 1;                             // GBFS + PSO running
   if (gbfsData && psoData) {
-    if (offloadResult) return 4;                        // Server (delivered)
-    if (offloading) return 3;                            // Offload Data
-    return 3;                                            // decision made, about to offload
+    if (offloadResult) return step === 3 ? 5 : 4;        // Completed → Latency once displayed
+    return 2;                                            // Offloading (automatic, in progress)
   }
-  return 1;                                              // Data collected, awaiting algorithm run
+  return 0;                                              // Data collected, awaiting the run
 };
 
 /* ─────────────────────────────────────────────
@@ -1400,10 +1398,12 @@ const EdgeOffloadConfigStep = ({ machine: m, autoOffload, setAutoOffload }) => {
 const Step2Algorithms = ({
   machine: m, gbfsData, psoData, algoRunning, algoError,
   onRunBoth, gbfsSim, psoSim, gbfsStage, psoIteration,
+  offloading, offloadResult, offloadError, onRetryOffload, workload,
 }) => {
   const T = useT();
   const bothDone = !!gbfsData && !!psoData;
   const resultsRef = React.useRef(null);
+  const offloadProgress = useOffloadProgress(offloading, offloadResult?.status === "success");
 
   React.useEffect(() => {
     if (bothDone && resultsRef.current) {
@@ -1574,12 +1574,27 @@ const Step2Algorithms = ({
               </div>
               <Badge color="green" dot>algorithm decision</Badge>
             </div>
-            <div style={{ marginTop: 12 }}>
+            <div style={{ marginTop: 12, marginBottom: 12 }}>
               <InfoBox color="green">
                 Both algorithms complete. Winner: <strong>{winnerAlgo}</strong> ({Math.min(+gbfsData.latency, +psoData.latency)} ms).
-                Recommended target: <strong>{serverLabel(decidedServer)}</strong>. Proceed to confirm.
+                Recommended target: <strong>{serverLabel(decidedServer)}</strong>. Automatically offloading now…
               </InfoBox>
             </div>
+
+            <ProcessingNodeComparison gbfsData={gbfsData} decidedKey={decidedServer} winnerAlgo={winnerAlgo} />
+            <div className="app-grid-21" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) minmax(0,1fr)", gap: 12 }}>
+              <TaskPayloadCard m={m} workload={workload} decidedSrv={resolveServer(decidedServer)} progress={offloadProgress} success={offloadResult?.status === "success"} />
+              <ExecutionTimeline progress={offloadProgress} offloading={offloading} success={offloadResult?.status === "success"} />
+            </div>
+
+            {offloadError && (
+              <div style={{ marginTop: 4 }}>
+                <ErrBox>Offload failed — {offloadError}</ErrBox>
+                <div style={{ textAlign: "center", marginTop: 10 }}>
+                  <GhostBtn onClick={onRetryOffload}>↺ Retry Offload</GhostBtn>
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
@@ -3157,7 +3172,6 @@ export default function App() {
   const [gbfsStage,      setGbfsStage]      = useState(0);     // 0..5 reveal stage for the GBFS panel
   const [psoIteration,   setPsoIteration]   = useState(0);     // 0..N revealed PSO iterations
   const [workload,       setWorkload]       = useState(null); // null | 'low' | 'medium' | 'high'
-  const [autoOffload,    setAutoOffload]    = useState(true); // Automatic Offload toggle — ON by default per the new flow
   const [history,        setHistory]        = useState(loadHistory); // Database History — loaded from localStorage, persists across refresh
 
   useEffect(() => { saveHistory(history); }, [history]);
@@ -3246,16 +3260,18 @@ export default function App() {
 
       await Promise.all([revealGBFS(gbfsResult), revealPSO(psoResult)]);
 
-      setMaxReached(r => Math.max(r, 5));
+      setMaxReached(r => Math.max(r, 2));
 
-      // Automatic Offloading: if the toggle is on, dispatch immediately
-      // using the just-computed results (component state hasn't
-      // re-rendered yet, so we pass them explicitly rather than reading
-      // gbfsData/psoData) and jump the user to the Offload step so they
-      // watch it happen — no separate confirmation click.
-      if (autoOffload) {
-        setStep(4);
-        offloadTask(gbfsResult, psoResult);
+      // Offloading is always automatic now — no toggle, no confirmation.
+      // Dispatch immediately using the just-computed results (component
+      // state hasn't re-rendered yet, so pass them explicitly rather than
+      // reading gbfsData/psoData), then advance to Display Latency once
+      // it succeeds. The offload simulation itself renders inline on this
+      // same step while it's in flight.
+      const success = await offloadTask(gbfsResult, psoResult);
+      if (success) {
+        setMaxReached(r => Math.max(r, 3));
+        setStep(3);
       }
     } catch (err) {
       setAlgoError(err.message);
@@ -3264,7 +3280,7 @@ export default function App() {
 
   const offloadTask = async (gbfsOverride, psoOverride) => {
     const g = gbfsOverride ?? gbfsData, p = psoOverride ?? psoData;
-    if (!g || !p) return;
+    if (!g || !p) return false;
     const gbfsWins   = g.latency <= p.latency;
     const winnerAlgo = gbfsWins ? "GBFS" : "PSO";
     const decidedKey = (gbfsWins ? g : p).recommendedServer;
@@ -3293,8 +3309,16 @@ export default function App() {
         algorithm: winnerAlgo, server: targetSrv.label,
         latency: result.measuredLatency, status: result.status === "success" ? "Success" : "Failed",
       }, ...h]);
-    } catch (err) { setOffloadError(err.message); }
+      return result.status === "success";
+    } catch (err) { setOffloadError(err.message); return false; }
     finally { setOffloading(false); }
+  };
+
+  // Lets the user retry a failed automatic offload from the Run step,
+  // then continues on to Display Latency exactly like the first attempt.
+  const retryOffload = async () => {
+    const success = await offloadTask(gbfsData, psoData);
+    if (success) { setMaxReached(r => Math.max(r, 3)); setStep(3); }
   };
 
   const handleSelectMachine = id => {
@@ -3316,8 +3340,7 @@ export default function App() {
   const canNext = () => {
     if (step === 0) return !!selectedId;
     if (step === 1) return machine && WORKLOAD_TIERS[machine.machineId] ? !!workload : true;
-    if (step === 3) return !!gbfsData && !!psoData;
-    if (step === 4) return !!offloadResult;
+    if (step === 2) return false; // Run → Latency only happens automatically once offload succeeds
     return true;
   };
 
@@ -3327,25 +3350,19 @@ export default function App() {
     switch (step) {
       case 0: return <Step0Machine machineData={machineData} loading={machinesLoading} error={machinesError} selectedId={selectedId} setSelectedId={handleSelectMachine} onRetry={loadMachines} workload={workload} setWorkload={handleSetWorkload} />;
       case 1: return machine ? <Step1CollectData machine={machine} workload={workload} setWorkload={handleSetWorkload} /> : null;
-      case 2: return machine ? <EdgeOffloadConfigStep machine={machine} autoOffload={autoOffload} setAutoOffload={setAutoOffload} /> : null;
-      case 3: return machine ? (
+      case 2: return machine ? (
         <Step2Algorithms
           machine={machine} gbfsData={gbfsData} psoData={psoData}
           algoRunning={algoRunning} algoError={algoError}
           onRunBoth={runBothAlgorithms}
           gbfsSim={gbfsSim} psoSim={psoSim}
           gbfsStage={gbfsStage} psoIteration={psoIteration}
+          offloading={offloading} offloadResult={offloadResult}
+          offloadError={offloadError} onRetryOffload={retryOffload}
+          workload={workload}
         />
       ) : null;
-      case 4: return machine ? (
-        <Step4Offload
-          machine={machine} gbfsData={gbfsData} psoData={psoData}
-          offloadResult={offloadResult} offloading={offloading}
-          offloadError={offloadError} onOffload={offloadTask}
-          onAdvance={goNext} workload={workload} autoOffload={autoOffload}
-        />
-      ) : null;
-      case 5: return machine ? (
+      case 3: return machine ? (
         <Step5Latency machine={machine} gbfsData={gbfsData} psoData={psoData} offloadResult={offloadResult} history={history} workload={workload} />
       ) : null;
       default: return null;
@@ -3413,7 +3430,7 @@ export default function App() {
             />
             <div style={{ flex: 1, padding: "18px 22px", overflowY: "auto", background: T.bg }}>
               {machine && step >= 1 && (
-                <MainSimulationPipeline activeIdx={derivePipelineStage({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult })} />
+                <MainSimulationPipeline activeIdx={derivePipelineStage({ machine, algoRunning, gbfsData, psoData, offloading, offloadResult, step })} />
               )}
               <div key={step} className="app-fade-in">
                 {renderStep()}
@@ -3427,8 +3444,8 @@ export default function App() {
             }}>
               <GhostBtn disabled={step === 0} onClick={() => setStep(p => p - 1)}>← Back</GhostBtn>
               <span style={{ fontSize: 14, color: T.dim, fontFamily: T.fontMono }}>{STEPS[step].title}</span>
-              <PrimaryBtn disabled={!canNext() || step >= 5} onClick={goNext}>
-                {step >= 5 ? "Complete" : step === 2 ? "Send to Algorithm Simulation →" : "Next →"}
+              <PrimaryBtn disabled={!canNext() || step >= 3} onClick={goNext}>
+                {step >= 3 ? "Complete" : "Next →"}
               </PrimaryBtn>
             </div>
           </div>
