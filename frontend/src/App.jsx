@@ -1745,8 +1745,8 @@ const useOffloadProgress = (offloading, success) => {
     if (offloading) {
       setProgress(5);
       const id = setInterval(() => {
-        setProgress(p => (p < 90 ? p + (90 - p) * 0.15 : p));
-      }, 200);
+        setProgress(p => (p < 90 ? p + (90 - p) * 0.08 : p));
+      }, 300);
       return () => clearInterval(id);
     }
   }, [offloading]);
@@ -3220,26 +3220,27 @@ export default function App() {
 
   // Reveals the already-computed GBFS result stage by stage. The values
   // shown at each stage come straight from `result` (computeGBFS output);
-  // only the *timing* of disclosure is animated.
+  // only the *timing* of disclosure is animated. Slowed down from the
+  // original pacing so each stage is actually readable as it appears.
   const revealGBFS = async (result) => {
     setGbfsStage(0);
-    await delay(300); setGbfsStage(1);
-    await delay(450); setGbfsStage(2);
-    await delay(450); setGbfsStage(3);
-    await delay(350); setGbfsStage(4);
-    await delay(350); setGbfsStage(5);
+    await delay(700); setGbfsStage(1);
+    await delay(1100); setGbfsStage(2);
+    await delay(1100); setGbfsStage(3);
+    await delay(900); setGbfsStage(4);
+    await delay(900); setGbfsStage(5);
     setGbfsData(result);
   };
 
   // Reveals the already-computed PSO iteration log one row at a time.
   const revealPSO = async (result) => {
     setPsoIteration(0);
-    await delay(300);
+    await delay(700);
     for (let i = 1; i <= result.iterations.length; i++) {
       setPsoIteration(i);
-      await delay(450);
+      await delay(1100);
     }
-    await delay(250);
+    await delay(600);
     setPsoData(result);
   };
 
@@ -3288,17 +3289,25 @@ export default function App() {
 
     setOffloading(true); setOffloadError(null);
     try {
-      const result = await apiFetch(targetSrv.baseUrl, "/offload", {
-        method: "POST",
-        body: JSON.stringify({
-          machineId:    machine.machineId,
-          taskSize:     machine.taskSize,
-          algorithm:    winnerAlgo,
-          targetServer: targetSrv.label,
-          gbfsLatency:  g.latency,
-          psoLatency:   p.latency,
+      // Real request + a minimum display floor, run concurrently — the
+      // floor exists purely so the offload animation (already tied to
+      // real progress state) has time to actually be seen; it never
+      // fabricates the result, it just waits for whichever finishes last.
+      const MIN_OFFLOAD_DISPLAY_MS = 2600;
+      const [result] = await Promise.all([
+        apiFetch(targetSrv.baseUrl, "/offload", {
+          method: "POST",
+          body: JSON.stringify({
+            machineId:    machine.machineId,
+            taskSize:     machine.taskSize,
+            algorithm:    winnerAlgo,
+            targetServer: targetSrv.label,
+            gbfsLatency:  g.latency,
+            psoLatency:   p.latency,
+          }),
         }),
-      });
+        delay(MIN_OFFLOAD_DISPLAY_MS),
+      ]);
       setOffloadResult(result);
       setHistory(h => [{
         id: `${Date.now()}`,
