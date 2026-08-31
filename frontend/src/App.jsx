@@ -1455,8 +1455,7 @@ const Step2Algorithms = ({
         <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 0, paddingBottom: 16, justifyContent: "center" }}>
           {[
             { icon: "⚙",  label: m.machineId, sub: "IoT Source",          done: true,       running: false },
-            { icon: "⚙",  label: "GBFS",       sub: "Greedy Best-First",   done: !!gbfsData, running: algoRunning && !gbfsData },
-            { icon: "◈",  label: "PSO",         sub: "Particle Swarm",      done: !!psoData,  running: algoRunning && !!gbfsData && !psoData },
+            { icon: "⚙",  label: "GBFS + PSO ", sub: "Greedy Best-First + Particle Swarm",   done: !!gbfsData, running: algoRunning && !gbfsData },
             { icon: "≋",  label: "Compare",     sub: "Pick best algo",      done: bothDone,   running: false },
             { icon: "🖥",  label: decidedServer ? resolveServer(decidedServer).label : "Server?",
                            sub: "Algo decision",    done: bothDone,   running: false },
