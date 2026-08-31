@@ -580,7 +580,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   if (!hasTiers) return null;
 
   const options = [
-    { key: null,     label: "Simulated Data" },
+    { key: null,     label: "Live Data" },
     { key: "low",    label: "Low" },
     { key: "medium", label: "Medium" },
     { key: "high",   label: "High" },
@@ -588,7 +588,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   const tierColor = { low: T.green, medium: T.amber, high: T.red };
 
   return (
-    <Card title="Workload Level" sub={`${machineId} · Simulated Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
+    <Card title="Workload Level" sub={`${machineId} · Live Data or assigned Low / Medium / High parameter sets`} accent={T.purple}>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {options.map(opt => {
           const active = workload === opt.key;
