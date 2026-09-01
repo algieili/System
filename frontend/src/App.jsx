@@ -580,7 +580,7 @@ const WorkloadSelector = ({ machineId, workload, setWorkload }) => {
   if (!hasTiers) return null;
 
   const options = [
-    { key: null,     label: "Simulated Data" },
+    { key: null,     label: "Live Data" },
     { key: "low",    label: "Low" },
     { key: "medium", label: "Medium" },
     { key: "high",   label: "High" },
@@ -1576,7 +1576,10 @@ const Step2Algorithms = ({
             <div style={{ marginTop: 12, marginBottom: 12 }}>
               <InfoBox color="green">
                 Both algorithms complete. Winner: <strong>{winnerAlgo}</strong> ({Math.min(+gbfsData.latency, +psoData.latency)} ms).
-                Recommended target: <strong>{serverLabel(decidedServer)}</strong>. Automatically offloading now…
+                Recommended target: <strong>{serverLabel(decidedServer)}</strong>.{" "}
+                {offloadResult?.status === "success"
+                  ? "Offload complete — click Next to view the latency results."
+                  : "Automatically offloading now…"}
               </InfoBox>
             </div>
 
@@ -3262,16 +3265,14 @@ export default function App() {
 
       setMaxReached(r => Math.max(r, 2));
 
-      // Offloading is always automatic now — no toggle, no confirmation.
-      // Dispatch immediately using the just-computed results (component
-      // state hasn't re-rendered yet, so pass them explicitly rather than
-      // reading gbfsData/psoData), then advance to Display Latency once
-      // it succeeds. The offload simulation itself renders inline on this
-      // same step while it's in flight.
+      // Offloading is still fully automatic — no toggle, no confirmation
+      // button, it dispatches the moment both algorithms decide. What's
+      // no longer automatic is leaving this screen: once it succeeds, the
+      // Display Latency step just becomes reachable — the user clicks
+      // Next to go see it, same as any other step transition.
       const success = await offloadTask(gbfsResult, psoResult);
       if (success) {
         setMaxReached(r => Math.max(r, 3));
-        setStep(3);
       }
     } catch (err) {
       setAlgoError(err.message);
@@ -3322,11 +3323,12 @@ export default function App() {
     finally { setOffloading(false); }
   };
 
-  // Lets the user retry a failed automatic offload from the Run step,
-  // then continues on to Display Latency exactly like the first attempt.
+  // Lets the user retry a failed automatic offload from the Run step.
+  // Display Latency becomes reachable via Next once it succeeds, same as
+  // the first attempt — no auto-navigation here either.
   const retryOffload = async () => {
     const success = await offloadTask(gbfsData, psoData);
-    if (success) { setMaxReached(r => Math.max(r, 3)); setStep(3); }
+    if (success) { setMaxReached(r => Math.max(r, 3)); }
   };
 
   const handleSelectMachine = id => {
@@ -3348,7 +3350,7 @@ export default function App() {
   const canNext = () => {
     if (step === 0) return !!selectedId;
     if (step === 1) return machine && WORKLOAD_TIERS[machine.machineId] ? !!workload : true;
-    if (step === 2) return false; // Run → Latency only happens automatically once offload succeeds
+    if (step === 2) return !!offloadResult; // enabled once the automatic offload has finished
     return true;
   };
 
