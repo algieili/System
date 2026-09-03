@@ -224,39 +224,61 @@ const interpolateProfile = (x) => {
   };
 };
 
+/* ─────────────────────────────────────────────
+   METRIC LIMITS
+   Every metric the app computes or displays has a physically meaningful
+   range — percentages can't exceed 100 or go negative, latencies/energy/
+   throughput can't go negative, fitness is normalized to [0,1]. Centralizing
+   the bounds here means every function that produces a metric clamps
+   through the same helper instead of trusting upstream math to stay in range.
+───────────────────────────────────────────── */
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+
+const METRIC_LIMITS = {
+  percent:    { lo: 0,   hi: 100 },   // utilization, resource availability, progress bars
+  nonNeg:     { lo: 0,   hi: Infinity }, // latency, time, delays, energy, throughput, heuristic score
+  unitScore:  { lo: 0,   hi: 1 },     // PSO fitness / cost, particle position x
+};
+
+const clampPercent   = (v) => +clamp(v, METRIC_LIMITS.percent.lo, METRIC_LIMITS.percent.hi).toFixed(1);
+const clampNonNeg     = (v, decimals = 2) => +clamp(v, METRIC_LIMITS.nonNeg.lo, METRIC_LIMITS.nonNeg.hi).toFixed(decimals);
+const clampUnit       = (v) => +clamp(v, METRIC_LIMITS.unitScore.lo, METRIC_LIMITS.unitScore.hi).toFixed(4);
+
 // Evaluate one machine's parameters against one server profile, producing
 // the concrete metrics the algorithms compare.
 const evaluateCandidate = (machine, profile) => {
-  const time        = +(machine.processingTime * profile.computeSpeedFactor).toFixed(2);
-  const networkDelay= +(machine.transmissionDelay + profile.networkLatencyMs).toFixed(2);
-  const queueDelay  = +(machine.queueLength * 2 * profile.queueFactor).toFixed(2);
-  const latency      = +(time + networkDelay + queueDelay).toFixed(2);
-  const utilization  = +Math.min(100, machine.cpuUtilization * profile.utilizationFactor).toFixed(1);
-  const energy        = +(machine.energyConsumption * profile.energyFactor).toFixed(2);
-  const throughput    = +(machine.throughput / profile.computeSpeedFactor).toFixed(1);
+  const time        = clampNonNeg(machine.processingTime * profile.computeSpeedFactor);
+  const networkDelay= clampNonNeg(machine.transmissionDelay + profile.networkLatencyMs);
+  const queueDelay  = clampNonNeg(machine.queueLength * 2 * profile.queueFactor);
+  const latency      = clampNonNeg(time + networkDelay + queueDelay);
+  const utilization  = clampPercent(machine.cpuUtilization * profile.utilizationFactor);
+  const energy        = clampNonNeg(machine.energyConsumption * profile.energyFactor);
+  const throughput    = clampNonNeg(machine.throughput / profile.computeSpeedFactor, 1);
   const queueLength   = Math.max(0, Math.round(machine.queueLength * profile.queueFactor));
-  const resourceAvailability = +(100 - utilization).toFixed(1);
+  const resourceAvailability = clampPercent(100 - utilization);
   // Single ranking number GBFS compares nodes on — same weighting scheme
   // (network 35% / compute 30% / queue 20% / load 15%) used to combine
   // otherwise incomparable units (ms vs %) into one heuristic.
-  const heuristicScore = +(networkDelay * 0.35 + time * 0.30 + queueDelay * 0.20 + utilization * 0.15).toFixed(2);
+  const heuristicScore = clampNonNeg(networkDelay * 0.35 + time * 0.30 + queueDelay * 0.20 + utilization * 0.15);
   return { time, latency, utilization, energy, throughput, queueLength, networkDelay, queueDelay, resourceAvailability, heuristicScore };
 };
 
 // Weighted fitness used by PSO — lower is better. Combines the three
 // metrics the spec calls out (latency, energy, utilization) after
 // normalizing each against the machine's own Edge/Cloud range so no
-// single unit dominates.
+// single unit dominates. Cost and fitness are both clamped to [0,1] —
+// the normalized weighted sum can't overshoot that range for any real
+// input, but the clamp keeps the guarantee explicit rather than assumed.
 const fitnessOf = (machine, x) => {
   const cand = evaluateCandidate(machine, interpolateProfile(x));
   const aC = evaluateCandidate(machine, SERVER_PROFILES.A);
   const bC = evaluateCandidate(machine, SERVER_PROFILES.B);
-  const norm = (v, lo, hi) => (hi === lo ? 0 : (v - Math.min(lo, hi)) / Math.abs(hi - lo));
+  const norm = (v, lo, hi) => (hi === lo ? 0 : clamp((v - Math.min(lo, hi)) / Math.abs(hi - lo), 0, 1));
   const latN = norm(cand.latency, aC.latency, bC.latency);
   const enN  = norm(cand.energy, aC.energy, bC.energy);
   const utN  = norm(cand.utilization, aC.utilization, bC.utilization);
-  const cost = 0.5 * latN + 0.3 * enN + 0.2 * utN;
-  return { cost, fitness: +(1 - cost).toFixed(4), candidate: cand };
+  const cost = clampUnit(0.5 * latN + 0.3 * enN + 0.2 * utN);
+  return { cost, fitness: clampUnit(1 - cost), candidate: cand };
 };
 
 // GBFS: greedy, single-shot — evaluate both discrete servers and take the
@@ -296,16 +318,16 @@ const computePSO = (machine, iterations = 4) => {
 
     log.push({
       iteration: it,
-      particleA: { x: +particles[0].x.toFixed(3), fitness: evals[0].fitness, ...evals[0].candidate },
-      particleB: { x: +particles[1].x.toFixed(3), fitness: evals[1].fitness, ...evals[1].candidate },
-      bestFitness: +globalBestFitness.toFixed(4),
-      bestX: +globalBestX.toFixed(3),
+      particleA: { x: clampUnit(particles[0].x), fitness: evals[0].fitness, ...evals[0].candidate },
+      particleB: { x: clampUnit(particles[1].x), fitness: evals[1].fitness, ...evals[1].candidate },
+      bestFitness: clampUnit(globalBestFitness),
+      bestX: clampUnit(globalBestX),
     });
 
     particles = particles.map((p, i) => {
       const pBestX = p.x; // (single-shot personal memory this run)
       const newV = w * p.v + c1 * 0.5 * (pBestX - p.x) + c2 * 0.5 * (globalBestX - p.x);
-      const newX = Math.min(1, Math.max(0, p.x + newV));
+      const newX = clamp(p.x + newV, 0, 1);
       return { x: newX, v: newV };
     });
   }
@@ -1395,6 +1417,38 @@ const EdgeOffloadConfigStep = ({ machine: m, autoOffload, setAutoOffload }) => {
   );
 };
 
+// Simulates/displays the "Current System Condition" — the machine's own
+// pre-offload baseline (its raw or tiered parameters, unmodified by either
+// algorithm) using the same standardized limits as every computed metric
+// below it (percentages clamped to 0–100, physical quantities clamped to
+// >=0), so this baseline and the algorithm results are directly comparable.
+const CurrentSystemConditionCard = ({ machine: m }) => {
+  const T = useT();
+  const fields = [
+    ["Avg Latency",        `${clampNonNeg(m.avgLatency)} ms`],
+    ["Processing Time",    `${clampNonNeg(m.processingTime)} ms`],
+    ["CPU Utilization",    `${clampPercent(m.cpuUtilization)}%`],
+    ["Memory Usage",       `${clampNonNeg(m.memoryUsage)} GB`],
+    ["Bandwidth",          `${clampNonNeg(m.bandwidth, 1)} Mbps`],
+    ["Transmission Delay", `${clampNonNeg(m.transmissionDelay)} ms`],
+    ["Energy Consumption", `${clampNonNeg(m.energyConsumption)} kWh`],
+    ["Throughput",         `${clampNonNeg(m.throughput, 1)} tasks/min`],
+    ["Queue Length",       `${Math.max(0, Math.round(m.queueLength))} tasks`],
+  ];
+  return (
+    <Card title="Current System Condition" sub="Baseline before offloading — same standardized limits as every metric below" accent={T.amber}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+        {fields.map(([l, v]) => (
+          <div key={l} style={{ background: T.elevated, border: `1px solid ${T.border}`, borderRadius: 6, padding: "10px 12px" }}>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em", fontFamily: T.fontSans }}>{l}</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.text, fontFamily: T.fontMono }}>{v}</div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+};
+
 const Step2Algorithms = ({
   machine: m, gbfsData, psoData, algoRunning, algoError,
   onRunBoth, gbfsSim, psoSim, gbfsStage, psoIteration,
@@ -1428,6 +1482,8 @@ const Step2Algorithms = ({
           The algorithm with the lower latency wins, and its server decision is used.
         </p>
       </div>
+
+      <CurrentSystemConditionCard machine={m} />
 
       <Card title="Decision Logic" sub="How the server is chosen" accent={T.purple}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -1758,7 +1814,7 @@ const useOffloadProgress = (offloading, success) => {
     if (!offloading && !success) setProgress(0);
   }, [offloading, success]);
 
-  return Math.round(progress);
+  return Math.round(clampPercent(progress));
 };
 
 const OffloadProgressBar = ({ progress, offloading, success, color }) => {
