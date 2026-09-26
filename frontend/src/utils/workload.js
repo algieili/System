@@ -1,0 +1,44 @@
+const WORKLOAD_TARGETS = {
+  low: 0.35,
+  mid: 0.65,
+  high: 0.95,
+};
+
+const average = (tasks, key) => (
+  tasks.reduce((total, task) => total + Number(task[key] || 0), 0) / tasks.length
+);
+
+const serverCapacity = (server, tasks) => {
+  const averageCpu = average(tasks, "cpu_demand_percent");
+  const averageRam = average(tasks, "ram_demand_mb");
+  const averagePayload = average(tasks, "payload_size_mb");
+  return Math.min(
+    (Number(server.cpu_cores || 0) * 100) / averageCpu,
+    Number(server.max_ram_mb || 0) / averageRam,
+    Number(server.storage_mb || 0) / averagePayload,
+  );
+};
+
+const MAX_BATCH_SIZE = Number(import.meta.env.VITE_MAX_BATCH_SIZE) || 15;
+
+export const getBenchmarkTaskCount = (workload, tasks, servers, maximum = MAX_BATCH_SIZE) => {
+  if (!tasks?.length || !servers?.length || !WORKLOAD_TARGETS[workload]) return 0;
+  const profiles = servers.filter((server) => server && server.placement != null && server.placement !== "");
+  const uniqueProfiles = profiles.filter((server, index, list) => {
+    const profileId = server.profile_id || server.server_id?.split(":").pop() || server.name;
+    return list.findIndex((candidate) => (
+      (candidate.profile_id || candidate.server_id?.split(":").pop() || candidate.name) === profileId
+    )) === index;
+  });
+  const capacity = uniqueProfiles.reduce((total, server) => total + serverCapacity(server, tasks), 0);
+  return Math.max(1, Math.min(maximum, Math.round(capacity * WORKLOAD_TARGETS[workload])));
+};
+
+export const buildBenchmarkBatch = (workload, tasks, servers) => {
+  const count = getBenchmarkTaskCount(workload, tasks, servers);
+  return Array.from({ length: count }, (_, index) => ({
+    ...tasks[index % tasks.length],
+    task_id: `${tasks[index % tasks.length].task_id}-B${index + 1}`,
+    batch_index: index + 1,
+  }));
+};
