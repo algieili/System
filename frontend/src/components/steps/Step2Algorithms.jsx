@@ -75,6 +75,132 @@ const AlgorithmPanel = ({ algorithm, tasks, running, T }) => {
   );
 };
 
+export const QueueTrendChart = ({ tasksByAlgorithm = { GBFS: [], PSO: [] } }) => {
+  const T = useT();
+  const chartHeight = 164;
+  const chartWidth = 640;
+  const margin = { top: 12, right: 16, bottom: 28, left: 42 };
+  const plotWidth = chartWidth - margin.left - margin.right;
+  const plotHeight = chartHeight - margin.top - margin.bottom;
+  const taskSeries = Object.fromEntries(
+    Object.entries(tasksByAlgorithm).map(([algorithm, tasks]) => [
+      algorithm,
+      tasks
+        .filter((task) => (
+          task.total_latency_sec != null
+          && task.queue_wait_time_sec != null
+          && Number.isFinite(Number(task.total_latency_sec))
+          && Number.isFinite(Number(task.queue_wait_time_sec))
+        ))
+        .map((task) => ({
+          taskId: task.task_id,
+          taskName: task.task_name || task.task_id,
+          overallDuration: Math.max(0, Number(task.total_latency_sec)),
+          queueDuration: Math.max(0, Number(task.queue_wait_time_sec)),
+        }))
+        .sort((a, b) => a.overallDuration - b.overallDuration),
+    ]),
+  );
+  const points = Object.values(taskSeries).flat();
+  const xMax = Math.max(1, ...points.map((point) => point.overallDuration));
+  const yMax = Math.max(1, ...points.map((point) => point.queueDuration));
+  const xTicks = [0, xMax / 3, (xMax * 2) / 3, xMax];
+  const yTicks = [0, yMax / 3, (yMax * 2) / 3, yMax];
+  const toChartPoint = (point) => ({
+    ...point,
+    x: margin.left + (point.overallDuration / xMax) * plotWidth,
+    y: margin.top + plotHeight - (point.queueDuration / yMax) * plotHeight,
+  });
+  const getPath = (series) => series.map(toChartPoint)
+    .map((point, index) => `${index === 0 ? "M" : "L"}${point.x},${point.y}`)
+    .join(" ");
+  const colors = { GBFS: T.blue, PSO: T.purple };
+
+  return (
+    <div
+      style={{
+        background: T.surface,
+        border: `1px solid ${T.border}`,
+        borderRadius: 8,
+        padding: "12px 14px 10px",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4, marginBottom: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.text, fontFamily: T.fontSans }}>Tasks waiting in queues over time</div>
+        <div style={{ display: "flex", gap: 14, alignItems: "center", color: T.dim, fontSize: 11, fontFamily: T.fontSans }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 10, height: 2, background: T.blue, borderRadius: 99 }} />
+            <span>GBFS</span>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ display: "inline-block", width: 10, height: 2, background: T.purple, borderRadius: 99 }} />
+            <span>PSO</span>
+          </div>
+        </div>
+      </div>
+
+      <svg viewBox={`0 0 ${chartWidth} ${chartHeight}`} width="100%" height={chartHeight} style={{ display: "block" }}>
+        {yTicks.map((tick) => {
+          const y = margin.top + plotHeight - (tick / yMax) * plotHeight;
+          return (
+            <g key={`y-${tick}`}>
+              <line x1={margin.left} x2={chartWidth - margin.right} y1={y} y2={y} stroke={T.border} strokeDasharray="3 4" />
+              <text x={margin.left - 7} y={y + 3} textAnchor="end" fill={T.dim} fontSize="9" fontFamily={T.fontSans}>{tick.toFixed(1)}</text>
+            </g>
+          );
+        })}
+
+        {xTicks.map((tick) => {
+          const x = margin.left + (tick / xMax) * plotWidth;
+          return (
+            <g key={`x-${tick}`}>
+              <line x1={x} x2={x} y1={margin.top} y2={margin.top + plotHeight} stroke={T.border} strokeDasharray="3 4" />
+              <text x={x} y={chartHeight - 10} textAnchor="middle" fill={T.dim} fontSize="9" fontFamily={T.fontSans}>{tick.toFixed(1)}</text>
+            </g>
+          );
+        })}
+
+        <line x1={margin.left} x2={chartWidth - margin.right} y1={margin.top + plotHeight} y2={margin.top + plotHeight} stroke={T.border} />
+        <line x1={margin.left} x2={margin.left} y1={margin.top} y2={margin.top + plotHeight} stroke={T.border} />
+        <text
+          x={10}
+          y={margin.top + plotHeight / 2}
+          textAnchor="middle"
+          fill={T.dim}
+          fontSize="9"
+          fontFamily={T.fontSans}
+          transform={`rotate(-90 10 ${margin.top + plotHeight / 2})`}
+        >
+          Queue duration (s)
+        </text>
+
+        {Object.entries(taskSeries).map(([algorithm, series]) => (
+          <g key={algorithm}>
+            {series.length > 1 && (
+              <path d={getPath(series)} fill="none" stroke={colors[algorithm] || T.muted} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+            )}
+            {series.map((point) => {
+              const plotted = toChartPoint(point);
+              return (
+                <circle key={`${algorithm}-${point.taskId}`} cx={plotted.x} cy={plotted.y} r={3} fill={colors[algorithm] || T.muted}>
+                  <title>{`${algorithm} · ${point.taskName}: overall ${point.overallDuration.toFixed(3)} s, queue ${point.queueDuration.toFixed(3)} s`}</title>
+                </circle>
+              );
+            })}
+          </g>
+        ))}
+      </svg>
+
+      <div style={{ textAlign: "center", color: T.dim, fontSize: 9, fontFamily: T.fontSans, marginTop: -2 }}>Overall task duration (s)</div>
+      {!points.length && (
+        <div style={{ textAlign: "center", color: T.dim, fontSize: 10, fontFamily: T.fontSans, marginTop: 4 }}>
+          Task timing data will appear when the allocation results are available.
+        </div>
+      )}
+    </div>
+  );
+};
+
 export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {}, onReportReady = () => {}, onRunStatusChange = () => {} }) => {
   const T = useT();
   const socketRef = useRef(null);
@@ -82,6 +208,7 @@ export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {},
   const [runStatus, setRunStatus] = useState("READY");
   const [error, setError] = useState("");
   const [taskOverrides, setTaskOverrides] = useState({ GBFS: {}, PSO: {} });
+  const [serverUsageByAlgorithm, setServerUsageByAlgorithm] = useState({ GBFS: {}, PSO: {} });
   const [gbfsDecisionStep, setGbfsDecisionStep] = useState(null);
   const [gbfsAllSteps, setGbfsAllSteps] = useState([]);
   const [psoDecisionStep, setPsoDecisionStep] = useState(null);
@@ -112,6 +239,7 @@ export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {},
     setRunStatus("QUEUED");
     onRunStatusChange("QUEUED");
     setTaskOverrides({ GBFS: {}, PSO: {} });
+    setServerUsageByAlgorithm({ GBFS: {}, PSO: {} });
     setGbfsDecisionStep(null);
     setGbfsAllSteps([]);
     setPsoDecisionStep(null);
@@ -165,7 +293,16 @@ export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {},
         });
       });
       socket.on("server_usage", (event) => {
-        if (ALGORITHMS.includes(event.algorithm)) onServerUsage(event);
+        if (ALGORITHMS.includes(event.algorithm)) {
+          setServerUsageByAlgorithm((current) => ({
+            ...current,
+            [event.algorithm]: {
+              ...current[event.algorithm],
+              [event.server_id]: event,
+            },
+          }));
+          onServerUsage(event);
+        }
       });
       socket.on("run_complete", async (event) => {
         setRunStatus(event.status || "COMPLETED");
@@ -192,7 +329,6 @@ export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {},
   };
 
   const [viewMode, setViewMode] = useState("visual"); // "visual" | "table"
-
   // Derive timeline progression stage (0: Workload Ready, 1: Allocating, 2: Dispatching, 3: Virtual Servers Executing/Complete)
   const timelineStage = useMemo(() => {
     if (runStatus === "COMPLETED") return 3;
@@ -301,14 +437,18 @@ export const Step2Algorithms = ({ machine, tasks = [], onServerUsage = () => {},
               tasks={algorithmTasks.GBFS}
               running={runStatus === "RUNNING"}
               accentColor={T.blue}
+              serverUsage={serverUsageByAlgorithm.GBFS}
             />
             <AlgoLivePanel
               algorithm="PSO"
               tasks={algorithmTasks.PSO}
               running={runStatus === "RUNNING"}
               accentColor={T.purple}
+              serverUsage={serverUsageByAlgorithm.PSO}
             />
           </div>
+
+          <QueueTrendChart tasksByAlgorithm={algorithmTasks} />
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12, marginTop: 12 }}>
